@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>麻雀成績</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#0a0a0f;--surface:#12121a;--card:#1a1a28;--border:#2a2a40;
+    --accent:#e8c84a;--accent2:#4ae8c8;--accent3:#e84a7a;
+    --text:#e8e8f0;--muted:#7070a0;--plus:#4ae8c8;--minus:#e84a7a;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh;overflow-x:hidden}
+  header{padding:32px 40px 24px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:20px;position:sticky;top:0;background:var(--bg);z-index:100}
+  header h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,5vw,48px);letter-spacing:4px;color:var(--accent)}
+  #exportedAt{font-size:12px;color:var(--muted);letter-spacing:1px}
+  nav{display:flex;gap:4px;padding:16px 40px 0;border-bottom:1px solid var(--border);overflow-x:auto}
+  nav button{background:none;border:none;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:400;letter-spacing:2px;padding:10px 20px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+  nav button:hover{color:var(--text)}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{padding:32px 40px;max-width:1400px;margin:0 auto}
+  .tab-panel{display:none}.tab-panel.active{display:block}
+  .section-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--accent);margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:var(--surface);color:var(--muted);font-weight:400;letter-spacing:1px;padding:10px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border)}
+  thead th:first-child,thead th:nth-child(2){text-align:left}
+  tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
+  tbody tr:hover{background:var(--surface)}
+  tbody td{padding:10px 14px;text-align:right;white-space:nowrap}
+  tbody td:first-child{text-align:center;color:var(--muted);font-size:11px}
+  tbody td:nth-child(2){text-align:left;font-weight:700}
+  .rank-1 td:nth-child(2){color:var(--accent)}.rank-2 td:nth-child(2){color:#c0c0c0}.rank-3 td:nth-child(2){color:#cd7f32}
+  .pos{color:var(--plus)}.neg{color:var(--minus)}
+  .member-selector{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}
+  .member-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:8px 18px;border-radius:2px;cursor:pointer;transition:all .2s}
+  .member-btn:hover{border-color:var(--accent);color:var(--text)}
+  .member-btn.active{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+  .member-detail{display:none}.member-detail.active{display:block}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+  .stat-card{background:var(--card);border:1px solid var(--border);padding:16px 20px;border-radius:2px}
+  .stat-card .label{font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:6px}
+  .stat-card .value{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px}
+  .rank-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+  .rank-box{background:var(--card);border:1px solid var(--border);padding:16px 20px;border-radius:2px}
+  .rank-box h4{font-size:11px;letter-spacing:2px;color:var(--accent2);margin-bottom:12px}
+  .rank-bars{display:flex;flex-direction:column;gap:6px}
+  .rank-bar-row{display:flex;align-items:center;gap:8px;font-size:12px}
+  .rank-bar-row .rank-label{width:28px;color:var(--muted)}
+  .rank-bar-row .bar-bg{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+  .rank-bar-row .bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+  .rank-bar-row .bar-val{width:60px;text-align:right;color:var(--muted);font-size:11px}
+  .chart-wrap{background:var(--card);border:1px solid var(--border);padding:20px;border-radius:2px;margin-bottom:24px}
+  .chart-wrap canvas{max-height:320px}
+  .chart-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .chart-ctrl-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:11px;padding:5px 12px;border-radius:2px;cursor:pointer;transition:all .2s}
+  .chart-ctrl-btn.active{background:var(--accent2);color:var(--bg);border-color:var(--accent2);font-weight:700}
+  .compare-member-sel{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .cmp-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:12px;padding:6px 14px;border-radius:2px;cursor:pointer;transition:all .2s}
+  .cmp-btn.active{font-weight:700;opacity:1}.cmp-btn:not(.active){opacity:0.4}
+  .history-filter{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .history-filter select{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:8px 12px;border-radius:2px}
+  .history-filter label{font-size:12px;color:var(--muted)}
+  .gather-card{background:var(--card);border:1px solid var(--border);border-radius:2px;margin-bottom:12px;overflow:hidden}
+  .gather-header{padding:12px 16px;background:var(--surface);display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+  .gather-header:hover{background:var(--border)}
+  .gather-header .date{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--accent)}
+  .gather-header .meta{font-size:11px;color:var(--muted)}
+  .gather-body{display:none;padding:12px 16px;overflow-x:auto}.gather-body.open{display:block}
+  .gather-body table{font-size:12px;min-width:300px}
+  #loading{display:flex;align-items:center;justify-content:center;height:60vh;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:4px;color:var(--muted);flex-direction:column;gap:16px}
+  .spinner{width:40px;height:40px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #app{display:none}
+  @media(max-width:600px){header,nav,main{padding-left:16px;padding-right:16px}.rank-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div>DATA LOADING</div>
+<div id="app">
+  <header><h1>麻雀成績</h1><span id="exportedAt"></span></header>
+  <nav>
+    <button class="active" data-tab="ranking">総合ランキング</button>
+    <button data-tab="member">メンバー別</button>
+    <button data-tab="compare">比較グラフ</button>
+    <button data-tab="history">対局履歴</button>
+  </nav>
+  <main>
+    <div class="tab-panel active" id="tab-ranking">
+      <div class="section-title">TOTAL RANKING</div>
+      <div class="table-wrap">
+        <table><thead><tr>
+          <th>#</th><th>名前</th><th>総成績</th><th>4麻</th><th>3麻</th>
+          <th>対局数</th><th>連対率</th><th>チップ</th><th>4トビ</th><th>3トビ</th><th>来場</th>
+        </tr></thead><tbody id="ranking-body"></tbody></table>
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-member">
+      <div class="section-title">MEMBER DETAIL</div>
+      <div class="member-selector" id="member-selector"></div>
+      <div id="member-details"></div>
+    </div>
+    <div class="tab-panel" id="tab-compare">
+      <div class="section-title">COMPARE</div>
+      <div class="chart-controls" id="compare-col-sel"></div>
+      <div class="compare-member-sel" id="compare-member-sel"></div>
+      <div class="chart-wrap"><canvas id="compare-chart"></canvas></div>
+    </div>
+    <div class="tab-panel" id="tab-history">
+      <div class="section-title">HISTORY</div>
+      <div class="history-filter">
+        <label>メンバー</label>
+        <select id="history-member-sel"><option value="">全員</option></select>
+        <label>年</label>
+        <select id="history-year-sel"><option value="">全期間</option></select>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </main>
+</div>
+<script>
+const DATA_URL='./data.json';
+const PALETTE=['#e8c84a','#4ae8c8','#e84a7a','#4a7ae8','#c84ae8','#4ae84a','#e8844a','#4ac8e8','#e84ac8','#84e84a'];
+const COL_KEYS=['総成績','4麻成績','3麻成績','チップ総計','4麻チップ','3麻チップ'];
+const CMP_KEYS=['総成績','4麻成績','3麻成績','チップ総計'];
+let DATA=null,compareChart=null,memberCharts={};
+
+async function loadData(){
+  try{
+    const res=await fetch(DATA_URL);
+    if(!res.ok)throw new Error('data.json が見つかりません');
+    DATA=await res.json();
+    init();
+  }catch(e){
+    document.getElementById('loading').innerHTML=`<div style="color:var(--minus);font-size:14px;text-align:center">data.json の読み込みに失敗しました<br><small style="color:var(--muted)">${e.message}</small></div>`;
+  }
+}
+
+function init(){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('exportedAt').textContent=DATA.exportedAt?`更新: ${DATA.exportedAt}`:'';
+  buildRanking();buildMemberTab();buildCompareTab();buildHistoryTab();setupTabs();
+}
+
+function fmt(n){if(n==null)return'-';return(n>=0?'+':'')+n.toLocaleString();}
+
+function buildRanking(){
+  const sorted=[...DATA.members].sort((a,b)=>b.allTotal-a.allTotal);
+  const tbody=document.getElementById('ranking-body');
+  sorted.forEach((m,i)=>{
+    const tr=document.createElement('tr');
+    tr.className=`rank-${i+1}`;
+    tr.innerHTML=`<td>${i+1}</td><td>${m.name}</td>
+      <td class="${m.allTotal>=0?'pos':'neg'}">${fmt(m.allTotal)}</td>
+      <td class="${m.total4>=0?'pos':'neg'}">${fmt(m.total4)}</td>
+      <td class="${m.total3>=0?'pos':'neg'}">${fmt(m.total3)}</td>
+      <td>${m.matchCountAll}</td><td>${(m.rentairitsu*100).toFixed(1)}%</td>
+      <td class="${m.totalChip>=0?'pos':'neg'}">${fmt(m.totalChip)}</td>
+      <td>${m.tobi4}</td><td>${m.tobi3}</td><td>${m.comeCount}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildMemberTab(){
+  const sel=document.getElementById('member-selector');
+  const details=document.getElementById('member-details');
+  DATA.members.forEach((m,i)=>{
+    const btn=document.createElement('button');
+    btn.className='member-btn'+(i===0?' active':'');
+    btn.textContent=m.name;btn.dataset.idx=i;
+    btn.onclick=()=>selectMember(i);
+    sel.appendChild(btn);
+    const panel=document.createElement('div');
+    panel.className='member-detail'+(i===0?' active':'');
+    panel.id=`member-panel-${i}`;
+    panel.innerHTML=buildMemberHtml(m,i);
+    details.appendChild(panel);
+  });
+}
+
+function buildMemberHtml(m,idx){
+  const color=PALETTE[idx%PALETTE.length];
+  const barHtml4=[
+    {l:'1着',p:m.res4.percent1,c:m.res4.count1},{l:'2着',p:m.res4.percent2,c:m.res4.count2},
+    {l:'3着',p:m.res4.percent3,c:m.res4.count3},{l:'4着',p:m.res4.percent4,c:m.res4.count4}
+  ].map(b=>`<div class="rank-bar-row"><span class="rank-label">${b.l}</span><div class="bar-bg"><div class="bar-fill" style="width:${b.p}%;background:${color}"></div></div><span class="bar-val">${b.c}回 ${b.p}%</span></div>`).join('');
+  const barHtml3=[
+    {l:'1着',p:m.res3.percent1,c:m.res3.count1},{l:'2着',p:m.res3.percent2,c:m.res3.count2},
+    {l:'3着',p:m.res3.percent3,c:m.res3.count3}
+  ].map(b=>`<div class="rank-bar-row"><span class="rank-label">${b.l}</span><div class="bar-bg"><div class="bar-fill" style="width:${b.p}%;background:${color}"></div></div><span class="bar-val">${b.c}回 ${b.p}%</span></div>`).join('');
+  return `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">総成績</div><div class="value" style="color:${m.allTotal>=0?'var(--plus)':'var(--minus)'}">${fmt(m.allTotal)}</div></div>
+      <div class="stat-card"><div class="label">4麻成績</div><div class="value" style="color:${m.total4>=0?'var(--plus)':'var(--minus)'}">${fmt(m.total4)}</div></div>
+      <div class="stat-card"><div class="label">3麻成績</div><div class="value" style="color:${m.total3>=0?'var(--plus)':'var(--minus)'}">${fmt(m.total3)}</div></div>
+      <div class="stat-card"><div class="label">対局数</div><div class="value">${m.matchCountAll}</div></div>
+      <div class="stat-card"><div class="label">連対率(4麻)</div><div class="value">${(m.rentairitsu*100).toFixed(1)}<span style="font-size:16px">%</span></div></div>
+      <div class="stat-card"><div class="label">チップ総計</div><div class="value" style="color:${m.totalChip>=0?'var(--plus)':'var(--minus)'}">${fmt(m.totalChip)}</div></div>
+      <div class="stat-card"><div class="label">来場回数</div><div class="value">${m.comeCount}</div></div>
+      <div class="stat-card"><div class="label">総プレイ時間</div><div class="value">${m.playTime.toFixed(1)}<span style="font-size:16px">h</span></div></div>
+    </div>
+    <div class="rank-grid">
+      <div class="rank-box"><h4>4麻 着順内訳</h4><div class="rank-bars">${barHtml4}</div></div>
+      <div class="rank-box"><h4>3麻 着順内訳</h4><div class="rank-bars">${barHtml3}</div></div>
+    </div>
+    <div class="chart-controls" id="ctrl-${idx}"></div>
+    <div class="chart-wrap"><canvas id="chart-${idx}"></canvas></div>`;
+}
+
+function selectMember(idx){
+  document.querySelectorAll('.member-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.member-detail').forEach(d=>d.classList.remove('active'));
+  document.querySelector(`.member-btn[data-idx="${idx}"]`).classList.add('active');
+  document.getElementById(`member-panel-${idx}`).classList.add('active');
+  buildMemberChart(idx);
+}
+
+function buildMemberChart(idx){
+  const color=PALETTE[idx%PALETTE.length];
+  const ctrlEl=document.getElementById(`ctrl-${idx}`);
+  if(ctrlEl&&ctrlEl.childElementCount===0){
+    COL_KEYS.forEach((key,ki)=>{
+      const btn=document.createElement('button');
+      btn.className='chart-ctrl-btn'+(ki===0?' active':'');
+      btn.textContent=key;btn.dataset.key=key;
+      btn.onclick=()=>{
+        ctrlEl.querySelectorAll('.chart-ctrl-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        updateMemberChart(idx,key,color);
+      };
+      ctrlEl.appendChild(btn);
+    });
+  }
+  if(!memberCharts[idx])updateMemberChart(idx,COL_KEYS[0],color);
+}
+
+function updateMemberChart(idx,colKey,color){
+  const m=DATA.members[idx];
+  const pts=m.dataPoints?.[colKey]||[];
+  if(memberCharts[idx])memberCharts[idx].destroy();
+  memberCharts[idx]=new Chart(document.getElementById(`chart-${idx}`),{
+    type:'line',
+    data:{labels:pts.map(p=>p.date),datasets:[{
+      label:colKey,data:pts.map(p=>p.value),
+      borderColor:color,backgroundColor:color+'22',
+      borderWidth:2,pointRadius:3,fill:true,tension:0.3
+    }]},
+    options:chartOptions()
+  });
+}
+
+function buildCompareTab(){
+  const colSel=document.getElementById('compare-col-sel');
+  CMP_KEYS.forEach((key,i)=>{
+    const btn=document.createElement('button');
+    btn.className='chart-ctrl-btn'+(i===0?' active':'');
+    btn.textContent=key;
+    btn.onclick=()=>{colSel.querySelectorAll('.chart-ctrl-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');updateCompareChart();};
+    colSel.appendChild(btn);
+  });
+  const memSel=document.getElementById('compare-member-sel');
+  DATA.members.forEach((m,i)=>{
+    const color=PALETTE[i%PALETTE.length];
+    const btn=document.createElement('button');
+    btn.className='cmp-btn active';btn.textContent=m.name;
+    btn.style.borderColor=color;btn.style.color=color;btn.dataset.idx=i;
+    btn.onclick=()=>{btn.classList.toggle('active');updateCompareChart();};
+    memSel.appendChild(btn);
+  });
+}
+
+function updateCompareChart(){
+  const colKey=document.querySelector('#compare-col-sel .active')?.textContent||CMP_KEYS[0];
+  const actives=[...document.querySelectorAll('#compare-member-sel .cmp-btn.active')].map(b=>parseInt(b.dataset.idx));
+  const datasets=actives.map(idx=>{
+    const m=DATA.members[idx];
+    const pts=m.dataPoints?.[colKey]||[];
+    return{label:m.name,data:pts.map(p=>({x:p.date,y:p.value})),borderColor:PALETTE[idx%PALETTE.length],backgroundColor:'transparent',borderWidth:2,pointRadius:2,tension:0.3};
+  });
+  if(compareChart)compareChart.destroy();
+  compareChart=new Chart(document.getElementById('compare-chart'),{
+    type:'line',data:{datasets},
+    options:{...chartOptions(),scales:{
+      x:{type:'category',ticks:{color:'#7070a0',maxTicksLimit:8},grid:{color:'#2a2a40'}},
+      y:{ticks:{color:'#7070a0'},grid:{color:'#2a2a40'}}
+    },plugins:{legend:{display:true,labels:{color:'#e8e8f0',font:{family:'Noto Sans JP'}}}}}
+  });
+}
+
+function buildHistoryTab(){
+  const mSel=document.getElementById('history-member-sel');
+  const ySel=document.getElementById('history-year-sel');
+  DATA.members.forEach(m=>{const o=document.createElement('option');o.value=m.name;o.textContent=m.name;mSel.appendChild(o);});
+  [...new Set(DATA.gathers.map(g=>g.date.slice(0,4)))].sort().reverse().forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y+'年';ySel.appendChild(o);});
+  mSel.onchange=renderHistory;ySel.onchange=renderHistory;
+  renderHistory();
+}
+
+function renderHistory(){
+  const mf=document.getElementById('history-member-sel').value;
+  const yf=document.getElementById('history-year-sel').value;
+  const list=document.getElementById('history-list');
+  list.innerHTML='';
+  let gathers=[...DATA.gathers].reverse();
+  if(mf)gathers=gathers.filter(g=>g.members.includes(mf));
+  if(yf)gathers=gathers.filter(g=>g.date.startsWith(yf));
+  gathers.forEach(g=>{
+    const normal=g.matches.filter(m=>!m.isChip);
+    const chip=g.matches.filter(m=>m.isChip);
+    const memNames=g.members.filter(Boolean);
+    const card=document.createElement('div');
+    card.className='gather-card';
+    card.innerHTML=`
+      <div class="gather-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span class="date">${g.date.replace(/-/g,'/')} ${g.start}〜${g.end}</span>
+        <span class="meta">${memNames.join(' / ')} | ${normal.length}半荘</span>
+      </div>
+      <div class="gather-body">
+        <table>
+          <thead><tr><th style="text-align:left">局</th>${memNames.map(m=>`<th>${m}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${normal.map((m,i)=>`<tr><td style="text-align:left;color:var(--muted)">${i+1}</td>${m.scores.map(s=>`<td class="${s==null?'':(s>=0?'pos':'neg')}">${s==null?'-':fmt(s)}</td>`).join('')}</tr>`).join('')}
+            ${chip.length?`<tr style="border-top:1px solid var(--accent2)"><td style="text-align:left;color:var(--accent2)">チップ</td>${chip[0].scores.map(s=>`<td class="${s==null?'':(s>=0?'pos':'neg')}">${s==null?'-':fmt(s)}</td>`).join('')}</tr>`:''}
+          </tbody>
+        </table>
+      </div>`;
+    list.appendChild(card);
+  });
+  if(!gathers.length)list.innerHTML='<p style="color:var(--muted);padding:20px">対局データがありません</p>';
+}
+
+function setupTabs(){
+  document.querySelectorAll('nav button').forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      if(btn.dataset.tab==='compare')updateCompareChart();
+      if(btn.dataset.tab==='member'){const ai=parseInt(document.querySelector('.member-btn.active')?.dataset.idx||0);buildMemberChart(ai);}
+    };
+  });
+}
+
+function chartOptions(){
+  return{responsive:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1a28',titleColor:'#e8c84a',bodyColor:'#e8e8f0',borderColor:'#2a2a40',borderWidth:1}},scales:{x:{ticks:{color:'#7070a0',maxTicksLimit:8},grid:{color:'#2a2a40'}},y:{ticks:{color:'#7070a0'},grid:{color:'#2a2a40'}}}};
+}
+
+loadData();
+</script>
+</body>
+</html>
