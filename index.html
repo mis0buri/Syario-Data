@@ -124,7 +124,8 @@
   .rank-bar-label { width:28px; color:var(--dim); flex-shrink:0; }
   .rank-bar-track { flex:1; background:var(--border); border-radius:4px; height:8px; overflow:hidden; }
   .rank-bar-fill { height:100%; border-radius:4px; transition:width .6s ease; }
-  .rank-bar-pct { width:42px; text-align:right; color:var(--dim); flex-shrink:0; }
+  .rank-bar-pct { width:80px; text-align:right; color:var(--dim); flex-shrink:0; }
+  .rank-bar-cnt { font-size:10px; color:var(--dim); margin-left:4px; opacity:.75; }
 
   /* GRAPH CONTROLS */
   .graph-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
@@ -536,7 +537,7 @@ function renderMemberDetail(m) {
     <div class="rank-bar-row">
       <span class="rank-bar-label">${it.l}</span>
       <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${it.p}%;background:${it.c}"></div></div>
-      <span class="rank-bar-pct">${it.p.toFixed(1)}%</span>
+      <span class="rank-bar-pct">${it.p.toFixed(1)}%<span class="rank-bar-cnt">${it.n}回</span></span>
     </div>`).join('');
   document.getElementById('member-detail').innerHTML = `
     <div class="card">
@@ -549,7 +550,7 @@ function renderMemberDetail(m) {
           <div class="stat-row"><span class="stat-label">連対率</span><span class="stat-value">${fmtPct(m.rentairitsu)}</span></div>
           <div class="stat-row"><span class="stat-label">チップ</span><span class="stat-value ${sc(m.totalChip4)}">${fmt(m.totalChip4)}</span></div>
           <div class="stat-row"><span class="stat-label">飛び</span><span class="stat-value">${m.tobi4}回</span></div>
-          <div class="rank-bar-wrap">${bar([{l:'1着',p:m.res4.percent1,c:'#4caf82'},{l:'2着',p:m.res4.percent2,c:'#c8a96e'},{l:'3着',p:m.res4.percent3,c:'#e69a30'},{l:'4着',p:m.res4.percent4,c:'#e63946'}])}</div>
+          <div class="rank-bar-wrap">${bar([{l:'1着',p:m.res4.percent1,n:m.res4.count1,c:'#4caf82'},{l:'2着',p:m.res4.percent2,n:m.res4.count2,c:'#c8a96e'},{l:'3着',p:m.res4.percent3,n:m.res4.count3,c:'#e69a30'},{l:'4着',p:m.res4.percent4,n:m.res4.count4,c:'#e63946'}])}</div>
         </div>
         <div class="stat-block">
           <div class="stat-block-title">3人麻雀</div>
@@ -558,7 +559,7 @@ function renderMemberDetail(m) {
           <div class="stat-row"><span class="stat-label">1着率</span><span class="stat-value">${fmtPct(m.rentairitsu3)}</span></div>
           <div class="stat-row"><span class="stat-label">チップ</span><span class="stat-value ${sc(m.totalChip3)}">${fmt(m.totalChip3)}</span></div>
           <div class="stat-row"><span class="stat-label">飛び</span><span class="stat-value">${m.tobi3}回</span></div>
-          <div class="rank-bar-wrap">${bar([{l:'1着',p:m.res3.percent1,c:'#4caf82'},{l:'2着',p:m.res3.percent2,c:'#c8a96e'},{l:'3着',p:m.res3.percent3,c:'#e63946'}])}</div>
+          <div class="rank-bar-wrap">${bar([{l:'1着',p:m.res3.percent1,n:m.res3.count1,c:'#4caf82'},{l:'2着',p:m.res3.percent2,n:m.res3.count2,c:'#c8a96e'},{l:'3着',p:m.res3.percent3,n:m.res3.count3,c:'#e63946'}])}</div>
         </div>
         <div class="stat-block">
           <div class="stat-block-title">総合</div>
