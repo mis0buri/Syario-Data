@@ -491,20 +491,27 @@ function renderMemberDetail(m) {
 function initGraphControls() {
   const mb = document.getElementById('graph-member-btns');
 
-  // 全選択・全解除
-  ['全選択','全解除'].forEach(label => {
-    const btn = document.createElement('button');
-    btn.className = 'ctrl-btn' + (label==='全選択'?' active':'');
-    btn.textContent = label;
-    btn.onclick = () => {
-      const isAll = label==='全選択';
-      if (isAll) DATA.members.forEach(m=>graphMembers.add(m.name));
-      else graphMembers.clear();
-      mb.querySelectorAll('.mem-toggle').forEach(b=>b.classList.toggle('active', isAll));
-      renderChart(filteredGathers());
-    };
-    mb.appendChild(btn);
-  });
+  // 全選択・全解除 トグルボタン（1つ）
+  let allSelected = true;
+  const toggleAllBtn = document.createElement('button');
+  toggleAllBtn.className = 'ctrl-btn active';
+  toggleAllBtn.textContent = '全解除';
+  toggleAllBtn.onclick = () => {
+    allSelected = !allSelected;
+    if (allSelected) {
+      DATA.members.forEach(m=>graphMembers.add(m.name));
+      mb.querySelectorAll('.mem-toggle').forEach(b=>b.classList.add('active'));
+      toggleAllBtn.textContent = '全解除';
+      toggleAllBtn.classList.add('active');
+    } else {
+      graphMembers.clear();
+      mb.querySelectorAll('.mem-toggle').forEach(b=>b.classList.remove('active'));
+      toggleAllBtn.textContent = '全選択';
+      toggleAllBtn.classList.remove('active');
+    }
+    renderChart(filteredGathers());
+  };
+  mb.appendChild(toggleAllBtn);
 
   const sep = document.createElement('div'); sep.className='ctrl-sep'; mb.appendChild(sep);
 
@@ -517,6 +524,10 @@ function initGraphControls() {
     btn.onclick = () => {
       graphMembers.has(m.name) ? graphMembers.delete(m.name) : graphMembers.add(m.name);
       btn.classList.toggle('active');
+      // 全員ONなら全解除ボタン、1人でもOFFなら全選択ボタンに
+      allSelected = graphMembers.size === DATA.members.length;
+      toggleAllBtn.textContent = allSelected ? '全解除' : '全選択';
+      toggleAllBtn.classList.toggle('active', allSelected);
       renderChart(filteredGathers());
     };
     mb.appendChild(btn);
@@ -552,16 +563,51 @@ function renderChart(gathers) {
       return { label:m.name, data:pts, borderColor:COLORS[ci%COLORS.length], backgroundColor:'transparent', borderWidth:2, pointRadius:3, tension:0.3 };
     });
 
+  // 横軸のunit・stepをデータの期間に応じて自動調整
+  const allDates = gathers.map(g=>new Date(g.date)).sort((a,b)=>a-b);
+  const daySpan = allDates.length >= 2
+    ? (allDates[allDates.length-1] - allDates[0]) / (1000*60*60*24)
+    : 30;
+  const xUnit = daySpan <= 14 ? 'day' : daySpan <= 90 ? 'week' : daySpan <= 365*2 ? 'month' : 'quarter';
+  const xFmt  = xUnit==='day'||xUnit==='week' ? 'MM/dd' : 'yyyy/MM';
+
   chartInstance = new Chart(ctx, {
     type:'line', data:{datasets},
     options:{
       responsive:true, maintainAspectRatio:false, parsing:false,
+      layout:{ padding:{ bottom: 8 } },
       plugins:{
-        legend:{labels:{color:'#e8e0d0',font:{family:'Noto Sans JP'}}},
+        // 凡例をグラフ下・横並びに表示してグラフ領域を潰さないようにする
+        legend:{
+          position:'bottom',
+          align:'start',
+          labels:{
+            color:'#e8e0d0',
+            font:{family:'Noto Sans JP', size:11},
+            boxWidth:12,
+            boxHeight:12,
+            padding:12,
+            usePointStyle:true,
+            pointStyle:'line',
+          }
+        },
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}`}}
       },
       scales:{
-        x:{type:'time',time:{unit:'month',displayFormats:{month:'yyyy/MM'}},ticks:{color:'#7a7060'},grid:{color:'#2a2a2a'}},
+        x:{
+          type:'time',
+          time:{
+            unit: xUnit,
+            displayFormats:{ day:'MM/dd', week:'MM/dd', month:'yyyy/MM', quarter:'yyyy/MM' }
+          },
+          ticks:{
+            color:'#7a7060',
+            maxRotation:0,      // ラベルを傾けない
+            autoSkip:true,
+            maxTicksLimit:10,   // 最大10個に制限
+          },
+          grid:{color:'#2a2a2a'},
+        },
         y:{ticks:{color:'#7a7060'},grid:{color:'#2a2a2a'}}
       }
     }
