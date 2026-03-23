@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>麻雀成績</title>
+<title>シャリオ STATS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
@@ -162,12 +162,51 @@
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-track { background:var(--bg); }
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  /* ── MOBILE ── */
+  @media(max-width:640px){
+    header { padding: 0 12px; height: 48px; }
+    .logo { font-size: 16px; }
+    .logo span { margin-left: 6px; font-size: 11px; }
+    nav button { font-size: 12px; padding: 5px 9px; }
+
+    .period-bar { padding: 8px 12px; gap: 6px; }
+    .period-bar input[type=date] { font-size: 12px; padding: 4px 6px; }
+    .period-btns { margin-left: 0; gap: 4px; }
+    .period-preset { font-size: 10px; padding: 4px 8px; }
+
+    main { padding: 14px 10px; }
+    .card { padding: 14px; }
+    .card-title { font-size: 12px; margin-bottom: 14px; }
+
+    .rank-table { font-size: 12px; }
+    .rank-table th, .rank-table td { padding: 8px 7px; }
+
+    .member-sort-wrap { margin-bottom: 10px; }
+    .member-grid { grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 8px; margin-bottom: 16px; }
+    .member-btn { padding: 10px 12px; border-radius: 8px; }
+    .member-btn .m-name { font-size: 13px; }
+    .member-btn .m-score { font-size: 15px; }
+
+    .detail-grid { grid-template-columns: 1fr; gap: 10px; }
+    .stat-block { padding: 12px; }
+
+    .member-charts-section { grid-template-columns: 1fr; gap: 12px; margin-top: 14px; }
+    .chart-wrap-sm { height: 180px; }
+
+    .graph-controls { gap: 6px; margin-bottom: 10px; }
+    .ctrl-btn { font-size: 11px; padding: 4px 9px; }
+    .chart-wrap { height: 280px; }
+
+    .hist-table { font-size: 11px; }
+    .hist-table th, .hist-table td { padding: 6px 6px; }
+  }
 </style>
 </head>
 <body>
 
 <div id="loading">
-  <div class="ld-logo">麻雀成績</div>
+  <div class="ld-logo">シャリオ</div>
   <div class="ld-bar"><div class="ld-bar-inner"></div></div>
 </div>
 
