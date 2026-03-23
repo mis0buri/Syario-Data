@@ -172,7 +172,7 @@
 </div>
 
 <header>
-  <div class="logo">麻雀成績 <span>STATS</span></div>
+  <div class="logo">シャリオ <span>STATS</span></div>
   <nav>
     <button class="active" onclick="showSection('ranking')">総合</button>
     <button onclick="showSection('member')">個人</button>
@@ -206,7 +206,7 @@
         <table class="rank-table">
           <thead><tr>
             <th>順位</th><th>名前</th><th>総成績</th><th>4麻</th><th>3麻</th>
-            <th>対局数(4)</th><th>対局数(3)</th><th>対局数(計)</th><th>連対率</th><th>チップ</th><th>飛び(4)</th><th>飛び(3)</th><th>来場</th>
+            <th>対局数(4)</th><th>対局数(3)</th><th>対局数(計)</th><th>連対率</th><th>チップ</th><th>飛び(4)</th><th>飛び(3)</th><th>来店</th>
           </tr></thead>
           <tbody id="tbody-ranking"></tbody>
         </table>
@@ -257,8 +257,8 @@
 <script>
 const DATA_URL = './data.json';
 const COLORS = ['#c8a96e','#e63946','#4caf82','#42a5f5','#ab47bc','#ff7043','#26c6da','#d4e157','#ec407a','#26a69a'];
-const COL_KEYS = ['総成績','4麻成績','3麻成績','総半荘数','4麻半荘数','3麻半荘数','総チップ','4麻チップ','3麻チップ','4麻飛び','3麻飛び','連対率','1着率','プレイ時間','来場回数','総収支'];
-const COL_LABELS = {'総成績':'総成績','4麻成績':'4麻成績','3麻成績':'3麻成績','総半荘数':'半荘数(全)','4麻半荘数':'半荘数(4)','3麻半荘数':'半荘数(3)','総チップ':'チップ(全)','4麻チップ':'チップ(4)','3麻チップ':'チップ(3)','4麻飛び':'飛び(4)','3麻飛び':'飛び(3)','連対率':'連対率(4)','1着率':'1着率(3)','プレイ時間':'プレイ時間','来場回数':'来場','総収支':'収支'};
+const COL_KEYS = ['総成績','4麻成績','3麻成績','総半荘数','4麻半荘数','3麻半荘数','総チップ','4麻チップ','3麻チップ','4麻飛び','3麻飛び','連対率','1着率','プレイ時間','来店回数','総収支'];
+const COL_LABELS = {'総成績':'総成績','4麻成績':'4麻成績','3麻成績':'3麻成績','総半荘数':'半荘数(全)','4麻半荘数':'半荘数(4)','3麻半荘数':'半荘数(3)','総チップ':'チップ(全)','4麻チップ':'チップ(4)','3麻チップ':'チップ(3)','4麻飛び':'飛び(4)','3麻飛び':'飛び(3)','連対率':'連対率(4)','1着率':'1着率(3)','プレイ時間':'プレイ時間','来店回数':'来店','総収支':'収支'};
 
 let DATA = null;
 let filterStart = null;
@@ -409,7 +409,7 @@ function calcDataPoints(memberName, gathers) {
     r['4麻飛び'].push({date:d,value:tobi4}); r['3麻飛び'].push({date:d,value:tobi3});
     r['連対率'].push({date:d,value:matchCount4>0?count12_4/matchCount4:0});
     r['1着率'].push({date:d,value:matchCount3>0?count1_3/matchCount3:0});
-    r['プレイ時間'].push({date:d,value:0}); r['来場回数'].push({date:d,value:comeCount}); r['総収支'].push({date:d,value:totalM});
+    r['プレイ時間'].push({date:d,value:0}); r['来店回数'].push({date:d,value:comeCount}); r['総収支'].push({date:d,value:totalM});
   });
   return r;
 }
@@ -526,7 +526,7 @@ function renderMemberDetail(m) {
           <div class="stat-row"><span class="stat-label">総成績</span><span class="stat-value ${sc(m.allTotal)}">${fmt(m.allTotal)}</span></div>
           <div class="stat-row"><span class="stat-label">半荘数</span><span class="stat-value">${m.matchCount4+m.matchCount3}</span></div>
           <div class="stat-row"><span class="stat-label">総チップ</span><span class="stat-value ${sc(m.totalChip)}">${fmt(m.totalChip)}</span></div>
-          <div class="stat-row"><span class="stat-label">来場回数</span><span class="stat-value">${m.comeCount}回</span></div>
+          <div class="stat-row"><span class="stat-label">来店回数</span><span class="stat-value">${m.comeCount}回</span></div>
         </div>
       </div>
       <div class="member-charts-section">
