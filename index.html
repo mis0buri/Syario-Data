@@ -193,7 +193,7 @@
         <table class="rank-table">
           <thead><tr>
             <th>順位</th><th>名前</th><th>総成績</th><th>4麻</th><th>3麻</th>
-            <th>対局数</th><th>連対率</th><th>チップ</th><th>飛び(4)</th><th>飛び(3)</th><th>来場</th>
+            <th>対局数(4)</th><th>対局数(3)</th><th>対局数(計)</th><th>連対率</th><th>チップ</th><th>飛び(4)</th><th>飛び(3)</th><th>来場</th>
           </tr></thead>
           <tbody id="tbody-ranking"></tbody>
         </table>
@@ -418,7 +418,7 @@ function buildRanking(stats) {
         <td class="${sc(m.allTotal)}">${fmt(m.allTotal)}</td>
         <td class="${sc(m.total4)}">${fmt(m.total4)}</td>
         <td class="${sc(m.total3)}">${fmt(m.total3)}</td>
-        <td>${m.matchCountAll}</td><td>${fmtPct(m.rentairitsu)}</td>
+        <td>${m.matchCount4}</td><td>${m.matchCount3}</td><td>${m.matchCount4+m.matchCount3}</td><td>${fmtPct(m.rentairitsu)}</td>
         <td class="${sc(m.totalChip)}">${fmt(m.totalChip)}</td>
         <td>${m.tobi4}</td><td>${m.tobi3}</td><td>${m.comeCount}</td>
       </tr>`;
@@ -610,24 +610,33 @@ function renderChart(gathers) {
 function buildHistory(gathers) {
   const rows = [];
   [...gathers].reverse().forEach(g => {
-    const validMatches = g.matches.filter(m => !m.isChip && m.scores.some(s=>s!==null&&s!==undefined));
-    if (!validMatches.length) return;
+    const allMatches = g.matches.filter(m => m.scores.some(s=>s!==null&&s!==undefined));
+    if (!allMatches.length) return;
 
     rows.push('<tr><td colspan="13" style="background:var(--surface2);color:var(--accent);font-size:12px;font-weight:700;padding:8px 14px;letter-spacing:.08em;border-bottom:1px solid var(--border);">'
       + g.date + '　' + g.members.filter(n=>n).join(' / ')
       + '</td></tr>');
 
-    validMatches.forEach((m, mi) => {
+    let hansoCount = 0;
+    allMatches.forEach((m) => {
       const activeMems = g.members
         .map((name, idx) => ({name, score:m.scores[idx], rank:m.ranks[idx]}))
         .filter(x => x.score !== null && x.score !== undefined)
         .sort((a,b) => (b.score||0) - (a.score||0));
 
-      let row = '<tr><td class="hist-date" style="padding-left:20px;color:var(--dim)">第' + (mi+1) + '半荘</td>';
+      const label = m.isChip
+        ? 'チップ'
+        : '第' + (++hansoCount) + '半荘';
+
+      const rowStyle = m.isChip
+        ? 'color:var(--dim);font-size:11px;padding-left:20px;font-style:italic'
+        : 'color:var(--dim);font-size:11px;padding-left:20px';
+
+      let row = '<tr><td class="hist-date" style="' + rowStyle + '">' + label + '</td>';
       activeMems.forEach(x => {
         row += '<td class="name-cell" style="font-size:12px;font-weight:700">' + x.name + '</td>';
         row += '<td class="' + sc(x.score) + '" style="font-weight:700">' + fmt(x.score) + '</td>';
-        row += '<td style="color:var(--dim);font-size:11px">' + (x.rank??'-') + '着</td>';
+        row += '<td style="color:var(--dim);font-size:11px">' + (m.isChip ? '—' : (x.rank??'-') + '着') + '</td>';
       });
       for (let i = activeMems.length; i < 4; i++) row += '<td></td><td></td><td></td>';
       rows.push(row + '</tr>');
