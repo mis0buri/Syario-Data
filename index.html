@@ -265,9 +265,6 @@ async function loadData() {
     const res = await fetch(DATA_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     DATA = await res.json();
-    initPeriod();
-    initGraphControls();
-    refresh();
   } catch(e) {
     document.getElementById('error-msg').innerHTML = '⚠ data.json の読み込みに失敗しました。<br>'+e.message;
     document.getElementById('error-msg').style.display = 'block';
@@ -276,6 +273,10 @@ async function loadData() {
     el.style.opacity = '0';
     setTimeout(()=>el.style.display='none', 400);
   }
+  if (!DATA) return;
+  initPeriod();
+  initGraphControls();
+  refresh();
 }
 
 // ── 期間 ──
@@ -411,6 +412,7 @@ function showSection(id) {
   const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
   if (id==='graph') renderChart(filteredGathers());
+  if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
 }
 
 // ── 総合ランキング ──
@@ -508,7 +510,7 @@ function renderMemberDetail(m) {
         </div>
       </div>
     </div>`;
-  renderMemberCharts(m.name);
+  if (currentSection === 'member') renderMemberCharts(m.name);
 }
 
 function renderMemberCharts(memberName) {
