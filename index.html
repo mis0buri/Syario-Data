@@ -128,6 +128,10 @@
   .ctrl-btn.active { border-color:var(--accent); color:var(--accent); background:var(--surface); }
   .ctrl-sep { width:1px; height:20px; background:var(--border); flex-shrink:0; }
   .chart-wrap { position:relative; height:360px; }
+  .member-charts-section { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:20px; }
+  @media(max-width:768px){ .member-charts-section { grid-template-columns:1fr; } }
+  .member-chart-block { background:var(--surface2); border-radius:10px; padding:16px; }
+  .chart-wrap-sm { position:relative; height:200px; }
 
   /* HISTORY TABLE */
   .hist-table { width:100%; border-collapse:collapse; font-size:12px; }
@@ -244,6 +248,7 @@ let activeMemberName = null;
 let graphMembers = new Set();
 let graphCol = '総成績';
 let chartInstance = null;
+let memberChartInstances = [];
 let currentSection = 'ranking';
 
 // ── ユーティリティ ──
@@ -484,12 +489,55 @@ function renderMemberDetail(m) {
         <div class="stat-block">
           <div class="stat-block-title">総合</div>
           <div class="stat-row"><span class="stat-label">総成績</span><span class="stat-value ${sc(m.allTotal)}">${fmt(m.allTotal)}</span></div>
-          <div class="stat-row"><span class="stat-label">総収支</span><span class="stat-value ${sc(m.totalM)}">${fmt(m.totalM)}円</span></div>
           <div class="stat-row"><span class="stat-label">総チップ</span><span class="stat-value ${sc(m.totalChip)}">${fmt(m.totalChip)}</span></div>
           <div class="stat-row"><span class="stat-label">来場回数</span><span class="stat-value">${m.comeCount}回</span></div>
         </div>
       </div>
+      <div class="member-charts-section">
+        <div class="member-chart-block">
+          <div class="stat-block-title">総成績推移</div>
+          <div class="chart-wrap-sm"><canvas id="mc-total"></canvas></div>
+        </div>
+        <div class="member-chart-block">
+          <div class="stat-block-title">4人麻雀成績推移</div>
+          <div class="chart-wrap-sm"><canvas id="mc-4p"></canvas></div>
+        </div>
+        <div class="member-chart-block">
+          <div class="stat-block-title">3人麻雀成績推移</div>
+          <div class="chart-wrap-sm"><canvas id="mc-3p"></canvas></div>
+        </div>
+      </div>
     </div>`;
+  renderMemberCharts(m.name);
+}
+
+function renderMemberCharts(memberName) {
+  memberChartInstances.forEach(c => c.destroy());
+  memberChartInstances = [];
+  const gathers = filteredGathers();
+  const dp = calcDataPoints(memberName, gathers);
+  const memberIdx = DATA.members.findIndex(m => m.name === memberName);
+  const color = COLORS[memberIdx % COLORS.length];
+  const allDates = gathers.map(g=>new Date(g.date)).filter(d=>!isNaN(d)).sort((a,b)=>a-b);
+  const daySpan = allDates.length>=2 ? (allDates[allDates.length-1]-allDates[0])/(1000*60*60*24) : 365;
+  const xUnit = daySpan<=14?'day':daySpan<=90?'week':daySpan<=730?'month':'quarter';
+  [['mc-total','総成績'],['mc-4p','4麻成績'],['mc-3p','3麻成績']].forEach(([id,key])=>{
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const pts = (dp[key]||[]).map(p=>({x:new Date(p.date).getTime(),y:p.value}));
+    const c = new Chart(canvas.getContext('2d'),{
+      type:'line', data:{datasets:[{label:key,data:pts,borderColor:color,backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3}]},
+      options:{
+        responsive:true, maintainAspectRatio:false, parsing:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}`}}},
+        scales:{
+          x:{type:'time',time:{unit:xUnit,displayFormats:{day:'M/d',week:'M/d',month:'yyyy/M',quarter:'yyyy/Q'},tooltipFormat:'yyyy/MM/dd'},ticks:{color:'#7a7060',maxRotation:0,autoSkip:true,maxTicksLimit:6},grid:{color:'#2a2a2a'}},
+          y:{ticks:{color:'#7a7060'},grid:{color:'#2a2a2a'}}
+        }
+      }
+    });
+    memberChartInstances.push(c);
+  });
 }
 
 // ── グラフ ──
