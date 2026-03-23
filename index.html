@@ -555,6 +555,7 @@ function initGraphControls() {
 }
 
 function renderChart(gathers) {
+  if (!DATA) return;
   if (!gathers) gathers = filteredGathers();
   const ctx = document.getElementById('mainChart').getContext('2d');
   if (chartInstance) chartInstance.destroy();
@@ -564,7 +565,7 @@ function renderChart(gathers) {
     .map((m,i) => {
       const ci = DATA.members.indexOf(m);
       const dp = calcDataPoints(m.name, gathers);
-      const pts = (dp[graphCol]||[]).map(p=>({x:p.date, y:p.value}));
+      const pts = (dp[graphCol]||[]).map(p=>({x: new Date(p.date).getTime(), y:p.value}));
       return { label:m.name, data:pts, borderColor:COLORS[ci%COLORS.length], backgroundColor:'transparent', borderWidth:2, pointRadius:3, tension:0.3 };
     });
 
