@@ -92,6 +92,16 @@
   .pos { color: var(--green); } .neg { color: var(--red); }
   .name-cell { font-weight: 700; font-size: 14px; }
 
+  /* MEMBER SORT */
+  .member-sort-wrap { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .member-sort-label { font-size:12px; color:var(--dim); }
+  #member-sort {
+    background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+    color:var(--text); font-family:'Noto Sans JP',sans-serif; font-size:12px;
+    padding:5px 10px; cursor:pointer; outline:none;
+  }
+  #member-sort:focus { border-color:var(--accent); }
+
   /* MEMBER GRID */
   .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; margin-bottom: 24px; }
   .member-btn { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; cursor:pointer; transition:all .2s; text-align:left; }
@@ -206,6 +216,16 @@
 
   <!-- 個人成績 -->
   <div id="sec-member" class="section">
+    <div class="member-sort-wrap">
+      <label class="member-sort-label">並び順</label>
+      <select id="member-sort" onchange="onMemberSortChange(this.value)">
+        <option value="allTotal">総成績順</option>
+        <option value="total4">4麻成績順</option>
+        <option value="total3">3麻成績順</option>
+        <option value="matchCount">半荘数順</option>
+        <option value="name">名前順</option>
+      </select>
+    </div>
     <div class="member-grid" id="member-btns"></div>
     <div id="member-detail"></div>
   </div>
@@ -244,6 +264,7 @@ let DATA = null;
 let filterStart = null;
 let filterEnd   = null;
 let activeMemberName = null;
+let memberSortKey = 'allTotal';
 let graphMembers = new Set();
 let graphCol = '総成績';
 let chartInstance = null;
@@ -432,8 +453,21 @@ function buildRanking(stats) {
 }
 
 // ── 個人成績 ──
+function memberSortFn(a, b) {
+  if (memberSortKey === 'name') return a.name.localeCompare(b.name, 'ja');
+  if (memberSortKey === 'matchCount') return (b.matchCount4+b.matchCount3) - (a.matchCount4+a.matchCount3);
+  return b[memberSortKey] - a[memberSortKey];
+}
+
+function onMemberSortChange(val) {
+  memberSortKey = val;
+  const g = filteredGathers();
+  const stats = DATA.members.map(m => calcStats(m.name, g));
+  buildMemberButtons(stats, g);
+}
+
 function buildMemberButtons(stats, gathers) {
-  const sorted = [...stats].sort((a,b)=>b.allTotal-a.allTotal);
+  const sorted = [...stats].sort(memberSortFn);
   document.getElementById('member-btns').innerHTML = sorted.map(m=>`
     <button class="member-btn${m.name===activeMemberName?' active':''}" onclick="selectMember('${m.name}')">
       <div class="m-name">${m.name}</div>
