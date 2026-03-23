@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-03-23 16:45:18",
+  "exportedAt": "2026-03-23 20:22:54",
   "members": [
     {
       "name": "店長",
@@ -21,16 +21,16 @@
       "rentairitsu": 0.5,
       "rentairitsu3": 0.832,
       "comeCount": 79,
-      "playTime": 282,
+      "playTime": 282.5,
       "res4": {
         "count1": 51,
         "count2": 53,
-        "count3": 49,
-        "count4": 51,
-        "percent1": 25,
-        "percent2": 25.98,
-        "percent3": 24.02,
-        "percent4": 25
+        "count3": 51,
+        "count4": 53,
+        "percent1": 24.52,
+        "percent2": 25.48,
+        "percent3": 24.52,
+        "percent4": 25.48
       },
       "res3": {
         "count1": 35,
@@ -4324,7 +4324,7 @@
           },
           {
             "date": "2026-03-20",
-            "value": 282
+            "value": 282.5
           }
         ],
         "来店回数": [
@@ -4951,27 +4951,27 @@
       "total4": -247,
       "total3": 1060,
       "totalM": 5560,
-      "matchCountAll": 368,
-      "matchCount4": 178,
+      "matchCountAll": 365,
+      "matchCount4": 175,
       "matchCount3": 120,
       "totalChip": -127,
       "totalChip4": -99,
       "totalChip3": -28,
       "tobi4": 20,
       "tobi3": 20,
-      "rentairitsu": 0.4831,
+      "rentairitsu": 0.4914,
       "rentairitsu3": 0.7167,
       "comeCount": 71,
-      "playTime": 244.08,
+      "playTime": 244.58,
       "res4": {
         "count1": 45,
         "count2": 41,
-        "count3": 48,
+        "count3": 46,
         "count4": 43,
-        "percent1": 25.42,
-        "percent2": 23.16,
-        "percent3": 27.12,
-        "percent4": 24.29
+        "percent1": 25.71,
+        "percent2": 23.43,
+        "percent3": 26.29,
+        "percent4": 24.57
       },
       "res3": {
         "count1": 51,
@@ -6025,139 +6025,139 @@
           },
           {
             "date": "2025-03-22",
-            "value": 232
+            "value": 231
           },
           {
             "date": "2025-03-29",
-            "value": 237
+            "value": 235
           },
           {
             "date": "2025-03-30",
-            "value": 245
+            "value": 243
           },
           {
             "date": "2025-04-01",
-            "value": 245
+            "value": 243
           },
           {
             "date": "2025-04-04",
-            "value": 250
+            "value": 248
           },
           {
             "date": "2025-04-08",
-            "value": 256
+            "value": 254
           },
           {
             "date": "2025-04-12",
-            "value": 272
+            "value": 270
           },
           {
             "date": "2025-04-13",
-            "value": 276
+            "value": 273
           },
           {
             "date": "2025-04-22",
-            "value": 279
+            "value": 276
           },
           {
             "date": "2025-04-26",
-            "value": 284
+            "value": 281
           },
           {
             "date": "2025-04-27",
-            "value": 287
+            "value": 284
           },
           {
             "date": "2025-04-29",
-            "value": 289
+            "value": 286
           },
           {
             "date": "2025-05-01",
-            "value": 289
+            "value": 286
           },
           {
             "date": "2025-05-05",
-            "value": 291
+            "value": 288
           },
           {
             "date": "2025-05-11",
-            "value": 294
+            "value": 291
           },
           {
             "date": "2025-06-01",
-            "value": 294
+            "value": 291
           },
           {
             "date": "2025-06-14",
-            "value": 297
+            "value": 294
           },
           {
             "date": "2025-06-21",
-            "value": 309
+            "value": 306
           },
           {
             "date": "2025-08-01",
-            "value": 309
+            "value": 306
           },
           {
             "date": "2025-08-17",
-            "value": 314
+            "value": 311
           },
           {
             "date": "2025-09-01",
-            "value": 314
+            "value": 311
           },
           {
             "date": "2025-09-27",
-            "value": 317
+            "value": 314
           },
           {
             "date": "2025-10-01",
-            "value": 317
+            "value": 314
           },
           {
             "date": "2025-10-11",
-            "value": 324
+            "value": 321
           },
           {
             "date": "2025-10-18",
-            "value": 326
+            "value": 323
           },
           {
             "date": "2025-11-01",
-            "value": 326
+            "value": 323
           },
           {
             "date": "2025-11-09",
-            "value": 336
+            "value": 333
           },
           {
             "date": "2025-11-22",
-            "value": 344
+            "value": 341
           },
           {
             "date": "2025-12-01",
-            "value": 344
+            "value": 341
           },
           {
             "date": "2025-12-30",
-            "value": 347
+            "value": 344
           },
           {
             "date": "2025-12-31",
-            "value": 354
+            "value": 351
           },
           {
             "date": "2026-03-01",
-            "value": 354
+            "value": 351
           },
           {
             "date": "2026-03-14",
-            "value": 355
+            "value": 352
           },
           {
             "date": "2026-03-20",
-            "value": 368
+            "value": 365
           }
         ],
         "半荘数(4人)": [
@@ -6319,139 +6319,139 @@
           },
           {
             "date": "2025-03-22",
-            "value": 95
+            "value": 94
           },
           {
             "date": "2025-03-29",
-            "value": 99
+            "value": 97
           },
           {
             "date": "2025-03-30",
-            "value": 103
+            "value": 101
           },
           {
             "date": "2025-04-01",
-            "value": 103
+            "value": 101
           },
           {
             "date": "2025-04-04",
-            "value": 107
+            "value": 105
           },
           {
             "date": "2025-04-08",
-            "value": 107
+            "value": 105
           },
           {
             "date": "2025-04-12",
-            "value": 117
+            "value": 115
           },
           {
             "date": "2025-04-13",
-            "value": 120
+            "value": 117
           },
           {
             "date": "2025-04-22",
-            "value": 120
+            "value": 117
           },
           {
             "date": "2025-04-26",
-            "value": 120
+            "value": 117
           },
           {
             "date": "2025-04-27",
-            "value": 122
+            "value": 119
           },
           {
             "date": "2025-04-29",
-            "value": 123
+            "value": 120
           },
           {
             "date": "2025-05-01",
-            "value": 123
+            "value": 120
           },
           {
             "date": "2025-05-05",
-            "value": 124
+            "value": 121
           },
           {
             "date": "2025-05-11",
-            "value": 126
+            "value": 123
           },
           {
             "date": "2025-06-01",
-            "value": 126
+            "value": 123
           },
           {
             "date": "2025-06-14",
-            "value": 128
+            "value": 125
           },
           {
             "date": "2025-06-21",
-            "value": 135
+            "value": 132
           },
           {
             "date": "2025-08-01",
-            "value": 135
+            "value": 132
           },
           {
             "date": "2025-08-17",
-            "value": 135
+            "value": 132
           },
           {
             "date": "2025-09-01",
-            "value": 135
+            "value": 132
           },
           {
             "date": "2025-09-27",
-            "value": 137
+            "value": 134
           },
           {
             "date": "2025-10-01",
-            "value": 137
+            "value": 134
           },
           {
             "date": "2025-10-11",
-            "value": 143
+            "value": 140
           },
           {
             "date": "2025-10-18",
-            "value": 144
+            "value": 141
           },
           {
             "date": "2025-11-01",
-            "value": 144
+            "value": 141
           },
           {
             "date": "2025-11-09",
-            "value": 153
+            "value": 150
           },
           {
             "date": "2025-11-22",
-            "value": 160
+            "value": 157
           },
           {
             "date": "2025-12-01",
-            "value": 160
+            "value": 157
           },
           {
             "date": "2025-12-30",
-            "value": 160
+            "value": 157
           },
           {
             "date": "2025-12-31",
-            "value": 166
+            "value": 163
           },
           {
             "date": "2026-03-01",
-            "value": 166
+            "value": 163
           },
           {
             "date": "2026-03-14",
-            "value": 167
+            "value": 164
           },
           {
             "date": "2026-03-20",
-            "value": 178
+            "value": 175
           }
         ],
         "半荘数(3人)": [
@@ -8377,139 +8377,139 @@
           },
           {
             "date": "2025-03-22",
-            "value": 0.4526
+            "value": 0.4574
           },
           {
             "date": "2025-03-29",
-            "value": 0.4545
+            "value": 0.4639
           },
           {
             "date": "2025-03-30",
-            "value": 0.4563
+            "value": 0.4653
           },
           {
             "date": "2025-04-01",
-            "value": 0.4563
+            "value": 0.4653
           },
           {
             "date": "2025-04-04",
-            "value": 0.4579
+            "value": 0.4667
           },
           {
             "date": "2025-04-08",
-            "value": 0.4579
+            "value": 0.4667
           },
           {
             "date": "2025-04-12",
-            "value": 0.4615
+            "value": 0.4696
           },
           {
             "date": "2025-04-13",
-            "value": 0.4583
+            "value": 0.4701
           },
           {
             "date": "2025-04-22",
-            "value": 0.4583
+            "value": 0.4701
           },
           {
             "date": "2025-04-26",
-            "value": 0.4583
+            "value": 0.4701
           },
           {
             "date": "2025-04-27",
-            "value": 0.4672
-          },
-          {
-            "date": "2025-04-29",
-            "value": 0.4715
-          },
-          {
-            "date": "2025-05-01",
-            "value": 0.4715
-          },
-          {
-            "date": "2025-05-05",
-            "value": 0.4758
-          },
-          {
-            "date": "2025-05-11",
-            "value": 0.4762
-          },
-          {
-            "date": "2025-06-01",
-            "value": 0.4762
-          },
-          {
-            "date": "2025-06-14",
-            "value": 0.4766
-          },
-          {
-            "date": "2025-06-21",
-            "value": 0.4667
-          },
-          {
-            "date": "2025-08-01",
-            "value": 0.4667
-          },
-          {
-            "date": "2025-08-17",
-            "value": 0.4667
-          },
-          {
-            "date": "2025-09-01",
-            "value": 0.4667
-          },
-          {
-            "date": "2025-09-27",
-            "value": 0.4745
-          },
-          {
-            "date": "2025-10-01",
-            "value": 0.4745
-          },
-          {
-            "date": "2025-10-11",
-            "value": 0.4755
-          },
-          {
-            "date": "2025-10-18",
-            "value": 0.4792
-          },
-          {
-            "date": "2025-11-01",
-            "value": 0.4792
-          },
-          {
-            "date": "2025-11-09",
-            "value": 0.4902
-          },
-          {
-            "date": "2025-11-22",
-            "value": 0.4875
-          },
-          {
-            "date": "2025-12-01",
-            "value": 0.4875
-          },
-          {
-            "date": "2025-12-30",
-            "value": 0.4875
-          },
-          {
-            "date": "2025-12-31",
-            "value": 0.4819
-          },
-          {
-            "date": "2026-03-01",
-            "value": 0.4819
-          },
-          {
-            "date": "2026-03-14",
             "value": 0.479
           },
           {
+            "date": "2025-04-29",
+            "value": 0.4833
+          },
+          {
+            "date": "2025-05-01",
+            "value": 0.4833
+          },
+          {
+            "date": "2025-05-05",
+            "value": 0.4876
+          },
+          {
+            "date": "2025-05-11",
+            "value": 0.4878
+          },
+          {
+            "date": "2025-06-01",
+            "value": 0.4878
+          },
+          {
+            "date": "2025-06-14",
+            "value": 0.488
+          },
+          {
+            "date": "2025-06-21",
+            "value": 0.4773
+          },
+          {
+            "date": "2025-08-01",
+            "value": 0.4773
+          },
+          {
+            "date": "2025-08-17",
+            "value": 0.4773
+          },
+          {
+            "date": "2025-09-01",
+            "value": 0.4773
+          },
+          {
+            "date": "2025-09-27",
+            "value": 0.4851
+          },
+          {
+            "date": "2025-10-01",
+            "value": 0.4851
+          },
+          {
+            "date": "2025-10-11",
+            "value": 0.4857
+          },
+          {
+            "date": "2025-10-18",
+            "value": 0.4894
+          },
+          {
+            "date": "2025-11-01",
+            "value": 0.4894
+          },
+          {
+            "date": "2025-11-09",
+            "value": 0.5
+          },
+          {
+            "date": "2025-11-22",
+            "value": 0.4968
+          },
+          {
+            "date": "2025-12-01",
+            "value": 0.4968
+          },
+          {
+            "date": "2025-12-30",
+            "value": 0.4968
+          },
+          {
+            "date": "2025-12-31",
+            "value": 0.4908
+          },
+          {
+            "date": "2026-03-01",
+            "value": 0.4908
+          },
+          {
+            "date": "2026-03-14",
+            "value": 0.4878
+          },
+          {
             "date": "2026-03-20",
-            "value": 0.4831
+            "value": 0.4914
           }
         ],
         "連対率(3人)": [
@@ -9097,7 +9097,7 @@
           },
           {
             "date": "2026-03-20",
-            "value": 244.0833
+            "value": 244.5833
           }
         ],
         "来店回数": [
@@ -9699,27 +9699,27 @@
       "total4": 670,
       "total3": -291,
       "totalM": 11430,
-      "matchCountAll": 108,
-      "matchCount4": 52,
+      "matchCountAll": 107,
+      "matchCount4": 51,
       "matchCount3": 31,
       "totalChip": 116,
       "totalChip4": 133,
       "totalChip3": -17,
       "tobi4": 3,
       "tobi3": 9,
-      "rentairitsu": 0.5385,
+      "rentairitsu": 0.549,
       "rentairitsu3": 0.9032,
       "comeCount": 27,
       "playTime": 75.33,
       "res4": {
         "count1": 18,
         "count2": 10,
-        "count3": 11,
-        "count4": 12,
+        "count3": 10,
+        "count4": 13,
         "percent1": 35.29,
         "percent2": 19.61,
-        "percent3": 21.57,
-        "percent4": 23.53
+        "percent3": 19.61,
+        "percent4": 25.49
       },
       "res3": {
         "count1": 10,
@@ -10281,39 +10281,39 @@
           },
           {
             "date": "2025-04-13",
-            "value": 88
+            "value": 87
           },
           {
             "date": "2025-04-26",
-            "value": 93
+            "value": 92
           },
           {
             "date": "2025-04-27",
-            "value": 96
+            "value": 95
           },
           {
             "date": "2025-04-29",
-            "value": 100
+            "value": 99
           },
           {
             "date": "2025-05-01",
-            "value": 100
+            "value": 99
           },
           {
             "date": "2025-05-05",
-            "value": 102
+            "value": 101
           },
           {
             "date": "2025-05-11",
-            "value": 105
+            "value": 104
           },
           {
             "date": "2025-06-01",
-            "value": 105
+            "value": 104
           },
           {
             "date": "2025-06-14",
-            "value": 108
+            "value": 107
           }
         ],
         "半荘数(4人)": [
@@ -10427,39 +10427,39 @@
           },
           {
             "date": "2025-04-13",
-            "value": 41
+            "value": 40
           },
           {
             "date": "2025-04-26",
-            "value": 41
+            "value": 40
           },
           {
             "date": "2025-04-27",
-            "value": 43
+            "value": 42
           },
           {
             "date": "2025-04-29",
-            "value": 46
+            "value": 45
           },
           {
             "date": "2025-05-01",
-            "value": 46
+            "value": 45
           },
           {
             "date": "2025-05-05",
-            "value": 48
+            "value": 47
           },
           {
             "date": "2025-05-11",
-            "value": 50
+            "value": 49
           },
           {
             "date": "2025-06-01",
-            "value": 50
+            "value": 49
           },
           {
             "date": "2025-06-14",
-            "value": 52
+            "value": 51
           }
         ],
         "半荘数(3人)": [
@@ -11449,39 +11449,39 @@
           },
           {
             "date": "2025-04-13",
-            "value": 0.5366
+            "value": 0.55
           },
           {
             "date": "2025-04-26",
-            "value": 0.5366
+            "value": 0.55
           },
           {
             "date": "2025-04-27",
-            "value": 0.5116
+            "value": 0.5238
           },
           {
             "date": "2025-04-29",
-            "value": 0.5217
+            "value": 0.5333
           },
           {
             "date": "2025-05-01",
-            "value": 0.5217
+            "value": 0.5333
           },
           {
             "date": "2025-05-05",
-            "value": 0.5417
+            "value": 0.5532
           },
           {
             "date": "2025-05-11",
-            "value": 0.54
+            "value": 0.551
           },
           {
             "date": "2025-06-01",
-            "value": 0.54
+            "value": 0.551
           },
           {
             "date": "2025-06-14",
-            "value": 0.5385
+            "value": 0.549
           }
         ],
         "連対率(3人)": [
@@ -12090,7 +12090,7 @@
       "rentairitsu": 0.5111,
       "rentairitsu3": 2.3,
       "comeCount": 11,
-      "playTime": 41.75,
+      "playTime": 42.25,
       "res4": {
         "count1": 11,
         "count2": 12,
@@ -12921,7 +12921,7 @@
           },
           {
             "date": "2026-03-20",
-            "value": 41.75
+            "value": 42.25
           }
         ],
         "来店回数": [
@@ -13650,7 +13650,7 @@
       "rentairitsu": 0.5079,
       "rentairitsu3": 1.7778,
       "comeCount": 13,
-      "playTime": 66,
+      "playTime": 66.5,
       "res4": {
         "count1": 19,
         "count2": 13,
@@ -14761,7 +14761,7 @@
           },
           {
             "date": "2026-03-20",
-            "value": 66
+            "value": 66.5
           }
         ],
         "来店回数": [
@@ -15581,15 +15581,15 @@
       "total4": -198,
       "total3": 5,
       "totalM": -9750,
-      "matchCountAll": 56,
-      "matchCount4": 44,
+      "matchCountAll": 55,
+      "matchCount4": 43,
       "matchCount3": 4,
       "totalChip": -63,
       "totalChip4": -59,
       "totalChip3": -4,
       "tobi4": 1,
       "tobi3": 1,
-      "rentairitsu": 0.4773,
+      "rentairitsu": 0.4884,
       "rentairitsu3": 5.25,
       "comeCount": 7,
       "playTime": 39.75,
@@ -15597,11 +15597,11 @@
         "count1": 5,
         "count2": 16,
         "count3": 13,
-        "count4": 10,
-        "percent1": 11.36,
-        "percent2": 36.36,
-        "percent3": 29.55,
-        "percent4": 22.73
+        "count4": 9,
+        "percent1": 11.63,
+        "percent2": 37.21,
+        "percent3": 30.23,
+        "percent4": 20.93
       },
       "res3": {
         "count1": 1,
@@ -15791,11 +15791,11 @@
           },
           {
             "date": "2025-11-09",
-            "value": 48
+            "value": 47
           },
           {
             "date": "2025-11-22",
-            "value": 56
+            "value": 55
           }
         ],
         "半荘数(4人)": [
@@ -15837,11 +15837,11 @@
           },
           {
             "date": "2025-11-09",
-            "value": 37
+            "value": 36
           },
           {
             "date": "2025-11-22",
-            "value": 44
+            "value": 43
           }
         ],
         "半荘数(3人)": [
@@ -16159,11 +16159,11 @@
           },
           {
             "date": "2025-11-09",
-            "value": 0.4865
+            "value": 0.5
           },
           {
             "date": "2025-11-22",
-            "value": 0.4773
+            "value": 0.4884
           }
         ],
         "連対率(3人)": [
@@ -16375,11 +16375,11 @@
         "count1": 6,
         "count2": 4,
         "count3": 4,
-        "count4": 2,
-        "percent1": 37.5,
-        "percent2": 25,
-        "percent3": 25,
-        "percent4": 12.5
+        "count4": 3,
+        "percent1": 35.29,
+        "percent2": 23.53,
+        "percent3": 23.53,
+        "percent4": 17.65
       },
       "res3": {
         "count1": 0,
@@ -21894,27 +21894,27 @@
       "total4": -479,
       "total3": 135,
       "totalM": -8590,
-      "matchCountAll": 61,
-      "matchCount4": 17,
+      "matchCountAll": 59,
+      "matchCount4": 15,
       "matchCount3": 26,
       "totalChip": -79,
       "totalChip4": -49,
       "totalChip3": -30,
       "tobi4": 2,
       "tobi3": 2,
-      "rentairitsu": 0.2941,
+      "rentairitsu": 0.3333,
       "rentairitsu3": 0.1923,
       "comeCount": 17,
       "playTime": 45.67,
       "res4": {
         "count1": 0,
         "count2": 5,
-        "count3": 5,
+        "count3": 4,
         "count4": 6,
         "percent1": 0,
-        "percent2": 31.25,
-        "percent3": 31.25,
-        "percent4": 37.5
+        "percent2": 33.33,
+        "percent3": 26.67,
+        "percent4": 40
       },
       "res3": {
         "count1": 9,
@@ -22280,59 +22280,59 @@
           },
           {
             "date": "2025-03-22",
-            "value": 28
+            "value": 27
           },
           {
             "date": "2025-03-30",
-            "value": 31
+            "value": 30
           },
           {
             "date": "2025-04-01",
-            "value": 31
+            "value": 30
           },
           {
             "date": "2025-04-08",
-            "value": 37
+            "value": 36
           },
           {
             "date": "2025-04-13",
-            "value": 41
+            "value": 39
           },
           {
             "date": "2025-04-22",
-            "value": 44
+            "value": 42
           },
           {
             "date": "2025-04-29",
-            "value": 46
+            "value": 44
           },
           {
             "date": "2025-05-01",
-            "value": 46
+            "value": 44
           },
           {
             "date": "2025-05-05",
-            "value": 50
+            "value": 48
           },
           {
             "date": "2025-05-11",
-            "value": 53
+            "value": 51
           },
           {
             "date": "2025-08-01",
-            "value": 53
+            "value": 51
           },
           {
             "date": "2025-08-17",
-            "value": 58
+            "value": 56
           },
           {
             "date": "2025-09-01",
-            "value": 58
+            "value": 56
           },
           {
             "date": "2025-09-27",
-            "value": 61
+            "value": 59
           }
         ],
         "半荘数(4人)": [
@@ -22382,59 +22382,59 @@
           },
           {
             "date": "2025-03-22",
-            "value": 6
+            "value": 5
           },
           {
             "date": "2025-03-30",
-            "value": 6
+            "value": 5
           },
           {
             "date": "2025-04-01",
-            "value": 6
+            "value": 5
           },
           {
             "date": "2025-04-08",
-            "value": 6
+            "value": 5
           },
           {
             "date": "2025-04-13",
-            "value": 9
+            "value": 7
           },
           {
             "date": "2025-04-22",
-            "value": 9
+            "value": 7
           },
           {
             "date": "2025-04-29",
-            "value": 10
+            "value": 8
           },
           {
             "date": "2025-05-01",
-            "value": 10
+            "value": 8
           },
           {
             "date": "2025-05-05",
-            "value": 13
+            "value": 11
           },
           {
             "date": "2025-05-11",
-            "value": 15
+            "value": 13
           },
           {
             "date": "2025-08-01",
-            "value": 15
+            "value": 13
           },
           {
             "date": "2025-08-17",
-            "value": 15
+            "value": 13
           },
           {
             "date": "2025-09-01",
-            "value": 15
+            "value": 13
           },
           {
             "date": "2025-09-27",
-            "value": 17
+            "value": 15
           }
         ],
         "半荘数(3人)": [
@@ -23096,59 +23096,59 @@
           },
           {
             "date": "2025-03-22",
-            "value": 0.1667
+            "value": 0.2
           },
           {
             "date": "2025-03-30",
-            "value": 0.1667
+            "value": 0.2
           },
           {
             "date": "2025-04-01",
-            "value": 0.1667
+            "value": 0.2
           },
           {
             "date": "2025-04-08",
-            "value": 0.1667
+            "value": 0.2
           },
           {
             "date": "2025-04-13",
-            "value": 0.2222
+            "value": 0.2857
           },
           {
             "date": "2025-04-22",
-            "value": 0.2222
+            "value": 0.2857
           },
           {
             "date": "2025-04-29",
-            "value": 0.2
+            "value": 0.25
           },
           {
             "date": "2025-05-01",
-            "value": 0.2
+            "value": 0.25
           },
           {
             "date": "2025-05-05",
-            "value": 0.3846
+            "value": 0.4545
           },
           {
             "date": "2025-05-11",
-            "value": 0.3333
+            "value": 0.3846
           },
           {
             "date": "2025-08-01",
-            "value": 0.3333
+            "value": 0.3846
           },
           {
             "date": "2025-08-17",
-            "value": 0.3333
+            "value": 0.3846
           },
           {
             "date": "2025-09-01",
-            "value": 0.3333
+            "value": 0.3846
           },
           {
             "date": "2025-09-27",
-            "value": 0.2941
+            "value": 0.3333
           }
         ],
         "連対率(3人)": [
@@ -23570,27 +23570,27 @@
       "total4": 4,
       "total3": 24,
       "totalM": 760,
-      "matchCountAll": 36,
-      "matchCount4": 18,
+      "matchCountAll": 35,
+      "matchCount4": 17,
       "matchCount3": 9,
       "totalChip": -9,
       "totalChip4": -30,
       "totalChip3": 21,
       "tobi4": 2,
       "tobi3": 2,
-      "rentairitsu": 0.6111,
-      "rentairitsu3": 1.2222,
+      "rentairitsu": 0.5882,
+      "rentairitsu3": 1.1111,
       "comeCount": 9,
       "playTime": 30.5,
       "res4": {
         "count1": 5,
-        "count2": 6,
-        "count3": 1,
-        "count4": 5,
+        "count2": 5,
+        "count3": 3,
+        "count4": 4,
         "percent1": 29.41,
-        "percent2": 35.29,
-        "percent3": 5.88,
-        "percent4": 29.41
+        "percent2": 29.41,
+        "percent3": 17.65,
+        "percent4": 23.53
       },
       "res3": {
         "count1": 3,
@@ -23788,35 +23788,35 @@
           },
           {
             "date": "2025-03-29",
-            "value": 21
+            "value": 20
           },
           {
             "date": "2025-04-01",
-            "value": 21
+            "value": 20
           },
           {
             "date": "2025-04-13",
-            "value": 25
+            "value": 24
           },
           {
             "date": "2025-04-29",
-            "value": 31
+            "value": 30
           },
           {
             "date": "2025-05-01",
-            "value": 31
+            "value": 30
           },
           {
             "date": "2025-05-05",
-            "value": 33
+            "value": 32
           },
           {
             "date": "2025-09-01",
-            "value": 33
+            "value": 32
           },
           {
             "date": "2025-09-27",
-            "value": 36
+            "value": 35
           }
         ],
         "半荘数(4人)": [
@@ -23842,35 +23842,35 @@
           },
           {
             "date": "2025-03-29",
-            "value": 8
+            "value": 7
           },
           {
             "date": "2025-04-01",
-            "value": 8
+            "value": 7
           },
           {
             "date": "2025-04-13",
-            "value": 11
+            "value": 10
           },
           {
             "date": "2025-04-29",
-            "value": 15
+            "value": 14
           },
           {
             "date": "2025-05-01",
-            "value": 15
+            "value": 14
           },
           {
             "date": "2025-05-05",
-            "value": 16
+            "value": 15
           },
           {
             "date": "2025-09-01",
-            "value": 16
+            "value": 15
           },
           {
             "date": "2025-09-27",
-            "value": 18
+            "value": 17
           }
         ],
         "半荘数(3人)": [
@@ -24220,35 +24220,35 @@
           },
           {
             "date": "2025-03-29",
-            "value": 0.625
+            "value": 0.5714
           },
           {
             "date": "2025-04-01",
-            "value": 0.625
+            "value": 0.5714
           },
           {
             "date": "2025-04-13",
-            "value": 0.6364
+            "value": 0.6
           },
           {
             "date": "2025-04-29",
-            "value": 0.6667
+            "value": 0.6429
           },
           {
             "date": "2025-05-01",
-            "value": 0.6667
+            "value": 0.6429
           },
           {
             "date": "2025-05-05",
-            "value": 0.625
+            "value": 0.6
           },
           {
             "date": "2025-09-01",
-            "value": 0.625
+            "value": 0.6
           },
           {
             "date": "2025-09-27",
-            "value": 0.6111
+            "value": 0.5882
           }
         ],
         "連対率(3人)": [
@@ -24274,35 +24274,35 @@
           },
           {
             "date": "2025-03-29",
-            "value": 0.5556
+            "value": 0.4444
           },
           {
             "date": "2025-04-01",
-            "value": 0.5556
+            "value": 0.4444
           },
           {
             "date": "2025-04-13",
-            "value": 0.7778
+            "value": 0.6667
           },
           {
             "date": "2025-04-29",
-            "value": 1.1111
+            "value": 1
           },
           {
             "date": "2025-05-01",
-            "value": 1.1111
+            "value": 1
           },
           {
             "date": "2025-05-05",
-            "value": 1.1111
+            "value": 1
           },
           {
             "date": "2025-09-01",
-            "value": 1.1111
+            "value": 1
           },
           {
             "date": "2025-09-27",
-            "value": 1.2222
+            "value": 1.1111
           }
         ],
         "総時間": [
@@ -25274,15 +25274,15 @@
       "total4": -396,
       "total3": 0,
       "totalM": -19800,
-      "matchCountAll": 12,
-      "matchCount4": 10,
+      "matchCountAll": 11,
+      "matchCount4": 9,
       "matchCount3": 0,
       "totalChip": -59,
       "totalChip4": -59,
       "totalChip3": 0,
       "tobi4": 2,
       "tobi3": 0,
-      "rentairitsu": 0.2,
+      "rentairitsu": 0.2222,
       "rentairitsu3": 0,
       "comeCount": 2,
       "playTime": 12.25,
@@ -25290,11 +25290,11 @@
         "count1": 0,
         "count2": 2,
         "count3": 2,
-        "count4": 6,
+        "count4": 5,
         "percent1": 0,
-        "percent2": 20,
-        "percent3": 20,
-        "percent4": 60
+        "percent2": 22.22,
+        "percent3": 22.22,
+        "percent4": 55.56
       },
       "res3": {
         "count1": 0,
@@ -25392,7 +25392,7 @@
           },
           {
             "date": "2025-11-09",
-            "value": 12
+            "value": 11
           }
         ],
         "半荘数(4人)": [
@@ -25414,7 +25414,7 @@
           },
           {
             "date": "2025-11-09",
-            "value": 10
+            "value": 9
           }
         ],
         "半荘数(3人)": [
@@ -25568,7 +25568,7 @@
           },
           {
             "date": "2025-11-09",
-            "value": 0.2
+            "value": 0.2222
           }
         ],
         "連対率(3人)": [
@@ -25676,19 +25676,19 @@
       "totalChip3": 0,
       "tobi4": 0,
       "tobi3": 0,
-      "rentairitsu": 0,
+      "rentairitsu": 0.5,
       "rentairitsu3": 0,
       "comeCount": 1,
       "playTime": 3.25,
       "res4": {
         "count1": 0,
-        "count2": 0,
+        "count2": 1,
         "count3": 1,
-        "count4": 1,
+        "count4": 0,
         "percent1": 0,
-        "percent2": 0,
+        "percent2": 50,
         "percent3": 50,
-        "percent4": 50
+        "percent4": 0
       },
       "res3": {
         "count1": 0,
@@ -25866,7 +25866,7 @@
           },
           {
             "date": "2025-03-29",
-            "value": 0
+            "value": 0.5
           }
         ],
         "連対率(3人)": [
@@ -34025,13 +34025,13 @@
             57,
             -28,
             11,
-            0,
+            null,
             null
           ],
           "ranks": [
-            5,
-            1,
             4,
+            1,
+            3,
             2,
             3,
             null
@@ -34042,7 +34042,7 @@
           "isChip": false,
           "scores": [
             60,
-            0,
+            null,
             -21,
             8,
             -47,
@@ -34051,9 +34051,9 @@
           "ranks": [
             1,
             3,
-            4,
+            3,
             2,
-            5,
+            4,
             null
           ]
         },
@@ -34138,17 +34138,17 @@
           "scores": [
             -33,
             -22,
-            0,
+            null,
             56,
             -1,
             null
           ],
           "ranks": [
-            5,
             4,
+            3,
             2,
             1,
-            3,
+            2,
             null
           ]
         },
@@ -34157,18 +34157,18 @@
           "isChip": false,
           "scores": [
             -64,
-            0,
+            null,
             4,
             74,
             -14,
             null
           ],
           "ranks": [
-            5,
+            4,
             3,
             2,
             1,
-            4,
+            3,
             null
           ]
         },
@@ -34996,14 +34996,14 @@
             5,
             73,
             -52,
-            0,
+            null,
             null
           ],
           "ranks": [
-            4,
+            3,
             2,
             1,
-            5,
+            4,
             3,
             null
           ]
@@ -35013,7 +35013,7 @@
           "isChip": false,
           "scores": [
             49,
-            0,
+            null,
             -60,
             24,
             -13,
@@ -35022,9 +35022,9 @@
           "ranks": [
             1,
             3,
-            5,
-            2,
             4,
+            2,
+            3,
             null
           ]
         },
@@ -35034,14 +35034,14 @@
           "scores": [
             -25,
             -62,
-            0,
+            null,
             77,
             10,
             null
           ],
           "ranks": [
+            3,
             4,
-            5,
             3,
             1,
             2,
@@ -36725,7 +36725,7 @@
           "mNo": 0,
           "isChip": false,
           "scores": [
-            0,
+            null,
             14,
             -41,
             56,
@@ -36735,9 +36735,9 @@
           "ranks": [
             3,
             2,
-            5,
-            1,
             4,
+            1,
+            3,
             null
           ]
         },
@@ -36749,14 +36749,14 @@
             70,
             20,
             -65,
-            0,
+            null,
             null
           ],
           "ranks": [
-            4,
+            3,
             1,
             2,
-            5,
+            4,
             3,
             null
           ]
@@ -37303,7 +37303,7 @@
     {
       "date": "2026-03-20",
       "start": "13:00",
-      "end": "19:30",
+      "end": "20:00",
       "rate": 50,
       "members": [
         "店長",
@@ -37491,26 +37491,6 @@
             null,
             null
           ]
-        },
-        {
-          "mNo": 0,
-          "isChip": false,
-          "scores": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ],
-          "ranks": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ]
         }
       ]
     },
@@ -37602,26 +37582,6 @@
             2,
             1,
             4,
-            null,
-            null
-          ]
-        },
-        {
-          "mNo": 0,
-          "isChip": false,
-          "scores": [
-            null,
-            null,
-            null,
-            null,
-            null,
-            null
-          ],
-          "ranks": [
-            null,
-            null,
-            null,
-            null,
             null,
             null
           ]
