@@ -537,7 +537,7 @@ function renderMemberCharts(memberName) {
     if (!canvas) return;
     const pts = (dp[key]||[]).map(p=>({x:new Date(p.date).getTime(),y:p.value}));
     const c = new Chart(canvas.getContext('2d'),{
-      type:'line', data:{datasets:[{label:key,data:pts,borderColor:color,backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3}]},
+      type:'line', data:{datasets:[{label:key,data:pts,borderColor:color,backgroundColor:'transparent',pointBackgroundColor:color,borderWidth:2,pointRadius:2,tension:0.3}]},
       options:{
         responsive:true, maintainAspectRatio:false, parsing:false,
         plugins:{
@@ -546,7 +546,7 @@ function renderMemberCharts(memberName) {
         },
         scales:{
           x:{type:'linear',ticks:{color:'#7a7060',maxRotation:0,autoSkip:true,maxTicksLimit:6,callback:v=>fmtTick(v,daySpan)},grid:{color:'#2a2a2a'}},
-          y:{ticks:{color:'#7a7060'},grid:{color:'#2a2a2a'}}
+          y:{ticks:{color:'#7a7060'},grid:{color:c=>c.tick.value===0?'#888':'#2a2a2a',lineWidth:c=>c.tick.value===0?2:1}}
         }
       }
     });
@@ -602,7 +602,8 @@ function initGraphControls() {
 
   // 列ボタン
   const cb = document.getElementById('graph-col-btns');
-  COL_KEYS.forEach(key => {
+  const GRAPH_COL_KEYS = ['総成績','4麻成績','3麻成績','総チップ','4麻チップ','3麻チップ'];
+  GRAPH_COL_KEYS.forEach(key => {
     const btn = document.createElement('button');
     btn.className = 'ctrl-btn' + (key===graphCol?' active':'');
     btn.textContent = COL_LABELS[key];
@@ -628,7 +629,7 @@ function renderChart(gathers) {
       const ci = DATA.members.indexOf(m);
       const dp = calcDataPoints(m.name, gathers);
       const pts = (dp[graphCol]||[]).map(p=>({x: new Date(p.date).getTime(), y:p.value}));
-      return { label:m.name, data:pts, borderColor:COLORS[ci%COLORS.length], backgroundColor:'transparent', borderWidth:2, pointRadius:3, tension:0.3 };
+      return { label:m.name, data:pts, borderColor:COLORS[ci%COLORS.length], backgroundColor:'transparent', pointBackgroundColor:COLORS[ci%COLORS.length], borderWidth:2, pointRadius:2, tension:0.3 };
     });
 
   const allDates = gathers.map(g=>new Date(g.date)).filter(d=>!isNaN(d)).sort((a,b)=>a-b);
@@ -656,7 +657,7 @@ function renderChart(gathers) {
           ticks:{ color:'#7a7060', maxRotation:0, autoSkip:true, maxTicksLimit:8, callback:v=>fmtTick(v,daySpan) },
           grid:{ color:'#2a2a2a' },
         },
-        y:{ ticks:{color:'#7a7060'}, grid:{color:'#2a2a2a'} }
+        y:{ ticks:{color:'#7a7060'}, grid:{color:c=>c.tick.value===0?'#888':'#2a2a2a', lineWidth:c=>c.tick.value===0?2:1} }
       }
     }
   });
