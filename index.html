@@ -164,6 +164,24 @@
   ::-webkit-scrollbar-track { background:var(--bg); }
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
+  /* FEEDBACK FORM */
+  .feedback-form { display:flex; flex-direction:column; gap:16px; max-width:560px; }
+  .feedback-form label { font-size:12px; color:var(--dim); letter-spacing:.1em; margin-bottom:4px; display:block; }
+  .feedback-form input[type=text],
+  .feedback-form textarea {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:'Noto Sans JP',sans-serif;
+    font-size:13px; padding:10px 14px; resize:vertical; transition:border-color .2s;
+  }
+  .feedback-form input[type=text]:focus,
+  .feedback-form textarea:focus { outline:none; border-color:var(--accent); }
+  .feedback-form textarea { min-height:120px; }
+  .feedback-submit {
+    align-self:flex-start; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--dim); font-family:'Noto Sans JP',sans-serif;
+    font-size:13px; padding:9px 28px; cursor:not-allowed; opacity:.5;
+  }
+
   /* ── MOBILE ── */
   @media(max-width:640px){
     header { padding: 0 12px; height: 48px; }
@@ -218,6 +236,7 @@
     <button onclick="showSection('member')">個人</button>
     <button onclick="showSection('graph')">グラフ</button>
     <button onclick="showSection('history')">履歴</button>
+    <button onclick="showSection('feedback')">意見</button>
   </nav>
 </header>
 
@@ -290,6 +309,24 @@
           <tbody id="hist-body"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- 意見フォーム -->
+  <div id="sec-feedback" class="section">
+    <div class="card">
+      <div class="card-title">意見・要望</div>
+      <form class="feedback-form" onsubmit="return false">
+        <div>
+          <label for="fb-name">名前</label>
+          <input type="text" id="fb-name" placeholder="名前を入力">
+        </div>
+        <div>
+          <label for="fb-message">内容</label>
+          <textarea id="fb-message" placeholder="意見・要望を入力"></textarea>
+        </div>
+        <button class="feedback-submit" disabled>送信（準備中）</button>
+      </form>
     </div>
   </div>
 </main>
@@ -469,7 +506,7 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'意見'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
