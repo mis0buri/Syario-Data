@@ -548,6 +548,7 @@ function showSection(id) {
   document.getElementById('sec-'+id).classList.add('active');
   const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ふつおた'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
+  document.querySelector('.period-bar').style.display = id==='feedback' ? 'none' : '';
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
 }
