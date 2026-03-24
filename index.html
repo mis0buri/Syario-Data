@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>シャリオ STATS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="./schedule.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
 
@@ -154,6 +155,42 @@
 
   .empty { text-align:center; padding:60px 20px; color:var(--dim); font-size:14px; }
 
+  /* SCHEDULE CALENDAR */
+  .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .cal-month-label { font-family:'Noto Serif JP',serif; font-size:15px; color:var(--accent); letter-spacing:.05em; }
+  .cal-nav { background:none; border:1px solid var(--border); color:var(--dim); border-radius:6px; padding:4px 12px; cursor:pointer; font-size:16px; transition:all .2s; }
+  .cal-nav:hover { border-color:var(--accent); color:var(--text); }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-dayname { text-align:center; font-size:11px; color:var(--dim); padding:4px 0 8px; }
+  .cal-dayname.sun { color:#e06c75; }
+  .cal-dayname.sat { color:#61afef; }
+  .cal-cell { border-radius:8px; padding:8px 6px 10px; min-height:64px; display:flex; flex-direction:column; gap:4px; background:var(--surface2); border:1px solid transparent; }
+  .cal-cell.empty-cell { background:none; border-color:transparent; }
+  .cal-cell.mark-open  { background:rgba(152,195,121,.12); border-color:rgba(152,195,121,.35); }
+  .cal-cell.mark-half  { background:rgba(97,175,239,.10); border-color:rgba(97,175,239,.30); }
+  .cal-cell.mark-short { background:rgba(229,192,123,.12); border-color:rgba(229,192,123,.35); }
+  .cal-cell.mark-closed{ background:rgba(224,108,117,.10); border-color:rgba(224,108,117,.25); }
+  .cal-cell.today { box-shadow:0 0 0 2px var(--accent); }
+  .cal-daynum { font-size:11px; color:var(--dim); line-height:1; }
+  .cal-daynum.sun { color:#e06c75; }
+  .cal-daynum.sat { color:#61afef; }
+  .cal-mark { font-size:17px; line-height:1; text-align:center; }
+  .cal-mark.mark-open  { color:#98c379; }
+  .cal-mark.mark-half  { color:#61afef; }
+  .cal-mark.mark-short { color:#e5c07b; }
+  .cal-mark.mark-closed{ color:#e06c75; }
+  .cal-note { font-size:10px; color:var(--dim); line-height:1.3; }
+  .cal-legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+  .cal-legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim); }
+  @media(max-width:640px){
+    .cal-cell { min-height:52px; padding:6px 4px 8px; gap:3px; }
+    .cal-mark { font-size:15px; }
+    .cal-note { font-size:9px; }
+    .cal-daynum { font-size:10px; }
+    .cal-legend { gap:10px; margin-top:12px; }
+    .cal-legend-item { font-size:11px; }
+  }
+
   /* LOADING */
   #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; transition:opacity .4s; }
   #loading .ld-logo { font-family:'Noto Serif JP',serif; font-size:36px; font-weight:900; color:var(--accent); margin-bottom:24px; letter-spacing:.2em; }
@@ -278,6 +315,7 @@
     <button onclick="showSection('member')">個人</button>
     <button onclick="showSection('graph')">グラフ</button>
     <button onclick="showSection('history')">履歴</button>
+    <button onclick="showSection('schedule')">営業予定</button>
     <button onclick="showSection('feedback')">ご意見</button>
   </nav>
 </header>
@@ -350,6 +388,25 @@
           <thead id="hist-head"></thead>
           <tbody id="hist-body"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 営業予定 -->
+  <div id="sec-schedule" class="section">
+    <div class="card">
+      <div class="card-title">営業予定</div>
+      <div class="cal-header">
+        <button class="cal-nav" onclick="moveCalMonth(-1)">&#8249;</button>
+        <span class="cal-month-label" id="cal-month-label"></span>
+        <button class="cal-nav" onclick="moveCalMonth(1)">&#8250;</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-legend">
+        <div class="cal-legend-item"><span class="cal-mark mark-open">◎</span>終日営業</div>
+        <div class="cal-legend-item"><span class="cal-mark mark-half">〇</span>半日以上</div>
+        <div class="cal-legend-item"><span class="cal-mark mark-short">△</span>短時間のみ</div>
+        <div class="cal-legend-item"><span class="cal-mark mark-closed">×</span>お休み</div>
       </div>
     </div>
   </div>
@@ -581,11 +638,61 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ご意見'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',schedule:'営業予定',feedback:'ご意見'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
-  document.querySelector('.period-bar').style.display = id==='feedback' ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule') ? 'none' : '';
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
+  if (id==='schedule') renderCalendar();
+}
+
+// ── 営業予定カレンダー ──
+let calYear  = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-indexed
+
+function moveCalMonth(diff) {
+  calMonth += diff;
+  if (calMonth > 11) { calMonth = 0;  calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  document.getElementById('cal-month-label').textContent =
+    `${calYear}年 ${calMonth+1}月`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=日
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const MARKS = { '◎':'mark-open', '〇':'mark-half', '△':'mark-short', '×':'mark-closed' };
+  const DAYNAMES = ['日','月','火','水','木','金','土'];
+
+  let html = DAYNAMES.map((d,i)=>
+    `<div class="cal-dayname${i===0?' sun':i===6?' sat':''}">${d}</div>`
+  ).join('');
+
+  // 月初の空白
+  for (let i=0; i<firstDay; i++) html += `<div class="cal-cell empty-cell"></div>`;
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const entry   = SCHEDULE_DATA[dateStr];
+    const mark    = entry ? entry.mark  : '';
+    const note    = entry ? entry.note  : '';
+    const cls     = MARKS[mark] || '';
+    const dow     = new Date(calYear, calMonth, d).getDay();
+    const dowCls  = dow===0?' sun':dow===6?' sat':'';
+    const isToday = dateStr===todayStr ? ' today' : '';
+    html += `<div class="cal-cell ${cls}${isToday}">
+      <span class="cal-daynum${dowCls}">${d}</span>
+      ${mark ? `<span class="cal-mark ${cls}">${mark}</span>` : ''}
+      ${note ? `<span class="cal-note">${note}</span>` : ''}
+    </div>`;
+  }
+
+  document.getElementById('cal-grid').innerHTML = html;
 }
 
 // ── 総合ランキング ──
