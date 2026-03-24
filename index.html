@@ -573,11 +573,11 @@ function renderMemberDetail(m) {
   const bar = (items) => {
     const ps = items.map(it=>it.p);
     const mn = Math.min(...ps), mx = Math.max(...ps);
-    const scale = p => mn===mx ? 60 : 40 + (p-mn)/(mx-mn)*40;
+    const scale = p => mn===mx ? 25 : 10 + (p-mn)/(mx-mn)*30;
     return items.map(it=>`
     <div class="rank-bar-row">
       <span class="rank-bar-label">${it.l}</span>
-      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${scale(it.p).toFixed(1)}%;background:${it.c}"></div></div>
+      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${scale(it.p).toFixed(1)}px;background:${it.c}"></div></div>
       <span class="rank-bar-pct">${it.p.toFixed(1)}%<span class="rank-bar-cnt">${it.n}回</span></span>
     </div>`).join('');
   };
