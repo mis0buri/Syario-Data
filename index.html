@@ -236,7 +236,7 @@
     <button onclick="showSection('member')">個人</button>
     <button onclick="showSection('graph')">グラフ</button>
     <button onclick="showSection('history')">履歴</button>
-    <button onclick="showSection('feedback')">ご意見</button>
+    <button onclick="showSection('feedback')">ふつおた</button>
   </nav>
 </header>
 
@@ -506,7 +506,7 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ご意見'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ふつおた'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -543,14 +543,24 @@ function onMemberSortChange(val) {
   buildMemberButtons(stats, g);
 }
 
+function memberSortDisplay(m) {
+  if (memberSortKey === 'total4')    return { val: fmt(m.total4),  cls: sc(m.total4) };
+  if (memberSortKey === 'total3')    return { val: fmt(m.total3),  cls: sc(m.total3) };
+  if (memberSortKey === 'matchCount') return { val: (m.matchCount4+m.matchCount3)+'半荘', cls: '' };
+  return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
+}
+
 function buildMemberButtons(stats, gathers) {
   const sorted = [...stats].sort(memberSortFn);
-  document.getElementById('member-btns').innerHTML = sorted.map(m=>`
+  document.getElementById('member-btns').innerHTML = sorted.map(m=>{
+    const disp = memberSortDisplay(m);
+    return `
     <button class="member-btn${m.name===activeMemberName?' active':''}" onclick="selectMember('${m.name}')">
       <div class="m-name">${m.name}</div>
-      <div class="m-score ${sc(m.allTotal)}">${fmt(m.allTotal)}</div>
+      <div class="m-score ${disp.cls}">${disp.val}</div>
       <div class="m-count">${m.matchCount4+m.matchCount3}半荘</div>
-    </button>`).join('');
+    </button>`;
+  }).join('');
   const target = stats.find(m=>m.name===activeMemberName) || sorted[0];
   if (target) renderMemberDetail(target);
 }
