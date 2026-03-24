@@ -573,7 +573,7 @@ function renderMemberDetail(m) {
   const bar = (items) => {
     const ps = items.map(it=>it.p);
     const mn = Math.min(...ps), mx = Math.max(...ps);
-    const scale = p => mn===mx ? 60 : 20 + (p-mn)/(mx-mn)*80;
+    const scale = p => mn===mx ? 60 : 40 + (p-mn)/(mx-mn)*40;
     return items.map(it=>`
     <div class="rank-bar-row">
       <span class="rank-bar-label">${it.l}</span>
