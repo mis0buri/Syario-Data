@@ -32,7 +32,7 @@
   }
   .logo { font-family: 'Noto Serif JP', serif; font-size: 20px; font-weight: 900; color: var(--accent); letter-spacing: .15em; }
   .logo span { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 12px; }
-  nav { display: flex; gap: 4px; }
+  nav { display: flex; gap: 4px; overflow-x: auto; }
   nav button {
     background: none; border: none; color: var(--dim);
     font-family: 'Noto Sans JP', sans-serif; font-size: 13px;
@@ -240,6 +240,14 @@
 
     .hist-table { font-size: 11px; }
     .hist-table th, .hist-table td { padding: 6px 6px; }
+
+    .feedback-form { gap: 12px; }
+    .feedback-form input[type=text],
+    .feedback-form textarea { font-size: 16px; /* iOSズーム防止 */ }
+    .feedback-form textarea { min-height: 100px; }
+    .fb-file-label { font-size: 12px; padding: 7px 12px; }
+    .fb-preview-img { width: 60px; height: 60px; }
+    .feedback-submit { width: 100%; text-align: center; padding: 12px; }
   }
 </style>
 </head>
@@ -888,7 +896,7 @@ async function submitFeedback(e) {
   status.textContent = '送信中...';
 
   try {
-    const content = `**${name}**\n${message}`;
+    const content = `**名前：** ${name}\n**内容：** ${message}`;
     let res;
     if (fbFiles.length > 0) {
       const fd = new FormData();
