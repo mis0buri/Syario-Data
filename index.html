@@ -1232,6 +1232,9 @@ async function openDayDetail(dateStr) {
        ${note ? `<div class="rsv-date-note">${_escHtml(note)}</div>` : ''}
      </div>`;
 
+  const rsvBtn = document.querySelector('#rsv-detail .rsv-btn.primary');
+  if (rsvBtn) rsvBtn.style.display = mark === '×' ? 'none' : '';
+
   showRsvScreen('rsv-detail');
 
   const listEl = document.getElementById('rsv-detail-list');
