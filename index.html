@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>シャリオ STATS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="./schedule.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
 
@@ -646,12 +647,6 @@ function showSection(id) {
 }
 
 // ── 営業予定カレンダー ──
-// 記号: ◎=終日 〇=半日以上(note必須) △=短時間(note必須) ×=休み
-const SCHEDULE_DATA = {
-  // 例: '2026-03-25': { mark:'〇', note:'12時〜' },
-  // 以下にデータを追記してください
-};
-
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
 
