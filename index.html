@@ -167,6 +167,17 @@
   /* FEEDBACK FORM */
   .feedback-form { display:flex; flex-direction:column; gap:16px; max-width:560px; }
   .feedback-form label { font-size:12px; color:var(--dim); letter-spacing:.1em; margin-bottom:4px; display:block; }
+  .feedback-form select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 13px;
+    width: 100%;
+    cursor: pointer;
+  }
+  .feedback-form select:focus { outline: none; border-color: var(--accent); }
   .feedback-form input[type=text],
   .feedback-form textarea {
     width:100%; background:var(--surface2); border:1px solid var(--border);
@@ -243,6 +254,7 @@
 
     .feedback-form { gap: 12px; }
     .feedback-form input[type=text],
+    .feedback-form select,
     .feedback-form textarea { font-size: 16px; /* iOSズーム防止 */ }
     .feedback-form textarea { min-height: 100px; }
     .fb-file-label { font-size: 12px; padding: 7px 12px; }
@@ -265,7 +277,7 @@
     <button onclick="showSection('member')">個人</button>
     <button onclick="showSection('graph')">グラフ</button>
     <button onclick="showSection('history')">履歴</button>
-    <button onclick="showSection('feedback')">ふつおた</button>
+    <button onclick="showSection('feedback')">ご意見</button>
   </nav>
 </header>
 
@@ -349,6 +361,15 @@
         <div>
           <label for="fb-name">名前</label>
           <input type="text" id="fb-name" placeholder="名前を入力">
+        </div>
+        <div>
+          <label for="fb-category">種別</label>
+          <select id="fb-category">
+            <option value="ご意見・ご要望">ご意見・ご要望</option>
+            <option value="ふつおた">ふつおた</option>
+            <option value="悩み相談">悩み相談</option>
+            <option value="その他">その他</option>
+          </select>
         </div>
         <div>
           <label for="fb-message">内容</label>
@@ -559,7 +580,7 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ふつおた'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ご意見'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
   document.querySelector('.period-bar').style.display = id==='feedback' ? 'none' : '';
   if (id==='graph') renderChart(filteredGathers());
@@ -894,13 +915,14 @@ function buildHistory(gathers) {
 
 loadData();
 
-// ── ふつおた 送信 ──
+// ── ご意見 送信 ──
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1485897903431221330/HkGtTtH24xS2EmdxlGK_CkSoCp1rl8JnALHU_XhLpXHr3tggH0FioGsumKFYvBuOc3Mc';
 
 async function submitFeedback(e) {
   e.preventDefault();
-  const name    = document.getElementById('fb-name').value.trim() || '匿名';
-  const message = document.getElementById('fb-message').value.trim();
+  const name     = document.getElementById('fb-name').value.trim() || '匿名';
+  const category = document.getElementById('fb-category').value;
+  const message  = document.getElementById('fb-message').value.trim();
   const status  = document.getElementById('fb-status');
   const btn     = e.target.querySelector('.feedback-submit');
   if (!message) { status.style.color='var(--red)'; status.textContent='内容を入力してください。'; return; }
@@ -910,7 +932,7 @@ async function submitFeedback(e) {
   status.textContent = '送信中...';
 
   try {
-    const content = `**名前：** ${name}\n**内容：** ${message}`;
+    const content = `**名前：** ${name}\n**種別：** ${category}\n**内容：** ${message}`;
     let res;
     if (fbFiles.length > 0) {
       const fd = new FormData();
@@ -939,7 +961,7 @@ async function submitFeedback(e) {
   }
 }
 
-// ── ふつおた ファイル添付 ──
+// ── ご意見 ファイル添付 ──
 let fbFiles = [];
 
 function onFbFilesChange(input) {
