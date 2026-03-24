@@ -6,6 +6,8 @@
 <title>シャリオ STATS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="./schedule.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
 
@@ -190,6 +192,57 @@
     .cal-legend { gap:10px; margin-top:12px; }
     .cal-legend-item { font-size:11px; }
   }
+
+  /* RESERVATION MODALS */
+  .rsv-overlay { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.75); align-items:center; justify-content:center; padding:16px; }
+  .rsv-overlay.open { display:flex; }
+  .rsv-modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; width:100%; max-width:480px; max-height:85vh; overflow-y:auto; padding:24px; }
+  .rsv-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .rsv-title { font-family:'Noto Serif JP',serif; font-size:16px; color:var(--accent); letter-spacing:.1em; }
+  .rsv-close { background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all .2s; }
+  .rsv-close:hover { color:var(--text); background:var(--surface2); }
+  .rsv-screen { display:none; }
+  .rsv-screen.active { display:block; }
+  .rsv-date-info { background:var(--surface2); border-radius:10px; padding:14px 16px; margin-bottom:16px; display:flex; align-items:center; gap:12px; }
+  .rsv-date-label { font-size:15px; font-weight:700; }
+  .rsv-date-note { font-size:12px; color:var(--dim); margin-top:2px; }
+  .rsv-section-title { font-size:12px; color:var(--dim); letter-spacing:.1em; margin-bottom:10px; }
+  .rsv-card { background:var(--surface2); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
+  .rsv-card-name { font-size:14px; font-weight:700; margin-bottom:6px; }
+  .rsv-card-cats { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+  .rsv-tag { background:rgba(200,169,110,.15); border:1px solid rgba(200,169,110,.3); border-radius:4px; font-size:11px; color:var(--accent); padding:2px 8px; }
+  .rsv-card-note { font-size:12px; color:var(--dim); }
+  .rsv-empty { text-align:center; padding:20px; color:var(--dim); font-size:13px; }
+  .rsv-btn-row { display:flex; gap:10px; margin-top:16px; }
+  .rsv-btn { flex:1; padding:11px; border-radius:8px; font-family:'Noto Sans JP',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; border:1px solid; }
+  .rsv-btn.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:700; }
+  .rsv-btn.primary:hover { opacity:.85; }
+  .rsv-btn.primary:disabled { opacity:.5; cursor:not-allowed; }
+  .rsv-btn.secondary { background:none; color:var(--text); border-color:var(--border); }
+  .rsv-btn.secondary:hover { border-color:var(--accent); color:var(--accent); }
+  .rsv-form-group { margin-bottom:16px; }
+  .rsv-label { font-size:12px; color:var(--dim); margin-bottom:7px; display:block; }
+  .rsv-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; }
+  .rsv-input:focus { outline:none; border-color:var(--accent); }
+  .rsv-checkbox-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .rsv-checkbox-item { display:flex; align-items:center; gap:8px; background:var(--surface2); border-radius:8px; padding:10px 12px; cursor:pointer; border:1px solid transparent; transition:all .2s; }
+  .rsv-checkbox-item:hover { border-color:var(--border); }
+  .rsv-checkbox-item input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; flex-shrink:0; }
+  .rsv-checkbox-item span { font-size:13px; }
+  .rsv-other-wrap { display:none; margin-top:8px; }
+  .rsv-textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; min-height:80px; resize:vertical; }
+  .rsv-textarea:focus { outline:none; border-color:var(--accent); }
+  .rsv-confirm-row { display:flex; justify-content:space-between; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; gap:12px; }
+  .rsv-confirm-row:last-child { border-bottom:none; }
+  .rsv-confirm-key { color:var(--dim); flex-shrink:0; }
+  .rsv-confirm-val { color:var(--text); text-align:right; word-break:break-word; }
+  .rsv-list-item { padding:12px 14px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .2s; border-radius:8px; }
+  .rsv-list-item:hover { background:var(--surface2); }
+  .rsv-list-date { font-size:14px; font-weight:700; margin-bottom:3px; }
+  .rsv-list-count { font-size:12px; color:var(--dim); }
+  .cal-cell.clickable { cursor:pointer; }
+  .cal-cell.clickable:hover { border-color:var(--accent) !important; }
+  .rsv-list-btn-wrap { margin-bottom:12px; display:flex; justify-content:flex-end; }
 
   /* LOADING */
   #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; transition:opacity .4s; }
@@ -394,6 +447,9 @@
 
   <!-- 営業予定 -->
   <div id="sec-schedule" class="section">
+    <div class="rsv-list-btn-wrap">
+      <button class="rsv-btn secondary" style="flex:none;padding:8px 18px;" onclick="openReservationList()">予約一覧</button>
+    </div>
     <div class="card">
       <div class="card-title">営業予定</div>
       <div class="cal-header">
@@ -685,7 +741,7 @@ function renderCalendar() {
     const dow     = new Date(calYear, calMonth, d).getDay();
     const dowCls  = dow===0?' sun':dow===6?' sat':'';
     const isToday = dateStr===todayStr ? ' today' : '';
-    html += `<div class="cal-cell ${cls}${isToday}">
+    html += `<div class="cal-cell ${cls}${isToday} clickable" onclick="openDayDetail('${dateStr}')">
       <span class="cal-daynum${dowCls}">${d}</span>
       ${mark ? `<span class="cal-mark ${cls}">${mark}</span>` : ''}
       ${note ? `<span class="cal-note">${note}</span>` : ''}
@@ -1106,6 +1162,293 @@ function renderFbFiles() {
     </div>`;
   }).join('');
 }
+
+// ── Firebase 予約機能 ──
+// ★ 下記のFIREBASE_CONFIGにFirebaseコンソールで取得した値を入力してください ★
+// https://console.firebase.google.com/ でプロジェクト作成 → Firestoreを有効化 →
+// プロジェクト設定 → マイアプリ → ウェブアプリを追加 → SDK設定のconfigをコピー
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDG2F8MDiSpNZWfcISJVCI5kAWaJYF0B7k",
+  authDomain: "syariodate.firebaseapp.com",
+  projectId: "syariodate",
+  storageBucket: "syariodate.firebasestorage.app",
+  messagingSenderId: "494285110412",
+  appId: "1:494285110412:web:ee00a71bd8866a68890fa9"
+};
+
+let _db = null;
+
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      _db = firebase.firestore();
+    }
+  } catch(e) {
+    console.warn('Firebase init error:', e);
+  }
+}
+
+let rsvCurrentDate = null;
+let rsvPendingData = null;
+
+function _escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showRsvScreen(id) {
+  document.querySelectorAll('.rsv-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('rsv-overlay').classList.add('open');
+}
+
+function closeRsvModal() {
+  document.getElementById('rsv-overlay').classList.remove('open');
+  rsvCurrentDate = null;
+  rsvPendingData = null;
+}
+
+function rsvOverlayClick(e) {
+  if (e.target === document.getElementById('rsv-overlay')) closeRsvModal();
+}
+
+async function openDayDetail(dateStr) {
+  rsvCurrentDate = dateStr;
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+  const entry = SCHEDULE_DATA[dateStr];
+  const MARK_CSS = { '◎':'mark-open', '〇':'mark-half', '△':'mark-short', '×':'mark-closed' };
+  const MARK_LABELS = { '◎':'終日営業', '〇':'半日以上', '△':'短時間のみ', '×':'お休み' };
+  const mark = entry ? entry.mark : '';
+  const note = entry ? entry.note : '';
+
+  document.getElementById('rsv-detail-title').textContent = `${y}年${m}月${d}日`;
+  document.getElementById('rsv-detail-info').innerHTML =
+    `${mark ? `<span class="cal-mark ${MARK_CSS[mark]||''}" style="font-size:26px">${mark}</span>` : ''}
+     <div>
+       <div class="rsv-date-label">${MARK_LABELS[mark] || '未定'}</div>
+       ${note ? `<div class="rsv-date-note">${_escHtml(note)}</div>` : ''}
+     </div>`;
+
+  showRsvScreen('rsv-detail');
+
+  const listEl = document.getElementById('rsv-detail-list');
+  listEl.innerHTML = '<div class="rsv-empty">読み込み中...</div>';
+
+  if (!_db) {
+    listEl.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">Firebase未設定（FIREBASE_CONFIGを入力してください）</div>';
+    return;
+  }
+  try {
+    const snap = await _db.collection('reservations')
+      .where('date', '==', dateStr)
+      .orderBy('createdAt', 'asc')
+      .get();
+    if (snap.empty) {
+      listEl.innerHTML = '<div class="rsv-empty">まだ予約はありません</div>';
+    } else {
+      listEl.innerHTML = snap.docs.map(doc => {
+        const dta = doc.data();
+        const name = dta.name || '匿名';
+        const cats = dta.categories || [];
+        const otherText = dta.otherText || '';
+        const rNote = dta.note || '';
+        const displayCats = cats.map(c => c === 'その他' && otherText ? `その他(${_escHtml(otherText)})` : _escHtml(c));
+        return `<div class="rsv-card">
+          <div class="rsv-card-name">${_escHtml(name)}</div>
+          ${displayCats.length ? `<div class="rsv-card-cats">${displayCats.map(c=>`<span class="rsv-tag">${c}</span>`).join('')}</div>` : ''}
+          ${rNote ? `<div class="rsv-card-note">${_escHtml(rNote)}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    listEl.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">読み込みエラー</div>';
+    console.error(e);
+  }
+}
+
+function openReservationForm() {
+  document.getElementById('rsv-name').value = '';
+  document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => c.checked = false);
+  document.getElementById('rsv-other-text').value = '';
+  document.getElementById('rsv-other-wrap').style.display = 'none';
+  document.getElementById('rsv-note').value = '';
+  showRsvScreen('rsv-form');
+}
+
+function toggleOtherInput() {
+  const checked = document.getElementById('rsv-other-check').checked;
+  document.getElementById('rsv-other-wrap').style.display = checked ? 'block' : 'none';
+}
+
+function backToDetail() { showRsvScreen('rsv-detail'); }
+function backToForm()   { showRsvScreen('rsv-form'); }
+
+function showReservationConfirm(e) {
+  e.preventDefault();
+  const name = document.getElementById('rsv-name').value.trim() || '匿名';
+  const cats = [...document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]:checked')].map(c => c.value);
+  const otherText = document.getElementById('rsv-other-text').value.trim();
+  const note = document.getElementById('rsv-note').value.trim();
+  rsvPendingData = { name, categories: cats, otherText, note };
+
+  const parts = rsvCurrentDate.split('-');
+  const dateLabel = `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+  const displayCats = cats.map(c => c === 'その他' && otherText ? `その他(${otherText})` : c);
+
+  document.getElementById('rsv-confirm-content').innerHTML = `
+    <div class="rsv-confirm-row"><span class="rsv-confirm-key">日付</span><span class="rsv-confirm-val">${dateLabel}</span></div>
+    <div class="rsv-confirm-row"><span class="rsv-confirm-key">お名前</span><span class="rsv-confirm-val">${_escHtml(name)}</span></div>
+    <div class="rsv-confirm-row"><span class="rsv-confirm-key">種別</span><span class="rsv-confirm-val">${displayCats.length ? _escHtml(displayCats.join('、')) : 'なし'}</span></div>
+    ${note ? `<div class="rsv-confirm-row"><span class="rsv-confirm-key">備考</span><span class="rsv-confirm-val">${_escHtml(note)}</span></div>` : ''}
+  `;
+  showRsvScreen('rsv-confirm');
+}
+
+async function submitReservation() {
+  if (!_db) { alert('Firebase未設定のため保存できません'); return; }
+  if (!rsvPendingData || !rsvCurrentDate) return;
+  const btn = document.getElementById('rsv-submit-btn');
+  btn.disabled = true;
+  btn.textContent = '送信中...';
+  try {
+    await _db.collection('reservations').add({
+      date: rsvCurrentDate,
+      name: rsvPendingData.name,
+      categories: rsvPendingData.categories,
+      otherText: rsvPendingData.otherText,
+      note: rsvPendingData.note,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeRsvModal();
+    alert('予約が完了しました！');
+  } catch(err) {
+    alert('保存に失敗しました: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = '確定する';
+  }
+}
+
+async function openReservationList() {
+  showRsvScreen('rsv-list-screen');
+  const content = document.getElementById('rsv-list-content');
+  content.innerHTML = '<div class="rsv-empty">読み込み中...</div>';
+  if (!_db) {
+    content.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">Firebase未設定</div>';
+    return;
+  }
+  try {
+    const snap = await _db.collection('reservations')
+      .orderBy('date', 'asc')
+      .orderBy('createdAt', 'asc')
+      .get();
+    if (snap.empty) {
+      content.innerHTML = '<div class="rsv-empty">予約はまだありません</div>';
+      return;
+    }
+    const grouped = {};
+    snap.docs.forEach(doc => {
+      const dta = doc.data();
+      if (!grouped[dta.date]) grouped[dta.date] = [];
+      grouped[dta.date].push(dta);
+    });
+    content.innerHTML = Object.entries(grouped).map(([dateStr, rsvs]) => {
+      const p = dateStr.split('-');
+      const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
+      return `<div class="rsv-list-item" onclick="closeRsvModal();setTimeout(()=>openDayDetail('${dateStr}'),80)">
+        <div class="rsv-list-date">${dateLabel}</div>
+        <div class="rsv-list-count">${rsvs.length}件の予約</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    content.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">読み込みエラー</div>';
+    console.error(e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initFirebase);
 </script>
+
+<!-- ── 予約モーダル ── -->
+<div id="rsv-overlay" class="rsv-overlay" onclick="rsvOverlayClick(event)">
+  <div class="rsv-modal">
+
+    <!-- 日付詳細 -->
+    <div id="rsv-detail" class="rsv-screen">
+      <div class="rsv-header">
+        <span class="rsv-title" id="rsv-detail-title"></span>
+        <button class="rsv-close" onclick="closeRsvModal()">✕</button>
+      </div>
+      <div id="rsv-detail-info" class="rsv-date-info"></div>
+      <div class="rsv-section-title">登録済み予約</div>
+      <div id="rsv-detail-list"></div>
+      <div class="rsv-btn-row">
+        <button class="rsv-btn primary" onclick="openReservationForm()">予約する</button>
+      </div>
+    </div>
+
+    <!-- 予約フォーム -->
+    <div id="rsv-form" class="rsv-screen">
+      <div class="rsv-header">
+        <span class="rsv-title">予約フォーム</span>
+        <button class="rsv-close" onclick="closeRsvModal()">✕</button>
+      </div>
+      <form onsubmit="showReservationConfirm(event)">
+        <div class="rsv-form-group">
+          <label class="rsv-label">お名前（匿名可）</label>
+          <input type="text" id="rsv-name" class="rsv-input" placeholder="匿名">
+        </div>
+        <div class="rsv-form-group">
+          <label class="rsv-label">種別（複数選択可）</label>
+          <div class="rsv-checkbox-grid">
+            <label class="rsv-checkbox-item"><input type="checkbox" value="麻雀"><span>麻雀</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="ダーツ"><span>ダーツ</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="キチ散歩"><span>キチ散歩</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="じゃれ本"><span>じゃれ本</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="ボドゲ"><span>ボドゲ</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="飲み会"><span>飲み会</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" id="rsv-other-check" value="その他" onchange="toggleOtherInput()"><span>その他</span></label>
+          </div>
+          <div class="rsv-other-wrap" id="rsv-other-wrap">
+            <input type="text" id="rsv-other-text" class="rsv-input" placeholder="内容を入力（空欄でも可）">
+          </div>
+        </div>
+        <div class="rsv-form-group">
+          <label class="rsv-label">備考</label>
+          <textarea id="rsv-note" class="rsv-textarea" placeholder="自由に入力（任意）"></textarea>
+        </div>
+        <div class="rsv-btn-row">
+          <button type="button" class="rsv-btn secondary" onclick="backToDetail()">戻る</button>
+          <button type="submit" class="rsv-btn primary">確認する</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 確認画面 -->
+    <div id="rsv-confirm" class="rsv-screen">
+      <div class="rsv-header">
+        <span class="rsv-title">予約確認</span>
+        <button class="rsv-close" onclick="closeRsvModal()">✕</button>
+      </div>
+      <div id="rsv-confirm-content"></div>
+      <div class="rsv-btn-row">
+        <button class="rsv-btn secondary" onclick="backToForm()">戻る</button>
+        <button class="rsv-btn primary" id="rsv-submit-btn" onclick="submitReservation()">確定する</button>
+      </div>
+    </div>
+
+    <!-- 予約一覧 -->
+    <div id="rsv-list-screen" class="rsv-screen">
+      <div class="rsv-header">
+        <span class="rsv-title">予約一覧</span>
+        <button class="rsv-close" onclick="closeRsvModal()">✕</button>
+      </div>
+      <div id="rsv-list-content"></div>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>
