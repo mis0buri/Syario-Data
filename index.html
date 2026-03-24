@@ -571,9 +571,7 @@ function selectMember(name) {
 function renderMemberDetail(m) {
   activeMemberName = m.name;
   const bar = (items) => {
-    const ps = items.map(it=>it.p);
-    const mn = Math.min(...ps), mx = Math.max(...ps);
-    const scale = p => mn===mx ? 25 : 10 + (p-mn)/(mx-mn)*30;
+    const scale = p => Math.min(100, Math.max(0, (p-10)/30*100));
     return items.map(it=>`
     <div class="rank-bar-row">
       <span class="rank-bar-label">${it.l}</span>
