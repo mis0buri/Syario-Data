@@ -181,6 +181,24 @@
     border-radius:8px; color:var(--dim); font-family:'Noto Sans JP',sans-serif;
     font-size:13px; padding:9px 28px; cursor:not-allowed; opacity:.5;
   }
+  .fb-file-label {
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+    color:var(--dim); font-size:13px; padding:8px 16px; cursor:pointer; transition:all .2s;
+  }
+  .fb-file-label:hover { border-color:var(--accent); color:var(--text); }
+  .fb-file-input { display:none; }
+  .fb-file-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .fb-file-chip {
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:20px;
+    font-size:12px; color:var(--dim); padding:4px 10px; max-width:220px;
+  }
+  .fb-file-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fb-file-remove { cursor:pointer; font-size:14px; color:var(--dim); flex-shrink:0; line-height:1; }
+  .fb-file-remove:hover { color:var(--red); }
+  .fb-preview-wrap { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .fb-preview-img { width:72px; height:72px; object-fit:cover; border-radius:6px; border:1px solid var(--border); }
 
   /* ── MOBILE ── */
   @media(max-width:640px){
@@ -324,6 +342,16 @@
         <div>
           <label for="fb-message">内容</label>
           <textarea id="fb-message" placeholder="ご意見・ご要望を入力"></textarea>
+        </div>
+        <div>
+          <label>添付ファイル</label>
+          <label class="fb-file-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            ファイルを選択
+            <input type="file" id="fb-files" class="fb-file-input" multiple accept="image/*,video/*,.pdf,.txt,.zip" onchange="onFbFilesChange(this)">
+          </label>
+          <div class="fb-preview-wrap" id="fb-preview-wrap"></div>
+          <div class="fb-file-list" id="fb-file-list"></div>
         </div>
         <button class="feedback-submit" disabled>送信（準備中）</button>
       </form>
@@ -546,7 +574,7 @@ function onMemberSortChange(val) {
 function memberSortDisplay(m) {
   if (memberSortKey === 'total4')    return { val: fmt(m.total4),  cls: sc(m.total4) };
   if (memberSortKey === 'total3')    return { val: fmt(m.total3),  cls: sc(m.total3) };
-  if (memberSortKey === 'matchCount') return { val: (m.matchCount4+m.matchCount3)+'半荘', cls: '' };
+  if (memberSortKey === 'matchCount') return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
   return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
 }
 
@@ -839,6 +867,44 @@ function buildHistory(gathers) {
 
 
 loadData();
+
+// ── ふつおた ファイル添付 ──
+let fbFiles = [];
+
+function onFbFilesChange(input) {
+  Array.from(input.files).forEach(f => { if (!fbFiles.find(x=>x.name===f.name&&x.size===f.size)) fbFiles.push(f); });
+  input.value = '';
+  renderFbFiles();
+}
+
+function removeFbFile(idx) {
+  fbFiles.splice(idx, 1);
+  renderFbFiles();
+}
+
+function renderFbFiles() {
+  const previewWrap = document.getElementById('fb-preview-wrap');
+  const listWrap = document.getElementById('fb-file-list');
+  const imgs = fbFiles.filter(f=>f.type.startsWith('image/'));
+  const others = fbFiles.filter(f=>!f.type.startsWith('image/'));
+
+  previewWrap.innerHTML = imgs.map((f,i)=>{
+    const url = URL.createObjectURL(f);
+    const idx = fbFiles.indexOf(f);
+    return `<div style="position:relative;display:inline-block;">
+      <img class="fb-preview-img" src="${url}" alt="${f.name}">
+      <span class="fb-file-remove" style="position:absolute;top:-4px;right:-4px;background:var(--surface);border-radius:50%;padding:1px 4px;" onclick="removeFbFile(${idx})">×</span>
+    </div>`;
+  }).join('');
+
+  listWrap.innerHTML = others.map((f)=>{
+    const idx = fbFiles.indexOf(f);
+    return `<div class="fb-file-chip">
+      <span>${f.name}</span>
+      <span class="fb-file-remove" onclick="removeFbFile(${idx})">×</span>
+    </div>`;
+  }).join('');
+}
 </script>
 </body>
 </html>
