@@ -32,7 +32,8 @@
   }
   .logo { font-family: 'Noto Serif JP', serif; font-size: 20px; font-weight: 900; color: var(--accent); letter-spacing: .15em; }
   .logo span { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 12px; }
-  nav { display: flex; gap: 4px; overflow-x: auto; }
+  nav { display: flex; gap: 4px; overflow-x: auto; flex-wrap: nowrap; }
+  nav button { white-space: nowrap; flex-shrink: 0; }
   nav button {
     background: none; border: none; color: var(--dim);
     font-family: 'Noto Sans JP', sans-serif; font-size: 13px;
@@ -367,7 +368,7 @@
           <select id="fb-category">
             <option value="ご意見・ご要望">ご意見・ご要望</option>
             <option value="ふつおた">ふつおた</option>
-            <option value="悩み相談">悩み相談</option>
+            <option value="お悩み相談">お悩み相談</option>
             <option value="その他">その他</option>
           </select>
         </div>
