@@ -570,12 +570,17 @@ function selectMember(name) {
 
 function renderMemberDetail(m) {
   activeMemberName = m.name;
-  const bar = (items) => items.map(it=>`
+  const bar = (items) => {
+    const ps = items.map(it=>it.p);
+    const mn = Math.min(...ps), mx = Math.max(...ps);
+    const scale = p => mn===mx ? 60 : 20 + (p-mn)/(mx-mn)*80;
+    return items.map(it=>`
     <div class="rank-bar-row">
       <span class="rank-bar-label">${it.l}</span>
-      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${it.p}%;background:${it.c}"></div></div>
+      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${scale(it.p).toFixed(1)}%;background:${it.c}"></div></div>
       <span class="rank-bar-pct">${it.p.toFixed(1)}%<span class="rank-bar-cnt">${it.n}回</span></span>
     </div>`).join('');
+  };
   document.getElementById('member-detail').innerHTML = `
     <div class="card">
       <div class="card-title">${m.name}</div>
