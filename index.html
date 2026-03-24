@@ -424,6 +424,16 @@ function initPeriod() {
   filterEnd   = toDate(dates[dates.length-1]);
   document.getElementById('filter-start').value = dateStr(filterStart);
   document.getElementById('filter-end').value   = dateStr(filterEnd);
+
+  const years = [...new Set(dates.map(d=>d.slice(0,4)))].sort();
+  const btns = document.querySelector('.period-btns');
+  years.forEach(y => {
+    const b = document.createElement('button');
+    b.className = 'period-preset';
+    b.textContent = y+'年';
+    b.onclick = () => setPeriod('year:'+y);
+    btns.appendChild(b);
+  });
 }
 
 function onPeriodChange() {
@@ -440,6 +450,9 @@ function setPeriod(preset) {
   if (preset==='all') {
     const dates = DATA.gathers.map(g=>g.date).sort();
     start = toDate(dates[0]); end = toDate(dates[dates.length-1]);
+  } else if (preset.startsWith('year:')) {
+    const y = parseInt(preset.slice(5));
+    start = new Date(y,0,1); end = new Date(y,11,31);
   } else if (preset==='year') {
     start = new Date(now.getFullYear(),0,1);
   } else if (preset==='6m') {
