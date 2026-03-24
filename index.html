@@ -393,7 +393,7 @@ const sc  = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
 const fmt = v => v > 0 ? '+'+v : String(v);
 const fmtPct = v => (v*100).toFixed(1)+'%';
 const toDate = s => new Date(s);
-const dateStr = d => d.toISOString().slice(0,10);
+const dateStr = d => { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
 const rankBadge = r => { const c=r===1?'r1':r===2?'r2':r===3?'r3':'rn'; return `<span class="rank-badge ${c}">${r}</span>`; };
 
 // ── データ読み込み ──
