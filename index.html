@@ -236,7 +236,7 @@
     <button onclick="showSection('member')">個人</button>
     <button onclick="showSection('graph')">グラフ</button>
     <button onclick="showSection('history')">履歴</button>
-    <button onclick="showSection('feedback')">意見</button>
+    <button onclick="showSection('feedback')">ご意見</button>
   </nav>
 </header>
 
@@ -312,10 +312,10 @@
     </div>
   </div>
 
-  <!-- 意見フォーム -->
+  <!-- ご意見・ご要望フォーム -->
   <div id="sec-feedback" class="section">
     <div class="card">
-      <div class="card-title">意見・要望</div>
+      <div class="card-title">ご意見・ご要望</div>
       <form class="feedback-form" onsubmit="return false">
         <div>
           <label for="fb-name">名前</label>
@@ -323,7 +323,7 @@
         </div>
         <div>
           <label for="fb-message">内容</label>
-          <textarea id="fb-message" placeholder="意見・要望を入力"></textarea>
+          <textarea id="fb-message" placeholder="ご意見・ご要望を入力"></textarea>
         </div>
         <button class="feedback-submit" disabled>送信（準備中）</button>
       </form>
@@ -506,7 +506,7 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'意見'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',feedback:'ご意見'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
