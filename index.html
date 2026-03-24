@@ -178,9 +178,12 @@
   .feedback-form textarea { min-height:120px; }
   .feedback-submit {
     align-self:flex-start; background:var(--surface2); border:1px solid var(--border);
-    border-radius:8px; color:var(--dim); font-family:'Noto Sans JP',sans-serif;
-    font-size:13px; padding:9px 28px; cursor:not-allowed; opacity:.5;
+    border-radius:8px; color:var(--text); font-family:'Noto Sans JP',sans-serif;
+    font-size:13px; padding:9px 28px; cursor:pointer; transition:all .2s;
   }
+  .feedback-submit:hover { border-color:var(--accent); color:var(--accent); }
+  .feedback-submit:disabled { cursor:not-allowed; opacity:.4; color:var(--dim); border-color:var(--border); }
+  #fb-status { font-size:13px; padding:8px 0; }
   .fb-file-label {
     display:inline-flex; align-items:center; gap:6px;
     background:var(--surface2); border:1px solid var(--border); border-radius:8px;
@@ -334,7 +337,7 @@
   <div id="sec-feedback" class="section">
     <div class="card">
       <div class="card-title">ご意見・ご要望</div>
-      <form class="feedback-form" onsubmit="return false">
+      <form class="feedback-form" onsubmit="submitFeedback(event)">
         <div>
           <label for="fb-name">名前</label>
           <input type="text" id="fb-name" placeholder="名前を入力">
@@ -353,7 +356,8 @@
           <div class="fb-preview-wrap" id="fb-preview-wrap"></div>
           <div class="fb-file-list" id="fb-file-list"></div>
         </div>
-        <button class="feedback-submit" disabled>送信（準備中）</button>
+        <div id="fb-status"></div>
+        <button class="feedback-submit" type="submit">送信</button>
       </form>
     </div>
   </div>
@@ -867,6 +871,51 @@ function buildHistory(gathers) {
 
 
 loadData();
+
+// ── ふつおた 送信 ──
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1485897903431221330/HkGtTtH24xS2EmdxlGK_CkSoCp1rl8JnALHU_XhLpXHr3tggH0FioGsumKFYvBuOc3Mc';
+
+async function submitFeedback(e) {
+  e.preventDefault();
+  const name    = document.getElementById('fb-name').value.trim() || '匿名';
+  const message = document.getElementById('fb-message').value.trim();
+  const status  = document.getElementById('fb-status');
+  const btn     = e.target.querySelector('.feedback-submit');
+  if (!message) { status.style.color='var(--red)'; status.textContent='内容を入力してください。'; return; }
+
+  btn.disabled = true;
+  status.style.color = 'var(--dim)';
+  status.textContent = '送信中...';
+
+  try {
+    const content = `**${name}**\n${message}`;
+    let res;
+    if (fbFiles.length > 0) {
+      const fd = new FormData();
+      fd.append('payload_json', JSON.stringify({ content }));
+      fbFiles.slice(0, 10).forEach((f, i) => fd.append(`files[${i}]`, f, f.name));
+      res = await fetch(WEBHOOK_URL, { method:'POST', body: fd });
+    } else {
+      res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      });
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    status.style.color = 'var(--green)';
+    status.textContent = '送信しました！';
+    document.getElementById('fb-name').value = '';
+    document.getElementById('fb-message').value = '';
+    fbFiles = [];
+    renderFbFiles();
+  } catch(err) {
+    status.style.color = 'var(--red)';
+    status.textContent = '送信に失敗しました: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 // ── ふつおた ファイル添付 ──
 let fbFiles = [];
