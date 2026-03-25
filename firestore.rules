@@ -1,19 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // 管理者チェック用ヘルパー
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     match /reservations/{docId} {
       allow read, create: if true;
-      allow update, delete: if true;
+      allow update: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
+      allow delete: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
     }
+
     match /board_comments/{docId} {
       allow read, create: if true;
     }
+
     match /renban_events/{docId} {
       allow read, create: if true;
+      allow delete: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
       match /participants/{partId} {
         allow read, create: if true;
+        allow delete: if request.auth != null &&
+          (resource.data.uid == request.auth.uid || isAdmin());
       }
     }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /admins/{userId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read: if true;
     }
