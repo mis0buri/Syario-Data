@@ -224,6 +224,8 @@
   .rsv-btn.primary:disabled { opacity:.5; cursor:not-allowed; }
   .rsv-btn.secondary { background:none; color:var(--text); border-color:var(--border); }
   .rsv-btn.secondary:hover { border-color:var(--accent); color:var(--accent); }
+  .rsv-btn.x-post { background:none; color:#1d9bf0; border-color:#1d9bf0; font-weight:700; flex:none; padding:11px 18px; }
+  .rsv-btn.x-post:hover { background:rgba(29,155,240,.1); }
   .rsv-form-group { margin-bottom:16px; }
   .rsv-label { font-size:12px; color:var(--dim); margin-bottom:7px; display:block; }
   .rsv-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; }
@@ -1266,6 +1268,7 @@ function initFirebase() {
 }
 
 let rsvCurrentDate = null;
+let _currentDayRsvData = [];
 let rsvPendingData = null;
 let rsvFromDetail = false;
 
@@ -1328,6 +1331,11 @@ async function openDayDetail(dateStr) {
       .where('date', '==', dateStr)
       .orderBy('createdAt', 'asc')
       .get();
+    _currentDayRsvData = snap.docs.map(doc => {
+      const dta = doc.data();
+      const cats = (dta.categories || []).map(c => c === 'その他' && dta.otherText ? `その他(${dta.otherText})` : c);
+      return { name: dta.name || '匿名', cats };
+    });
     if (snap.empty) {
       listEl.innerHTML = '<div class="rsv-empty">まだ予約はありません</div>';
     } else {
@@ -1356,6 +1364,92 @@ async function openDayDetail(dateStr) {
     listEl.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">読み込みエラー</div>';
     console.error(e);
   }
+}
+
+async function postToX() {
+  const dateStr = rsvCurrentDate;
+  if (!dateStr) return;
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0]), mo = parseInt(parts[1]), d = parseInt(parts[2]);
+  const entry = SCHEDULE_DATA[dateStr];
+  const MARK_LABELS = { '◎':'終日営業', '〇':'半日以上', '△':'短時間のみ', '×':'お休み' };
+  const MARK_COLORS = { '◎':'#98c379', '〇':'#61afef', '△':'#e5c07b', '×':'#e06c75' };
+  const mark = entry ? entry.mark : '';
+  const note = entry ? entry.note : '';
+  const rsvs = _currentDayRsvData;
+
+  const W = 720, pad = 36, rowH = 34;
+  const H = 170 + (rsvs.length > 0 ? rsvs.length * rowH + 24 : 48);
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 背景
+  ctx.fillStyle = '#21252b';
+  ctx.fillRect(0, 0, W, H);
+
+  // 左アクセントバー
+  const barColor = MARK_COLORS[mark] || '#528bff';
+  ctx.fillStyle = barColor;
+  ctx.fillRect(0, 0, 6, H);
+
+  // 日付
+  await document.fonts.ready;
+  ctx.fillStyle = '#dde2ec';
+  ctx.font = "bold 26px 'Noto Sans JP', sans-serif";
+  ctx.fillText(`${y}年${mo}月${d}日`, pad, 50);
+
+  // ステータス
+  if (mark) {
+    ctx.fillStyle = barColor;
+    ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+    ctx.fillText(`${mark}  ${MARK_LABELS[mark] || ''}`, pad, 86);
+  }
+  if (note) {
+    ctx.fillStyle = '#7f848e';
+    ctx.font = "14px 'Noto Sans JP', sans-serif";
+    ctx.fillText(note, pad, 112);
+  }
+
+  // 区切り線
+  ctx.strokeStyle = '#3a3f4b';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, 130); ctx.lineTo(W - pad, 130); ctx.stroke();
+
+  // 予約リスト
+  if (rsvs.length === 0) {
+    ctx.fillStyle = '#5c6370';
+    ctx.font = "16px 'Noto Sans JP', sans-serif";
+    ctx.fillText('予約はありません', pad, 166);
+  } else {
+    ctx.fillStyle = '#5c6370';
+    ctx.font = "13px 'Noto Sans JP', sans-serif";
+    ctx.fillText(`${rsvs.length}件の予約`, pad, 154);
+    rsvs.forEach((rsv, i) => {
+      const ry = 154 + 24 + i * rowH;
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
+      ctx.fillText(rsv.name, pad, ry);
+      if (rsv.cats.length) {
+        const nameW = ctx.measureText(rsv.name).width;
+        ctx.fillStyle = '#61afef';
+        ctx.font = "13px 'Noto Sans JP', sans-serif";
+        ctx.fillText('  ' + rsv.cats.join(' / '), pad + nameW, ry);
+      }
+    });
+  }
+
+  canvas.toBlob(async blob => {
+    const file = new File([blob], `rsv-${dateStr}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); return; } catch(e) { if (e.name === 'AbortError') return; }
+    }
+    // フォールバック：ダウンロード ＋ X投稿画面
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `rsv-${dateStr}.png`; a.click();
+    URL.revokeObjectURL(url);
+    setTimeout(() => window.open('https://x.com/intent/tweet', '_blank'), 400);
+  }, 'image/png');
 }
 
 function openReservationForm() {
@@ -1752,6 +1846,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div class="rsv-section-title">登録済み予約</div>
       <div id="rsv-detail-list"></div>
       <div class="rsv-btn-row">
+        <button class="rsv-btn x-post" onclick="postToX()">𝕏 にポスト</button>
         <button class="rsv-btn primary" onclick="openReservationForm()">予約する</button>
       </div>
     </div>
