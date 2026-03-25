@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>シャリオ</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 <script src="./schedule.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -341,6 +345,35 @@
   .fb-file-remove:hover { color:var(--red); }
   .fb-preview-wrap { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
   .fb-preview-img { width:72px; height:72px; object-fit:cover; border-radius:6px; border:1px solid var(--border); }
+
+  /* flatpickr カスタマイズ */
+  .flatpickr-calendar {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,.5) !important;
+    font-family: 'Noto Sans JP', sans-serif !important;
+  }
+  .flatpickr-month, .flatpickr-weekdays, .flatpickr-weekday {
+    background: var(--surface) !important;
+    color: var(--dim) !important;
+    fill: var(--dim) !important;
+  }
+  .flatpickr-current-month, .flatpickr-current-month input.cur-year {
+    color: var(--accent) !important;
+    font-family: 'Noto Serif JP', serif !important;
+  }
+  .flatpickr-prev-month svg, .flatpickr-next-month svg { fill: var(--dim) !important; }
+  .flatpickr-prev-month:hover svg, .flatpickr-next-month:hover svg { fill: var(--accent) !important; }
+  .flatpickr-day { color: var(--text) !important; border-radius: 6px !important; }
+  .flatpickr-day:hover { background: var(--surface2) !important; border-color: var(--accent) !important; }
+  .flatpickr-day.selected, .flatpickr-day.selected:hover {
+    background: var(--accent) !important; border-color: var(--accent) !important; color: #000 !important;
+  }
+  .flatpickr-day.today { border-color: var(--accent) !important; }
+  .flatpickr-day.flatpickr-disabled { color: var(--border) !important; }
+  .numInputWrapper span { border-color: var(--border) !important; }
+  .numInputWrapper span svg { fill: var(--dim) !important; }
 
   /* ── 連番募集 ── */
   .renban-header-row { display:flex; justify-content:flex-end; margin-bottom:16px; }
@@ -1925,6 +1958,8 @@ async function confirmCancel() {
 // ── 連番募集 ──
 let _rbCurrentEventId = null;
 let _rbJoinType = null; // 'join' | 'interest'
+let _rbDatePicker = null;
+let _rbDeadlinePicker = null;
 
 function openRbModal() {
   document.getElementById('rb-overlay').classList.add('open');
@@ -1989,11 +2024,16 @@ function renderRenbanList(events) {
 function openRenbanForm() {
   document.getElementById('rb-event-owner').value = '';
   document.getElementById('rb-event-title').value = '';
-  document.getElementById('rb-event-date').value = '';
   document.getElementById('rb-event-max').value = '';
-  document.getElementById('rb-event-deadline').value = '';
   document.getElementById('rb-event-note').value = '';
   document.getElementById('rb-form-status').textContent = '';
+
+  const fpOpts = { locale: 'ja', dateFormat: 'Y-m-d', disableMobile: true };
+  if (_rbDatePicker) _rbDatePicker.destroy();
+  if (_rbDeadlinePicker) _rbDeadlinePicker.destroy();
+  _rbDatePicker = flatpickr('#rb-event-date', { ...fpOpts, defaultDate: null });
+  _rbDeadlinePicker = flatpickr('#rb-event-deadline', { ...fpOpts, defaultDate: null });
+
   const btn = document.getElementById('rb-form-submit-btn');
   btn.disabled = false; btn.textContent = '登録する';
   rbShowScreen('rb-form-screen');
@@ -2247,7 +2287,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         </div>
         <div class="rb-form-group">
           <label class="rb-label">日付 <span style="color:var(--red)">*</span></label>
-          <input type="date" id="rb-event-date" class="rb-input" required>
+          <input type="text" id="rb-event-date" class="rb-input" placeholder="日付を選択" readonly required>
         </div>
         <div class="rb-form-group">
           <label class="rb-label">募集人数（空欄で上限なし）</label>
@@ -2255,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         </div>
         <div class="rb-form-group">
           <label class="rb-label">募集期限（空欄で期限なし）</label>
-          <input type="date" id="rb-event-deadline" class="rb-input">
+          <input type="text" id="rb-event-deadline" class="rb-input" placeholder="期限を選択（任意）" readonly>
         </div>
         <div class="rb-form-group">
           <label class="rb-label">備考</label>
