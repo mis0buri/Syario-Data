@@ -8,6 +8,12 @@ service cloud.firestore {
     match /board_comments/{docId} {
       allow read, create: if true;
     }
+    match /renban_events/{docId} {
+      allow read, create: if true;
+      match /participants/{partId} {
+        allow read, create: if true;
+      }
+    }
     match /{document=**} {
       allow read: if true;
     }

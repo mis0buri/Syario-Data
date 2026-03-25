@@ -1947,7 +1947,13 @@ async function initRenban() {
   }
   try {
     const snap = await _db.collection('renban_events').orderBy('date', 'asc').get();
-    const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const events = await Promise.all(snap.docs.map(async d => {
+      const ev = { id: d.id, ...d.data() };
+      const pSnap = await _db.collection('renban_events').doc(d.id).collection('participants').get();
+      ev._joinCount = pSnap.docs.filter(p => p.data().type === 'join').length;
+      ev._interestCount = pSnap.docs.filter(p => p.data().type === 'interest').length;
+      return ev;
+    }));
     renderRenbanList(events);
   } catch(e) {
     document.getElementById('renban-list').innerHTML = '<div class="renban-empty">読み込みエラー: ' + e.message + '</div>';
@@ -1972,6 +1978,8 @@ function renderRenbanList(events) {
         <span>📅 ${ev.date}</span>
         <span>👥 ${maxStr}</span>
         <span>⏰ ${deadlineStr}</span>
+        <span style="color:#4caf82">✅ 参加 ${ev._joinCount}人</span>
+        <span style="color:#61afef">👀 興味あり ${ev._interestCount}人</span>
       </div>
       ${ev.note ? '<div style="font-size:12px;color:var(--dim);margin-top:6px;">' + escHtml(ev.note) + '</div>' : ''}
     </div>`;
