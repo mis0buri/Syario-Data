@@ -1493,7 +1493,7 @@ async function confirmEditPin() {
     const docSnap = await _db.collection('reservations').doc(_editDocId).get();
     if (!docSnap.exists) { document.getElementById('edit-pin-error').textContent = '予約が見つかりません'; btn.disabled=false; btn.textContent='確認する'; return; }
     const stored = docSnap.data().pin || '';
-    if (pin !== stored && pin !== ADMIN_PIN) {
+    if (pin !== stored && !(await _isAdminPin(pin))) {
       document.getElementById('edit-pin-error').textContent = 'PINが正しくありません';
       btn.disabled = false; btn.textContent = '確認する'; return;
     }
@@ -1522,7 +1522,12 @@ async function confirmEditPin() {
 }
 
 // ── キャンセル機能 ──
-const ADMIN_PIN = '33550336';
+const ADMIN_PIN_HASH = 'a93bc952f6411dc3dc71a05bd138be30e5d6369ef94acdb98f55260141ef6b21';
+async function _hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function _isAdminPin(pin) { return await _hashPin(pin) === ADMIN_PIN_HASH; }
 let _cancelDocId = null, _cancelName = null, _cancelDateStr = null;
 
 function openCancelModal(docId, name, dateStr) {
@@ -1549,7 +1554,7 @@ async function confirmCancel() {
     const doc = await _db.collection('reservations').doc(_cancelDocId).get();
     if (!doc.exists) { document.getElementById('cancel-error').textContent = '予約が見つかりません'; btn.disabled=false; btn.textContent='キャンセルする'; return; }
     const stored = doc.data().pin || '';
-    if (pin !== stored && pin !== ADMIN_PIN) {
+    if (pin !== stored && !(await _isAdminPin(pin))) {
       document.getElementById('cancel-error').textContent = 'PINが正しくありません';
       btn.disabled = false; btn.textContent = 'キャンセルする'; return;
     }
