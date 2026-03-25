@@ -242,7 +242,7 @@
   .rsv-list-count { font-size:12px; color:var(--dim); }
   .cal-cell.clickable { cursor:pointer; }
   .cal-cell.clickable:hover { border-color:var(--accent) !important; }
-  .rsv-list-btn-wrap { margin-bottom:12px; display:flex; justify-content:flex-end; }
+  .rsv-list-btn-wrap { margin-bottom:12px; display:flex; justify-content:flex-end; gap:8px; }
 
   /* LOADING */
   #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; transition:opacity .4s; }
@@ -449,6 +449,7 @@
   <div id="sec-schedule" class="section">
     <div class="rsv-list-btn-wrap">
       <button class="rsv-btn secondary" style="flex:none;padding:8px 18px;" onclick="openReservationList()">予約一覧</button>
+      <button class="rsv-btn primary" style="flex:none;padding:8px 18px;" onclick="openReservationFormDirect()">予約する</button>
     </div>
     <div class="card">
       <div class="card-title">営業予定</div>
@@ -1278,6 +1279,44 @@ function openReservationForm() {
   document.getElementById('rsv-other-text').value = '';
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
+  // 日付グループはデイ詳細経由では非表示（日付はrsvCurrentDateを使用）
+  document.getElementById('rsv-date-group').style.display = 'none';
+  showRsvScreen('rsv-form');
+}
+
+function populateDateSelect() {
+  const sel = document.getElementById('rsv-date-select');
+  sel.innerHTML = '<option value="">日付を選択してください</option>';
+  const DAYNAMES = ['日','月','火','水','木','金','土'];
+  const today = new Date();
+  for (let i = 0; i < 90; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    const dateStr = `${y}-${m}-${day}`;
+    const entry = SCHEDULE_DATA[dateStr];
+    if (entry && entry.mark === '×') continue;
+    const dayName = DAYNAMES[d.getDay()];
+    const mark = entry ? ` ${entry.mark}` : '';
+    const opt = document.createElement('option');
+    opt.value = dateStr;
+    opt.textContent = `${y}年${parseInt(m)}月${parseInt(day)}日（${dayName}）${mark}`;
+    sel.appendChild(opt);
+  }
+}
+
+function openReservationFormDirect() {
+  rsvCurrentDate = null;
+  populateDateSelect();
+  document.getElementById('rsv-name').value = '';
+  document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => c.checked = false);
+  document.getElementById('rsv-other-text').value = '';
+  document.getElementById('rsv-other-wrap').style.display = 'none';
+  document.getElementById('rsv-note').value = '';
+  document.getElementById('rsv-date-group').style.display = 'block';
+  openRsvModal();
   showRsvScreen('rsv-form');
 }
 
@@ -1286,11 +1325,29 @@ function toggleOtherInput() {
   document.getElementById('rsv-other-wrap').style.display = checked ? 'block' : 'none';
 }
 
-function backToDetail() { showRsvScreen('rsv-detail'); }
-function backToForm()   { showRsvScreen('rsv-form'); }
+function backToDetail() {
+  if (rsvCurrentDate) {
+    showRsvScreen('rsv-detail');
+  } else {
+    closeRsvModal();
+  }
+}
+function backToForm() {
+  // 直接フォーム経由の場合はrsvCurrentDateをリセットしてセレクトに戻す
+  if (document.getElementById('rsv-date-group').style.display !== 'none') {
+    rsvCurrentDate = null;
+  }
+  showRsvScreen('rsv-form');
+}
 
 function showReservationConfirm(e) {
   e.preventDefault();
+  // 直接フォームの場合は日付セレクトから取得
+  if (!rsvCurrentDate) {
+    const sel = document.getElementById('rsv-date-select');
+    if (!sel.value) { alert('日付を選択してください'); return; }
+    rsvCurrentDate = sel.value;
+  }
   const name = document.getElementById('rsv-name').value.trim() || '匿名';
   const cats = [...document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]:checked')].map(c => c.value);
   const otherText = document.getElementById('rsv-other-text').value.trim();
@@ -1399,6 +1456,10 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
       <form onsubmit="showReservationConfirm(event)">
+        <div class="rsv-form-group" id="rsv-date-group" style="display:none">
+          <label class="rsv-label">日付</label>
+          <select id="rsv-date-select" class="rsv-input"></select>
+        </div>
         <div class="rsv-form-group">
           <label class="rsv-label">お名前（匿名可）</label>
           <input type="text" id="rsv-name" class="rsv-input" placeholder="匿名">
