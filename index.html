@@ -1640,6 +1640,11 @@ async function submitBoardComment() {
   try {
     const name = await _getAnonName();
     await _db.collection('board_comments').add({ name, body, ts: firebase.firestore.FieldValue.serverTimestamp() });
+    fetch('https://discord.com/api/webhooks/1486189645833441443/KBOhyzxqwrKZBOeO3rendcplyj4cSsCPaitB_VTghmHIMXQWvK5iC8-ZcA33Ex5vgD4Q', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: name, content: body })
+    });
     input.value = '';
     _boardInited = false; // force re-listen on next init
     initBoard();
