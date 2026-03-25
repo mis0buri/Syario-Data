@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 <script src="./schedule.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
@@ -450,12 +451,35 @@
   .rb-expired { font-size:11px; color:var(--red); background:rgba(230,57,70,.1); border-radius:4px; padding:2px 8px; }
   .rb-status-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 
+  /* ── 認証UI ── */
+  #auth-area { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  #auth-user-info { display:flex; align-items:center; gap:8px; }
+  #auth-avatar { width:28px; height:28px; border-radius:50%; border:1px solid var(--border); object-fit:cover; }
+  #auth-display-name { font-size:12px; color:var(--dim); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .auth-btn { background:none; border:1px solid var(--border); color:var(--dim); font-family:'Noto Sans JP',sans-serif; font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; transition:all .2s; white-space:nowrap; }
+  .auth-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .auth-btn.primary { background:var(--accent); border-color:var(--accent); color:#1a1610; font-weight:700; }
+  .auth-btn.primary:hover { opacity:.85; }
+  /* ログインモーダル */
+  #login-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:10000; align-items:center; justify-content:center; }
+  #login-modal.open { display:flex; }
+  .login-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:32px 28px; width:min(340px,90vw); display:flex; flex-direction:column; gap:16px; }
+  .login-box h3 { margin:0; font-family:'Noto Serif JP',serif; font-size:18px; color:var(--text); text-align:center; }
+  .login-box p { margin:0; font-size:13px; color:var(--dim); text-align:center; line-height:1.7; }
+  .login-provider-btn { display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--surface2,#1e1e1e); color:var(--text); font-family:'Noto Sans JP',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; }
+  .login-provider-btn:hover { border-color:var(--accent); background:rgba(255,215,0,.06); }
+  .login-provider-btn svg { width:20px; height:20px; flex-shrink:0; }
+  .login-close-btn { background:none; border:none; color:var(--dim); font-size:13px; cursor:pointer; text-align:center; padding:4px; }
+  .login-close-btn:hover { color:var(--text); }
+  .auth-hint { font-size:11px; color:var(--dim); opacity:.7; text-align:center; margin-top:2px; }
+
   /* ── MOBILE ── */
   @media(max-width:640px){
     header { padding: 0 12px; height: 48px; }
     .logo { font-size: 16px; }
     .logo span { margin-left: 6px; font-size: 11px; }
     nav button { font-size: 12px; padding: 5px 9px; }
+    #auth-display-name { display:none; }
 
     .period-bar { padding: 8px 12px; gap: 6px; }
     .period-bar input[type=date] { font-size: 12px; padding: 4px 6px; }
@@ -518,6 +542,16 @@
     <button onclick="showSection('renban')">連番募集</button>
     <button onclick="showSection('feedback')">ご意見</button>
   </nav>
+  <div id="auth-area">
+    <!-- 未ログイン時 -->
+    <button id="auth-login-btn" class="auth-btn primary" onclick="openLoginModal()" style="display:none;">ログイン</button>
+    <!-- ログイン済み -->
+    <div id="auth-user-info" style="display:none;">
+      <img id="auth-avatar" src="" alt="" onerror="this.style.display='none'">
+      <span id="auth-display-name"></span>
+      <button class="auth-btn" onclick="signOutUser()">ログアウト</button>
+    </div>
+  </div>
 </header>
 
 <!-- 全画面共通 期間フィルター -->
@@ -636,8 +670,9 @@
 
   <!-- 連番募集 -->
   <div id="sec-renban" class="section">
-    <div class="renban-header-row">
-      <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openRenbanForm()">募集を登録する</button>
+    <div class="renban-header-row" style="flex-direction:column;align-items:flex-end;gap:4px;">
+      <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="if(requireLogin())openRenbanForm()">募集を登録する</button>
+      <span id="rb-login-hint" style="font-size:10px;color:var(--dim);opacity:.65;display:none;">※登録にはログインが必要です</span>
     </div>
     <div class="card">
       <div class="card-title">連番募集一覧</div>
@@ -1378,16 +1413,90 @@ const FIREBASE_CONFIG = {
 };
 
 let _db = null;
+let _auth = null;
+let _currentUser = null; // ログイン中ユーザー (null = 未ログイン)
 
 function initFirebase() {
   try {
     if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId) {
       firebase.initializeApp(FIREBASE_CONFIG);
       _db = firebase.firestore();
+      _auth = firebase.auth();
+      _auth.onAuthStateChanged(user => {
+        _currentUser = user;
+        updateAuthUI(user);
+      });
     }
   } catch(e) {
     console.warn('Firebase init error:', e);
   }
+}
+
+// ── 認証UI更新 ──
+function updateAuthUI(user) {
+  const loginBtn = document.getElementById('auth-login-btn');
+  const userInfo = document.getElementById('auth-user-info');
+  if (!loginBtn || !userInfo) return;
+  if (user) {
+    loginBtn.style.display = 'none';
+    userInfo.style.display = 'flex';
+    const avatar = document.getElementById('auth-avatar');
+    const name = document.getElementById('auth-display-name');
+    avatar.src = user.photoURL || '';
+    avatar.style.display = user.photoURL ? 'block' : 'none';
+    name.textContent = user.displayName || user.email || 'ユーザー';
+  } else {
+    loginBtn.style.display = 'block';
+    userInfo.style.display = 'none';
+  }
+  const rbHint = document.getElementById('rb-login-hint');
+  if (rbHint) rbHint.style.display = user ? 'none' : 'inline';
+}
+
+// ── ログインモーダル ──
+function openLoginModal() {
+  document.getElementById('login-modal').classList.add('open');
+}
+function closeLoginModal() {
+  document.getElementById('login-modal').classList.remove('open');
+}
+
+// ── Google ログイン ──
+async function loginWithGoogle() {
+  if (!_auth) return;
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await _auth.signInWithPopup(provider);
+    closeLoginModal();
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
+  }
+}
+
+// ── X (Twitter) ログイン ──
+async function loginWithTwitter() {
+  if (!_auth) return;
+  try {
+    const provider = new firebase.auth.TwitterAuthProvider();
+    await _auth.signInWithPopup(provider);
+    closeLoginModal();
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
+  }
+}
+
+// ── ログアウト ──
+async function signOutUser() {
+  if (!_auth) return;
+  await _auth.signOut();
+}
+
+// ── ログイン必須ガード ──
+// ログイン済みなら true、未ログインならモーダルを開いて false を返す
+function requireLogin(actionLabel) {
+  if (_currentUser) return true;
+  openLoginModal();
+  return false;
 }
 
 let rsvCurrentDate = null;
@@ -1477,9 +1586,10 @@ async function openDayDetail(dateStr) {
           ${displayCats.length ? `<div class="rsv-card-cats">${displayCats.map(c=>`<span class="rsv-tag">${c}</span>`).join('')}</div>` : ''}
           ${rNote ? `<div class="rsv-card-note">${_escHtml(rNote)}</div>` : ''}
           <div class="rsv-card-actions">
-            <button class="rsv-edit-btn" onclick="openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
-            <button class="rsv-cancel-btn" onclick="openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>
+            <button class="rsv-edit-btn" onclick="if(requireLogin())openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
+            <button class="rsv-cancel-btn" onclick="if(requireLogin())openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>
           </div>
+          ${!_currentUser ? '<div style="font-size:10px;color:var(--dim);opacity:.65;margin-top:4px;">※ログインしていない場合、編集・キャンセルは次回ログイン後に可能です</div>' : ''}
         </div>`;
       }).join('');
     }
@@ -2378,6 +2488,33 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <button onclick="closeCancelModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;">戻る</button>
       <button id="cancel-confirm-btn" onclick="confirmCancel()" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-size:14px;font-weight:700;">キャンセルする</button>
     </div>
+  </div>
+</div>
+
+<!-- ── ログインモーダル ── -->
+<div id="login-modal" onclick="if(event.target===this)closeLoginModal()">
+  <div class="login-box">
+    <h3>ログイン</h3>
+    <p>編集・削除・連番募集の登録には<br>ログインが必要です</p>
+    <button class="login-provider-btn" onclick="loginWithGoogle()">
+      <!-- Google アイコン -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Google でログイン
+    </button>
+    <button class="login-provider-btn" onclick="loginWithTwitter()">
+      <!-- X (Twitter) アイコン -->
+      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+      </svg>
+      X でログイン
+    </button>
+    <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です</p>
+    <button class="login-close-btn" onclick="closeLoginModal()">閉じる</button>
   </div>
 </div>
 </body>
