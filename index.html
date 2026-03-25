@@ -1968,6 +1968,7 @@ function renderRenbanList(events) {
     return `<div class="renban-item" onclick="openRenbanDetail('${ev.id}')">
       <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
       <div class="renban-item-meta">
+        ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
         <span>📅 ${ev.date}</span>
         <span>👥 ${maxStr}</span>
         <span>⏰ ${deadlineStr}</span>
@@ -1978,6 +1979,7 @@ function renderRenbanList(events) {
 }
 
 function openRenbanForm() {
+  document.getElementById('rb-event-owner').value = '';
   document.getElementById('rb-event-title').value = '';
   document.getElementById('rb-event-date').value = '';
   document.getElementById('rb-event-max').value = '';
@@ -1996,6 +1998,7 @@ async function submitRenbanEvent(e) {
   const btn = document.getElementById('rb-form-submit-btn');
   btn.disabled = true; btn.textContent = '登録中...';
   document.getElementById('rb-form-status').textContent = '';
+  const owner = document.getElementById('rb-event-owner').value.trim();
   const title = document.getElementById('rb-event-title').value.trim();
   const date = document.getElementById('rb-event-date').value;
   const maxRaw = document.getElementById('rb-event-max').value.trim();
@@ -2004,12 +2007,13 @@ async function submitRenbanEvent(e) {
   const maxPeople = maxRaw ? parseInt(maxRaw) : null;
   try {
     await _db.collection('renban_events').add({
-      title, date, maxPeople, deadline, note,
+      owner, title, date, maxPeople, deadline, note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     try {
       const lines = [
         `📢 **連番募集が登録されました**`,
+        `👤 **登録者**: ${owner}`,
         `🎫 **イベント名**: ${title}`,
         `📅 **日付**: ${date}`,
         `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
@@ -2042,6 +2046,7 @@ async function openRenbanDetail(eventId) {
 
     document.getElementById('rb-detail-title').textContent = ev.title;
     document.getElementById('rb-detail-info').innerHTML = `
+      ${ev.owner ? '<div class="rb-detail-row"><span class="rb-detail-key">登録者</span><span class="rb-detail-val">' + escHtml(ev.owner) + '</span></div>' : ''}
       <div class="rb-detail-row"><span class="rb-detail-key">日付</span><span class="rb-detail-val">${ev.date}</span></div>
       <div class="rb-detail-row"><span class="rb-detail-key">募集人数</span><span class="rb-detail-val">${ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'}</span></div>
       <div class="rb-detail-row"><span class="rb-detail-key">募集期限</span><span class="rb-detail-val">${ev.deadline ? ev.deadline + (expired ? ' <span class="rb-expired">期限切れ</span>' : '') : '期限なし'}</span></div>
@@ -2224,6 +2229,10 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rb-close" onclick="closeRbModal()">✕</button>
       </div>
       <form onsubmit="submitRenbanEvent(event)">
+        <div class="rb-form-group">
+          <label class="rb-label">登録者名 <span style="color:var(--red)">*</span></label>
+          <input type="text" id="rb-event-owner" class="rb-input" placeholder="あなたの名前" required>
+        </div>
         <div class="rb-form-group">
           <label class="rb-label">イベント名 <span style="color:var(--red)">*</span></label>
           <input type="text" id="rb-event-title" class="rb-input" placeholder="例：○○ライブ 東京公演" required>
