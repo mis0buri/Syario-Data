@@ -1378,6 +1378,23 @@ async function submitReservation() {
       note: rsvPendingData.note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // Discord通知
+    try {
+      const parts = rsvCurrentDate.split('-');
+      const dateLabel = `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+      const displayCats = (rsvPendingData.categories || []).map(c => c === 'その他' && rsvPendingData.otherText ? `その他(${rsvPendingData.otherText})` : c);
+      const lines = [
+        `📅 **日付**: ${dateLabel}`,
+        `👤 **お名前**: ${rsvPendingData.name}`,
+        `🏷️ **種別**: ${displayCats.length ? displayCats.join('、') : 'なし'}`,
+      ];
+      if (rsvPendingData.note) lines.push(`📝 **備考**: ${rsvPendingData.note}`);
+      await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: `__**新しい予約が入りました**__\n${lines.join('\n')}` })
+      });
+    } catch(e) { console.warn('Discord通知失敗:', e); }
     closeRsvModal();
     alert('予約が完了しました！');
   } catch(err) {
