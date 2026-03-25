@@ -1192,6 +1192,7 @@ function initFirebase() {
 
 let rsvCurrentDate = null;
 let rsvPendingData = null;
+let rsvFromDetail = false;
 
 function _escHtml(str) {
   return String(str)
@@ -1274,14 +1275,9 @@ async function openDayDetail(dateStr) {
 }
 
 function openReservationForm() {
-  document.getElementById('rsv-name').value = '';
-  document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => c.checked = false);
-  document.getElementById('rsv-other-text').value = '';
-  document.getElementById('rsv-other-wrap').style.display = 'none';
-  document.getElementById('rsv-note').value = '';
-  // 日付グループはデイ詳細経由では非表示（日付はrsvCurrentDateを使用）
-  document.getElementById('rsv-date-group').style.display = 'none';
-  showRsvScreen('rsv-form');
+  // デイ詳細経由：モーダルは既に開いている。rsvCurrentDateがセット済み
+  rsvFromDetail = true;
+  _initReservationForm(rsvCurrentDate);
 }
 
 function populateDateSelect() {
@@ -1309,14 +1305,20 @@ function populateDateSelect() {
 
 function openReservationFormDirect() {
   rsvCurrentDate = null;
+  rsvFromDetail = false;
+  openRsvModal();
+  _initReservationForm(null);
+}
+
+function _initReservationForm(preselect) {
   populateDateSelect();
+  if (preselect) document.getElementById('rsv-date-select').value = preselect;
+  document.getElementById('rsv-date-group').style.display = 'block';
   document.getElementById('rsv-name').value = '';
   document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => c.checked = false);
   document.getElementById('rsv-other-text').value = '';
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
-  document.getElementById('rsv-date-group').style.display = 'block';
-  openRsvModal();
   showRsvScreen('rsv-form');
 }
 
@@ -1326,28 +1328,23 @@ function toggleOtherInput() {
 }
 
 function backToDetail() {
-  if (rsvCurrentDate) {
+  if (rsvFromDetail) {
     showRsvScreen('rsv-detail');
   } else {
     closeRsvModal();
   }
 }
 function backToForm() {
-  // 直接フォーム経由の場合はrsvCurrentDateをリセットしてセレクトに戻す
-  if (document.getElementById('rsv-date-group').style.display !== 'none') {
-    rsvCurrentDate = null;
-  }
+  rsvCurrentDate = null;
   showRsvScreen('rsv-form');
 }
 
 function showReservationConfirm(e) {
   e.preventDefault();
-  // 直接フォームの場合は日付セレクトから取得
-  if (!rsvCurrentDate) {
-    const sel = document.getElementById('rsv-date-select');
-    if (!sel.value) { alert('日付を選択してください'); return; }
-    rsvCurrentDate = sel.value;
-  }
+  // 常にセレクトから日付を取得
+  const sel = document.getElementById('rsv-date-select');
+  if (!sel.value) { alert('日付を選択してください'); return; }
+  rsvCurrentDate = sel.value;
   const name = document.getElementById('rsv-name').value.trim() || '匿名';
   const cats = [...document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]:checked')].map(c => c.value);
   const otherText = document.getElementById('rsv-other-text').value.trim();
