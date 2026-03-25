@@ -1705,15 +1705,11 @@ async function openDayDetail(dateStr) {
         const safeDateStr = dateStr.replace(/'/g, "\\'");
         const docUid = dta.uid || null;
         const isOwner = _currentUser && docUid && docUid === _currentUser.uid;
-        const isLegacy = !docUid;
         const canManage = isOwner || _isAdmin;
         let actionsHtml = '';
         if (canManage) {
           actionsHtml = `<button class="rsv-edit-btn" onclick="openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
             <button class="rsv-cancel-btn" onclick="openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>`;
-        } else if (isLegacy) {
-          actionsHtml = `<button class="rsv-edit-btn" onclick="if(requireLogin())openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
-            <button class="rsv-cancel-btn" onclick="if(requireLogin())openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>`;
         }
         return `<div class="rsv-card">
           <div class="rsv-card-name">${_escHtml(name)}</div>
@@ -1862,9 +1858,6 @@ function _initReservationForm(preselect) {
   document.getElementById('rsv-other-text').value = '';
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
-  document.getElementById('rsv-pin').value = '';
-  const pinGroup = document.getElementById('rsv-pin-group');
-  if (pinGroup) pinGroup.style.display = _currentUser ? 'none' : '';
   showRsvScreen('rsv-form');
 }
 
@@ -1895,14 +1888,7 @@ function showReservationConfirm(e) {
   const cats = [...document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]:checked')].map(c => c.value);
   const otherText = document.getElementById('rsv-other-text').value.trim();
   const note = document.getElementById('rsv-note').value.trim();
-  let pin;
-  if (_currentUser) {
-    pin = Math.floor(10000000 * Math.random()).toString().padStart(8, '0');
-  } else {
-    pin = document.getElementById('rsv-pin').value.trim();
-    if (!pin || !/^\d{4,8}$/.test(pin)) { alert('キャンセルPINは4〜8桁の数字で入力してください'); return; }
-  }
-  rsvPendingData = { name, categories: cats, otherText, note, pin };
+  rsvPendingData = { name, categories: cats, otherText, note };
 
   const parts = rsvCurrentDate.split('-');
   const dateLabel = `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
@@ -1913,7 +1899,6 @@ function showReservationConfirm(e) {
     <div class="rsv-confirm-row"><span class="rsv-confirm-key">お名前</span><span class="rsv-confirm-val">${_escHtml(name)}</span></div>
     <div class="rsv-confirm-row"><span class="rsv-confirm-key">種別</span><span class="rsv-confirm-val">${displayCats.length ? _escHtml(displayCats.join('、')) : 'なし'}</span></div>
     ${note ? `<div class="rsv-confirm-row"><span class="rsv-confirm-key">備考</span><span class="rsv-confirm-val">${_escHtml(note)}</span></div>` : ''}
-    ${!_currentUser ? `<div class="rsv-confirm-row"><span class="rsv-confirm-key">キャンセルPIN</span><span class="rsv-confirm-val">****（設定済み）</span></div>` : ''}
   `;
   document.querySelector('#rsv-confirm .rsv-title').textContent = _editMode ? '編集確認' : '予約確認';
   document.getElementById('rsv-submit-btn').textContent = _editMode ? '変更を保存' : '確定する';
@@ -1933,7 +1918,6 @@ async function submitReservation() {
       categories: rsvPendingData.categories,
       otherText: rsvPendingData.otherText,
       note: rsvPendingData.note,
-      pin: rsvPendingData.pin,
     };
     if (_currentUser) payload.uid = _currentUser.uid;
     if (_editMode && _editDocId) {
@@ -2015,28 +1999,17 @@ let _editMode = false, _editDocId = null, _editDateStr = null;
 async function openEditPinModal(docId, dateStr) {
   _editDocId = docId;
   _editDateStr = dateStr;
-  // ログイン済みの場合は権限チェックし、本人/管理者はPINなしで編集
-  if (_currentUser && _db) {
-    try {
-      const docSnap = await _db.collection('reservations').doc(docId).get();
-      if (!docSnap.exists) { alert('予約が見つかりません'); return; }
-      const data = docSnap.data();
-      const isOwner = data.uid && data.uid === _currentUser.uid;
-      if (isOwner || _isAdmin) {
-        _loadEditForm(data, dateStr);
-        return;
-      }
-      if (data.uid && !isOwner) {
-        alert('この予約は本人のみ編集できます');
-        return;
-      }
-    } catch(e) { /* fallthrough to PIN */ }
-  }
-  document.getElementById('edit-pin-input').value = '';
-  document.getElementById('edit-pin-error').textContent = '';
-  const btn = document.getElementById('edit-pin-confirm-btn');
-  btn.disabled = false; btn.textContent = '確認する';
-  document.getElementById('edit-pin-modal').style.display = 'flex';
+  if (!_currentUser) { openLoginModal(); return; }
+  try {
+    const docSnap = await _db.collection('reservations').doc(docId).get();
+    if (!docSnap.exists) { alert('予約が見つかりません'); return; }
+    const data = docSnap.data();
+    if (data.uid === _currentUser.uid || _isAdmin) {
+      _loadEditForm(data, dateStr);
+    } else {
+      alert('この予約は本人のみ編集できます');
+    }
+  } catch(e) { alert('エラー: ' + e.message); }
 }
 
 function _loadEditForm(data, dateStr) {
@@ -2054,36 +2027,7 @@ function _loadEditForm(data, dateStr) {
   document.getElementById('rsv-other-wrap').style.display = hasOther ? 'block' : 'none';
   document.getElementById('rsv-other-text').value = data.otherText || '';
   document.getElementById('rsv-note').value = data.note || '';
-  document.getElementById('rsv-pin').value = data.pin || '';
-  const pinGroup = document.getElementById('rsv-pin-group');
-  if (pinGroup) pinGroup.style.display = _currentUser ? 'none' : '';
   showRsvScreen('rsv-form');
-}
-
-function closeEditPinModal() {
-  document.getElementById('edit-pin-modal').style.display = 'none';
-}
-
-async function confirmEditPin() {
-  const pin = document.getElementById('edit-pin-input').value.trim();
-  if (!pin) { document.getElementById('edit-pin-error').textContent = 'PINを入力してください'; return; }
-  const btn = document.getElementById('edit-pin-confirm-btn');
-  btn.disabled = true; btn.textContent = '確認中...';
-  try {
-    const docSnap = await _db.collection('reservations').doc(_editDocId).get();
-    if (!docSnap.exists) { document.getElementById('edit-pin-error').textContent = '予約が見つかりません'; btn.disabled=false; btn.textContent='確認する'; return; }
-    const stored = docSnap.data().pin || '';
-    if (pin !== stored && !(await _isAdminPin(pin))) {
-      document.getElementById('edit-pin-error').textContent = 'PINが正しくありません';
-      btn.disabled = false; btn.textContent = '確認する'; return;
-    }
-    const data = docSnap.data();
-    closeEditPinModal();
-    _loadEditForm(data, _editDateStr);
-  } catch(err) {
-    document.getElementById('edit-pin-error').textContent = 'エラー: ' + err.message;
-    btn.disabled = false; btn.textContent = '確認する';
-  }
 }
 
 // ── 掲示板 ──
@@ -2193,91 +2137,29 @@ function _refreshBoardIfActive() {
 }
 
 // ── キャンセル機能 ──
-const ADMIN_PIN_HASH = '43634db94dac2798a47b6811705a7f6bdd1ff4a86ca3dbeb2f53c2f87684d3f1';
-async function _hashPin(pin) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-async function _isAdminPin(pin) { return await _hashPin(pin) === ADMIN_PIN_HASH; }
-let _cancelDocId = null, _cancelName = null, _cancelDateStr = null;
-
 async function openCancelModal(docId, name, dateStr) {
-  _cancelDocId = docId;
-  _cancelName = name;
-  _cancelDateStr = dateStr;
-  // ログイン済みの場合は権限チェックし、本人/管理者はPINなしで削除
-  if (_currentUser && _db) {
-    try {
-      const docSnap = await _db.collection('reservations').doc(docId).get();
-      if (!docSnap.exists) { alert('予約が見つかりません'); return; }
-      const data = docSnap.data();
-      const isOwner = data.uid && data.uid === _currentUser.uid;
-      if (isOwner || _isAdmin) {
-        if (!confirm(`「${name}」の予約をキャンセルしますか？`)) return;
-        await _db.collection('reservations').doc(docId).delete();
-        try {
-          const p = dateStr.split('-');
-          const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
-          await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: `__**予約がキャンセルされました**__\n📅 **日付**: ${dateLabel}\n👤 **お名前**: ${name}` })
-          });
-        } catch(e) {}
-        alert('予約をキャンセルしました');
-        openDayDetail(dateStr);
-        return;
-      }
-      if (data.uid && !isOwner) {
-        alert('この予約は本人のみキャンセルできます');
-        return;
-      }
-    } catch(e) { /* fallthrough to PIN */ }
-  }
-  document.getElementById('cancel-pin-input').value = '';
-  document.getElementById('cancel-error').textContent = '';
-  const btn = document.getElementById('cancel-confirm-btn');
-  btn.disabled = false; btn.textContent = 'キャンセルする';
-  document.getElementById('cancel-modal').style.display = 'flex';
-}
-
-function closeCancelModal() {
-  document.getElementById('cancel-modal').style.display = 'none';
-  _cancelDocId = null;
-}
-
-async function confirmCancel() {
-  const pin = document.getElementById('cancel-pin-input').value.trim();
-  if (!pin) { document.getElementById('cancel-error').textContent = 'PINを入力してください'; return; }
-  const btn = document.getElementById('cancel-confirm-btn');
-  btn.disabled = true;
-  btn.textContent = '処理中...';
+  if (!_currentUser) { openLoginModal(); return; }
   try {
-    const doc = await _db.collection('reservations').doc(_cancelDocId).get();
-    if (!doc.exists) { document.getElementById('cancel-error').textContent = '予約が見つかりません'; btn.disabled=false; btn.textContent='キャンセルする'; return; }
-    const stored = doc.data().pin || '';
-    if (pin !== stored && !(await _isAdminPin(pin))) {
-      document.getElementById('cancel-error').textContent = 'PINが正しくありません';
-      btn.disabled = false; btn.textContent = 'キャンセルする'; return;
+    const docSnap = await _db.collection('reservations').doc(docId).get();
+    if (!docSnap.exists) { alert('予約が見つかりません'); return; }
+    const data = docSnap.data();
+    if (data.uid === _currentUser.uid || _isAdmin) {
+      if (!confirm(`「${name}」の予約をキャンセルしますか？`)) return;
+      await _db.collection('reservations').doc(docId).delete();
+      try {
+        const p = dateStr.split('-');
+        const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
+        await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: `__**予約がキャンセルされました**__\n📅 **日付**: ${dateLabel}\n👤 **お名前**: ${name}` })
+        });
+      } catch(e) {}
+      alert('予約をキャンセルしました');
+      openDayDetail(dateStr);
+    } else {
+      alert('この予約は本人のみキャンセルできます');
     }
-    await _db.collection('reservations').doc(_cancelDocId).delete();
-    // Discord通知
-    try {
-      const p = _cancelDateStr.split('-');
-      const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
-      await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `__**予約がキャンセルされました**__\n📅 **日付**: ${dateLabel}\n👤 **お名前**: ${_cancelName}` })
-      });
-    } catch(e) { console.warn('Discord通知失敗:', e); }
-    const ds = _cancelDateStr;
-    closeCancelModal();
-    alert('予約をキャンセルしました');
-    openDayDetail(ds);
-  } catch(err) {
-    document.getElementById('cancel-error').textContent = 'エラー: ' + err.message;
-    btn.disabled = false; btn.textContent = 'キャンセルする';
-  }
+  } catch(e) { alert('エラー: ' + e.message); }
 }
 
 // ── 連番募集 ──
@@ -2589,11 +2471,6 @@ document.addEventListener('DOMContentLoaded', initFirebase);
           <label class="rsv-label">備考</label>
           <textarea id="rsv-note" class="rsv-textarea" placeholder="自由に入力（任意）"></textarea>
         </div>
-        <div class="rsv-form-group" id="rsv-pin-group">
-          <label class="rsv-label">キャンセルPIN（数字4〜8桁）</label>
-          <input type="password" id="rsv-pin" class="rsv-input" placeholder="自分で決めた数字" maxlength="8" inputmode="numeric">
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">予約をキャンセルするときに使います。忘れずに！</div>
-        </div>
         <div class="rsv-btn-row">
           <button type="button" class="rsv-btn secondary" onclick="backToDetail()">戻る</button>
           <button type="submit" class="rsv-btn primary">確認する</button>
@@ -2721,34 +2598,6 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       </div>
     </div>
 
-  </div>
-</div>
-
-<!-- ── 編集PINモーダル ── -->
-<div id="edit-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:var(--card);border-radius:12px;padding:24px;width:min(320px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.5);">
-    <div style="font-weight:700;font-size:15px;margin-bottom:16px;">予約を編集</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">キャンセルPINを入力してください</div>
-    <input type="password" id="edit-pin-input" inputmode="numeric" placeholder="PIN" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;margin-bottom:8px;">
-    <div id="edit-pin-error" style="color:var(--red);font-size:12px;min-height:16px;margin-bottom:12px;"></div>
-    <div style="display:flex;gap:8px;">
-      <button onclick="closeEditPinModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;">戻る</button>
-      <button id="edit-pin-confirm-btn" onclick="confirmEditPin()" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1610;cursor:pointer;font-size:14px;font-weight:700;">確認する</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── キャンセルPINモーダル ── -->
-<div id="cancel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:var(--card);border-radius:12px;padding:24px;width:min(320px,90vw);box-shadow:0 8px 32px rgba(0,0,0,.5);">
-    <div style="font-weight:700;font-size:15px;margin-bottom:16px;">予約キャンセル</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">キャンセルPINを入力してください</div>
-    <input type="password" id="cancel-pin-input" inputmode="numeric" placeholder="PIN" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;margin-bottom:8px;">
-    <div id="cancel-error" style="color:var(--red);font-size:12px;min-height:16px;margin-bottom:12px;"></div>
-    <div style="display:flex;gap:8px;">
-      <button onclick="closeCancelModal()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;">戻る</button>
-      <button id="cancel-confirm-btn" onclick="confirmCancel()" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-size:14px;font-weight:700;">キャンセルする</button>
-    </div>
   </div>
 </div>
 
