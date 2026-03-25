@@ -2380,10 +2380,19 @@ async function openRenbanDetail(eventId) {
     const deleteBtn = document.getElementById('rb-detail-delete-btn');
     if (deleteBtn) deleteBtn.onclick = () => deleteRenbanEvent(eventId);
 
-    // 期限切れなら参加ボタン無効化
+    // 参加ボタンの制御
+    const isCreator = _currentUser && ev.uid && ev.uid === _currentUser.uid;
+    const alreadyIn = _currentUser && participants.some(p => p.uid && p.uid === _currentUser.uid);
     const joinBtn = document.querySelector('#rb-detail-screen .rb-btn.join');
     const interestBtn = document.querySelector('#rb-detail-screen .rb-btn.interest');
-    joinBtn.disabled = expired; interestBtn.disabled = expired;
+    joinBtn.disabled = expired || isCreator || alreadyIn;
+    interestBtn.disabled = expired || isCreator || alreadyIn;
+    const btnHint = document.getElementById('rb-detail-btn-hint');
+    if (btnHint) {
+      if (isCreator) btnHint.textContent = '自分が作成したイベントには参加できません';
+      else if (alreadyIn) btnHint.textContent = '既に参加登録済みです';
+      else btnHint.textContent = '';
+    }
 
     rbShowScreen('rb-detail-screen');
     openRbModal();
@@ -2412,6 +2421,19 @@ async function submitRbParticipation() {
   btn.disabled = true; btn.textContent = '送信中...';
   document.getElementById('rb-join-status').textContent = '';
   try {
+    if (_currentUser) {
+      const evDoc = await _db.collection('renban_events').doc(_rbCurrentEventId).get();
+      if (evDoc.exists && evDoc.data().uid === _currentUser.uid) {
+        document.getElementById('rb-join-status').textContent = '自分が作成したイベントには参加できません';
+        btn.disabled = false; btn.textContent = '確定する'; return;
+      }
+      const dupSnap = await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants')
+        .where('uid', '==', _currentUser.uid).get();
+      if (!dupSnap.empty) {
+        document.getElementById('rb-join-status').textContent = '既に参加登録済みです';
+        btn.disabled = false; btn.textContent = '確定する'; return;
+      }
+    }
     const pData = { name, note, type: _rbJoinType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
     if (_currentUser) pData.uid = _currentUser.uid;
     await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add(pData);
@@ -2600,10 +2622,11 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rb-close" onclick="closeRbModal()">✕</button>
       </div>
       <div id="rb-detail-info" class="rb-detail-info"></div>
-      <div class="rb-btn-row" style="margin-top:0;margin-bottom:4px;">
+      <div class="rb-btn-row" style="margin-top:0;margin-bottom:2px;">
         <button class="rb-btn join" onclick="openRbJoinModal('join')">参加する</button>
         <button class="rb-btn interest" onclick="openRbJoinModal('interest')">興味あり</button>
       </div>
+      <div id="rb-detail-btn-hint" style="font-size:11px;color:var(--dim);text-align:center;min-height:16px;margin-bottom:4px;"></div>
       <div class="rb-section-label">参加者</div>
       <div id="rb-join-list" class="rb-participants"></div>
       <div class="rb-section-label">興味あり</div>
