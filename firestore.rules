@@ -5,6 +5,9 @@ service cloud.firestore {
       allow read, create: if true;
       allow update, delete: if true;
     }
+    match /board_comments/{docId} {
+      allow read, create: if true;
+    }
     match /{document=**} {
       allow read: if true;
     }
