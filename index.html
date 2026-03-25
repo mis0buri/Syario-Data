@@ -2007,6 +2007,21 @@ async function submitRenbanEvent(e) {
       title, date, maxPeople, deadline, note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    try {
+      const lines = [
+        `📢 **連番募集が登録されました**`,
+        `🎫 **イベント名**: ${title}`,
+        `📅 **日付**: ${date}`,
+        `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
+        `⏰ **期限**: ${deadline || '期限なし'}`,
+        note ? `📝 **備考**: ${note}` : null,
+      ].filter(Boolean).join('\n');
+      await fetch('https://discord.com/api/webhooks/1486240216544051210/afDq63OkXXpy-E-JAh2XbGdanIfymsKHHbMX4IBi6baaV86YiXdHX9LaMo5fdtonNRn4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: lines })
+      });
+    } catch(e) { console.warn('Discord通知失敗:', e); }
     closeRbModal();
     initRenban();
   } catch(err) {
