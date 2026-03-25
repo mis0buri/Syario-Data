@@ -224,8 +224,8 @@
   .rsv-btn.primary:disabled { opacity:.5; cursor:not-allowed; }
   .rsv-btn.secondary { background:none; color:var(--text); border-color:var(--border); }
   .rsv-btn.secondary:hover { border-color:var(--accent); color:var(--accent); }
-  .rsv-btn.x-post { background:none; color:#1d9bf0; border-color:#1d9bf0; font-weight:700; flex:none; padding:11px 18px; }
-  .rsv-btn.x-post:hover { background:rgba(29,155,240,.1); }
+  .rsv-btn.x-post { background:none; color:var(--text); border-color:var(--border); flex:none; padding:11px 18px; }
+  .rsv-btn.x-post:hover { border-color:var(--accent); color:var(--accent); }
   .rsv-form-group { margin-bottom:16px; }
   .rsv-label { font-size:12px; color:var(--dim); margin-bottom:7px; display:block; }
   .rsv-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; }
@@ -1846,7 +1846,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div class="rsv-section-title">登録済み予約</div>
       <div id="rsv-detail-list"></div>
       <div class="rsv-btn-row">
-        <button class="rsv-btn x-post" onclick="postToX()">𝕏 にポスト</button>
+        <button class="rsv-btn x-post" onclick="postToX()">共有</button>
         <button class="rsv-btn primary" onclick="openReservationForm()">予約する</button>
       </div>
     </div>
