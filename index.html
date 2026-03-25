@@ -1477,6 +1477,8 @@ function openEditPinModal(docId, dateStr) {
   _editDateStr = dateStr;
   document.getElementById('edit-pin-input').value = '';
   document.getElementById('edit-pin-error').textContent = '';
+  const btn = document.getElementById('edit-pin-confirm-btn');
+  btn.disabled = false; btn.textContent = '確認する';
   document.getElementById('edit-pin-modal').style.display = 'flex';
 }
 
@@ -1536,6 +1538,8 @@ function openCancelModal(docId, name, dateStr) {
   _cancelDateStr = dateStr;
   document.getElementById('cancel-pin-input').value = '';
   document.getElementById('cancel-error').textContent = '';
+  const btn = document.getElementById('cancel-confirm-btn');
+  btn.disabled = false; btn.textContent = 'キャンセルする';
   document.getElementById('cancel-modal').style.display = 'flex';
 }
 
