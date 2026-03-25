@@ -258,6 +258,37 @@
   ::-webkit-scrollbar-track { background:var(--bg); }
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
 
+  /* BOARD */
+  .board-form { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+  .board-form textarea {
+    width:100%; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:'Noto Sans JP',sans-serif;
+    font-size:13px; padding:10px 14px; resize:vertical; min-height:80px;
+    transition:border-color .2s; box-sizing:border-box;
+  }
+  .board-form textarea:focus { outline:none; border-color:var(--accent); }
+  .board-form-footer { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .board-anon-label { font-size:12px; color:var(--dim); }
+  .board-anon-name { font-size:12px; color:var(--accent); font-weight:700; }
+  .board-submit {
+    margin-left:auto; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-family:'Noto Sans JP',sans-serif;
+    font-size:13px; padding:8px 24px; cursor:pointer; transition:all .2s;
+  }
+  .board-submit:hover { border-color:var(--accent); color:var(--accent); }
+  .board-submit:disabled { cursor:not-allowed; opacity:.4; }
+  .board-comments { display:flex; flex-direction:column; gap:10px; }
+  .board-comment {
+    background:var(--surface2); border-radius:10px; padding:12px 16px;
+    border-left:3px solid var(--border);
+  }
+  .board-comment-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .board-comment-name { font-size:12px; color:var(--accent); font-weight:700; }
+  .board-comment-time { font-size:11px; color:var(--dim); }
+  .board-comment-body { font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-all; }
+  .board-empty { text-align:center; padding:40px 0; color:var(--dim); font-size:13px; }
+  #board-status { font-size:12px; color:var(--dim); padding:4px 0; }
+
   /* FEEDBACK FORM */
   .feedback-form { display:flex; flex-direction:column; gap:16px; max-width:560px; }
   .feedback-form label { font-size:12px; color:var(--dim); letter-spacing:.1em; margin-bottom:4px; display:block; }
@@ -372,6 +403,7 @@
     <button onclick="showSection('graph')">グラフ</button>
     <button onclick="showSection('history')">履歴</button>
     <button onclick="showSection('schedule')">営業予定</button>
+    <button onclick="showSection('board')">掲示板</button>
     <button onclick="showSection('feedback')">ご意見</button>
   </nav>
 </header>
@@ -467,6 +499,25 @@
         <div class="cal-legend-item"><span class="cal-mark mark-half">〇</span>半日以上</div>
         <div class="cal-legend-item"><span class="cal-mark mark-short">△</span>短時間のみ</div>
         <div class="cal-legend-item"><span class="cal-mark mark-closed">×</span>お休み</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 掲示板 -->
+  <div id="sec-board" class="section">
+    <div class="card">
+      <div class="card-title">掲示板</div>
+      <div class="board-form">
+        <textarea id="board-input" placeholder="コメントを入力..."></textarea>
+        <div class="board-form-footer">
+          <span class="board-anon-label">名前：</span>
+          <span class="board-anon-name" id="board-anon-name">読込中...</span>
+          <div id="board-status"></div>
+          <button class="board-submit" id="board-submit-btn" onclick="submitBoardComment()">投稿</button>
+        </div>
+      </div>
+      <div class="board-comments" id="board-comments-list">
+        <div class="board-empty">読み込み中...</div>
       </div>
     </div>
   </div>
@@ -698,12 +749,13 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',schedule:'営業予定',feedback:'ご意見'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',schedule:'営業予定',board:'掲示板',feedback:'ご意見'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
-  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule') ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule'||id==='board') ? 'none' : '';
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
   if (id==='schedule') renderCalendar();
+  if (id==='board') initBoard();
 }
 
 // ── 営業予定カレンダー ──
@@ -1523,8 +1575,83 @@ async function confirmEditPin() {
   }
 }
 
+// ── 掲示板 ──
+let _boardAnonName = null;
+let _boardInited = false;
+let _boardUnsubscribe = null;
+
+async function _getAnonName() {
+  if (_boardAnonName) return _boardAnonName;
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    const { ip } = await res.json();
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('board:' + ip));
+    const hex = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    _boardAnonName = 'ゲスト#' + hex.slice(0, 4).toUpperCase();
+  } catch {
+    _boardAnonName = 'ゲスト#' + Math.random().toString(16).slice(2,6).toUpperCase();
+  }
+  return _boardAnonName;
+}
+
+async function initBoard() {
+  const nameEl = document.getElementById('board-anon-name');
+  const name = await _getAnonName();
+  nameEl.textContent = name;
+
+  if (_boardInited) return;
+  _boardInited = true;
+
+  if (!_db) { document.getElementById('board-comments-list').innerHTML = '<div class="board-empty">Firebase未設定</div>'; return; }
+  if (_boardUnsubscribe) _boardUnsubscribe();
+  _boardUnsubscribe = _db.collection('board_comments')
+    .orderBy('ts', 'desc')
+    .limit(100)
+    .onSnapshot(snap => {
+      const list = document.getElementById('board-comments-list');
+      if (snap.empty) { list.innerHTML = '<div class="board-empty">まだコメントがありません</div>'; return; }
+      list.innerHTML = snap.docs.map(d => {
+        const data = d.data();
+        const ts = data.ts?.toDate ? data.ts.toDate() : new Date();
+        const timeStr = `${ts.getFullYear()}/${String(ts.getMonth()+1).padStart(2,'0')}/${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
+        const body = (data.body||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<div class="board-comment">
+          <div class="board-comment-header">
+            <span class="board-comment-name">${(data.name||'ゲスト').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+            <span class="board-comment-time">${timeStr}</span>
+          </div>
+          <div class="board-comment-body">${body}</div>
+        </div>`;
+      }).join('');
+    }, () => {
+      document.getElementById('board-comments-list').innerHTML = '<div class="board-empty">読み込みに失敗しました</div>';
+    });
+}
+
+async function submitBoardComment() {
+  const input = document.getElementById('board-input');
+  const btn = document.getElementById('board-submit-btn');
+  const status = document.getElementById('board-status');
+  const body = input.value.trim();
+  if (!body) return;
+  if (!_db) { status.textContent = 'Firebase未設定'; return; }
+  btn.disabled = true; btn.textContent = '投稿中...';
+  status.textContent = '';
+  try {
+    const name = await _getAnonName();
+    await _db.collection('board_comments').add({ name, body, ts: firebase.firestore.FieldValue.serverTimestamp() });
+    input.value = '';
+    _boardInited = false; // force re-listen on next init
+    initBoard();
+  } catch(e) {
+    status.textContent = '投稿に失敗しました';
+  } finally {
+    btn.disabled = false; btn.textContent = '投稿';
+  }
+}
+
 // ── キャンセル機能 ──
-const ADMIN_PIN_HASH = 'a93bc952f6411dc3dc71a05bd138be30e5d6369ef94acdb98f55260141ef6b21';
+const ADMIN_PIN_HASH = '43634db94dac2798a47b6811705a7f6bdd1ff4a86ca3dbeb2f53c2f87684d3f1';
 async function _hashPin(pin) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
