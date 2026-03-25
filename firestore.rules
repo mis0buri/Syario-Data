@@ -18,6 +18,8 @@ service cloud.firestore {
 
     match /board_comments/{docId} {
       allow read, create: if true;
+      allow delete: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
     }
 
     match /renban_events/{docId} {

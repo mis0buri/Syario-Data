@@ -293,6 +293,8 @@
   .board-comment-header { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
   .board-comment-name { font-size:12px; color:var(--accent); font-weight:700; }
   .board-comment-time { font-size:11px; color:var(--dim); }
+  .board-delete-btn { margin-left:auto; background:none; border:none; color:var(--dim); font-size:11px; cursor:pointer; padding:2px 6px; border-radius:4px; }
+  .board-delete-btn:hover { color:var(--red); background:rgba(230,57,70,.1); }
   .board-comment-body { font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-all; }
   .board-empty { text-align:center; padding:40px 0; color:var(--dim); font-size:13px; }
   #board-status { font-size:12px; color:var(--dim); padding:4px 0; }
@@ -1470,6 +1472,7 @@ function updateAuthUI(user) {
     userInfo.style.display = 'none';
     _registeredName = null;
     _isAdmin = false;
+    _refreshBoardIfActive();
   }
   const rbHint = document.getElementById('rb-login-hint');
   if (rbHint) rbHint.style.display = user ? 'none' : 'inline';
@@ -1519,6 +1522,8 @@ function openMyPage() {
   _loadMyPageName();
   _renderProviders();
   document.getElementById('mypage-save-msg').textContent = '';
+  const badge = document.getElementById('mypage-admin-badge');
+  if (badge) badge.style.display = _isAdmin ? '' : 'none';
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
@@ -1604,6 +1609,8 @@ async function _loadUserData(user) {
   // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
   const fbName = document.getElementById('fb-name');
   if (fbName && !fbName.value) fbName.value = _registeredName;
+  // 掲示板を再レンダリング（削除ボタン表示を反映）
+  _refreshBoardIfActive();
 }
 
 // ── ログイン必須ガード ──
@@ -2119,10 +2126,12 @@ async function initBoard() {
         const ts = data.ts?.toDate ? data.ts.toDate() : new Date();
         const timeStr = `${ts.getFullYear()}/${String(ts.getMonth()+1).padStart(2,'0')}/${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
         const body = (data.body||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const canDel = (data.uid && _currentUser && data.uid === _currentUser.uid) || _isAdmin;
         return `<div class="board-comment">
           <div class="board-comment-header">
             <span class="board-comment-name">${(data.name||'ゲスト').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
             <span class="board-comment-time">${timeStr}</span>
+            ${canDel ? `<button class="board-delete-btn" onclick="deleteBoardComment('${d.id}')">削除</button>` : ''}
           </div>
           <div class="board-comment-body">${body}</div>
         </div>`;
@@ -2143,7 +2152,9 @@ async function submitBoardComment() {
   status.textContent = '';
   try {
     const name = await _getAnonName();
-    await _db.collection('board_comments').add({ name, body, ts: firebase.firestore.FieldValue.serverTimestamp() });
+    const commentData = { name, body, ts: firebase.firestore.FieldValue.serverTimestamp() };
+    if (_currentUser) commentData.uid = _currentUser.uid;
+    await _db.collection('board_comments').add(commentData);
     fetch('https://discord.com/api/webhooks/1486189645833441443/KBOhyzxqwrKZBOeO3rendcplyj4cSsCPaitB_VTghmHIMXQWvK5iC8-ZcA33Ex5vgD4Q', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2156,6 +2167,28 @@ async function submitBoardComment() {
     status.textContent = '投稿に失敗しました';
   } finally {
     btn.disabled = false; btn.textContent = '投稿';
+  }
+}
+
+async function deleteBoardComment(docId) {
+  if (!_db || !_currentUser) return;
+  if (!confirm('このコメントを削除しますか？')) return;
+  try {
+    await _db.collection('board_comments').doc(docId).delete();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+}
+
+function _resetBoard() {
+  if (_boardUnsubscribe) { _boardUnsubscribe(); _boardUnsubscribe = null; }
+  _boardInited = false;
+}
+
+function _refreshBoardIfActive() {
+  if (currentSection === 'board') {
+    _resetBoard();
+    initBoard();
   }
 }
 
@@ -2723,6 +2756,9 @@ document.addEventListener('DOMContentLoaded', initFirebase);
 <div id="mypage-modal" onclick="if(event.target===this)closeMyPage()">
   <div class="mypage-box">
     <h3>マイページ</h3>
+    <div id="mypage-admin-badge" style="display:none;text-align:center;">
+      <span style="display:inline-block;background:rgba(200,169,110,.15);border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;padding:4px 16px;border-radius:20px;letter-spacing:.1em;">管理者</span>
+    </div>
     <div class="mypage-section">
       <span class="mypage-label">登録名</span>
       <div class="mypage-name-row">
