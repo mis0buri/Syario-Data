@@ -342,6 +342,81 @@
   .fb-preview-wrap { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
   .fb-preview-img { width:72px; height:72px; object-fit:cover; border-radius:6px; border:1px solid var(--border); }
 
+  /* ── 連番募集 ── */
+  .renban-header-row { display:flex; justify-content:flex-end; margin-bottom:16px; }
+  .renban-list { display:flex; flex-direction:column; gap:10px; }
+  .renban-item {
+    background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; cursor:pointer; transition:all .2s;
+  }
+  .renban-item:hover { border-color:var(--accent); }
+  .renban-item-title { font-size:15px; font-weight:700; margin-bottom:4px; }
+  .renban-item-meta { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--dim); }
+  .renban-item-tag {
+    display:inline-block; background:rgba(200,169,110,.12); border:1px solid rgba(200,169,110,.3);
+    border-radius:4px; font-size:11px; color:var(--accent); padding:2px 8px;
+  }
+  .renban-empty { text-align:center; padding:48px 0; color:var(--dim); font-size:14px; }
+  /* 連番詳細・モーダル */
+  .rb-overlay {
+    display:none; position:fixed; inset:0; z-index:1000;
+    background:rgba(0,0,0,.75); align-items:center; justify-content:center; padding:16px;
+  }
+  .rb-overlay.open { display:flex; }
+  .rb-modal {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    width:100%; max-width:520px; max-height:88vh; overflow-y:auto; padding:24px;
+  }
+  .rb-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .rb-title { font-family:'Noto Serif JP',serif; font-size:16px; color:var(--accent); letter-spacing:.1em; }
+  .rb-close { background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all .2s; }
+  .rb-close:hover { color:var(--text); background:var(--surface2); }
+  .rb-screen { display:none; }
+  .rb-screen.active { display:block; }
+  .rb-form-group { margin-bottom:14px; }
+  .rb-label { font-size:12px; color:var(--dim); margin-bottom:6px; display:block; }
+  .rb-input {
+    width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif;
+  }
+  .rb-input:focus { outline:none; border-color:var(--accent); }
+  .rb-textarea {
+    width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif;
+    min-height:72px; resize:vertical;
+  }
+  .rb-textarea:focus { outline:none; border-color:var(--accent); }
+  .rb-btn-row { display:flex; gap:10px; margin-top:18px; }
+  .rb-btn { flex:1; padding:11px; border-radius:8px; font-family:'Noto Sans JP',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; border:1px solid; }
+  .rb-btn.primary { background:var(--accent); color:#000; border-color:var(--accent); font-weight:700; }
+  .rb-btn.primary:hover { opacity:.85; }
+  .rb-btn.primary:disabled { opacity:.5; cursor:not-allowed; }
+  .rb-btn.secondary { background:none; color:var(--text); border-color:var(--border); }
+  .rb-btn.secondary:hover { border-color:var(--accent); color:var(--accent); }
+  .rb-btn.join { background:rgba(76,175,130,.15); color:#4caf82; border-color:#4caf82; font-weight:700; }
+  .rb-btn.join:hover { background:rgba(76,175,130,.3); }
+  .rb-btn.interest { background:rgba(97,175,239,.15); color:#61afef; border-color:#61afef; font-weight:700; }
+  .rb-btn.interest:hover { background:rgba(97,175,239,.3); }
+  .rb-detail-info { background:var(--surface2); border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+  .rb-detail-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .rb-detail-row:last-child { border-bottom:none; }
+  .rb-detail-key { color:var(--dim); }
+  .rb-detail-val { font-weight:700; }
+  .rb-section-label { font-size:12px; color:var(--dim); letter-spacing:.1em; margin:14px 0 8px; }
+  .rb-participants { display:flex; flex-direction:column; gap:6px; }
+  .rb-participant-card { background:var(--surface2); border-radius:8px; padding:10px 12px; }
+  .rb-participant-name { font-size:14px; font-weight:700; }
+  .rb-participant-note { font-size:12px; color:var(--dim); margin-top:2px; }
+  .rb-count-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    background:var(--surface2); border-radius:20px; padding:3px 10px; font-size:12px; color:var(--dim);
+  }
+  .rb-count-join { color:#4caf82; font-weight:700; }
+  .rb-count-interest { color:#61afef; font-weight:700; }
+  .rb-no-participants { text-align:center; padding:20px; color:var(--dim); font-size:13px; }
+  .rb-expired { font-size:11px; color:var(--red); background:rgba(230,57,70,.1); border-radius:4px; padding:2px 8px; }
+  .rb-status-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+
   /* ── MOBILE ── */
   @media(max-width:640px){
     header { padding: 0 12px; height: 48px; }
@@ -407,6 +482,7 @@
     <button onclick="showSection('history')">履歴</button>
     <button onclick="showSection('schedule')">営業予定</button>
     <button onclick="showSection('board')">掲示板</button>
+    <button onclick="showSection('renban')">連番募集</button>
     <button onclick="showSection('feedback')">ご意見</button>
   </nav>
 </header>
@@ -521,6 +597,19 @@
       </div>
       <div class="board-comments" id="board-comments-list">
         <div class="board-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 連番募集 -->
+  <div id="sec-renban" class="section">
+    <div class="renban-header-row">
+      <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openRenbanForm()">募集を登録する</button>
+    </div>
+    <div class="card">
+      <div class="card-title">連番募集一覧</div>
+      <div class="renban-list" id="renban-list">
+        <div class="renban-empty">読み込み中...</div>
       </div>
     </div>
   </div>
@@ -752,13 +841,14 @@ function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',schedule:'営業予定',board:'掲示板',feedback:'ご意見'};
+  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',schedule:'営業予定',board:'掲示板',renban:'連番募集',feedback:'ご意見'};
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
-  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule'||id==='board') ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule'||id==='board'||id==='renban') ? 'none' : '';
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
   if (id==='schedule') renderCalendar();
   if (id==='board') initBoard();
+  if (id==='renban') initRenban();
 }
 
 // ── 営業予定カレンダー ──
@@ -1832,6 +1922,181 @@ async function confirmCancel() {
   }
 }
 
+// ── 連番募集 ──
+let _rbCurrentEventId = null;
+let _rbJoinType = null; // 'join' | 'interest'
+
+function openRbModal() {
+  document.getElementById('rb-overlay').classList.add('open');
+}
+function closeRbModal() {
+  document.getElementById('rb-overlay').classList.remove('open');
+}
+function rbOverlayClick(e) {
+  if (e.target === document.getElementById('rb-overlay')) closeRbModal();
+}
+function rbShowScreen(id) {
+  document.querySelectorAll('#rb-overlay .rb-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function initRenban() {
+  if (!_db) {
+    document.getElementById('renban-list').innerHTML = '<div class="renban-empty">データベース未接続</div>';
+    return;
+  }
+  try {
+    const snap = await _db.collection('renban_events').orderBy('date', 'asc').get();
+    const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderRenbanList(events);
+  } catch(e) {
+    document.getElementById('renban-list').innerHTML = '<div class="renban-empty">読み込みエラー: ' + e.message + '</div>';
+  }
+}
+
+function renderRenbanList(events) {
+  const el = document.getElementById('renban-list');
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (!events.length) {
+    el.innerHTML = '<div class="renban-empty">現在募集中のイベントはありません</div>';
+    return;
+  }
+  el.innerHTML = events.map(ev => {
+    const expired = ev.deadline ? new Date(ev.deadline) < today : false;
+    const deadlineStr = ev.deadline ? ev.deadline : '期限なし';
+    const maxStr = ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし';
+    return `<div class="renban-item" onclick="openRenbanDetail('${ev.id}')">
+      <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
+      <div class="renban-item-meta">
+        <span>📅 ${ev.date}</span>
+        <span>👥 ${maxStr}</span>
+        <span>⏰ ${deadlineStr}</span>
+      </div>
+      ${ev.note ? '<div style="font-size:12px;color:var(--dim);margin-top:6px;">' + escHtml(ev.note) + '</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function openRenbanForm() {
+  document.getElementById('rb-event-title').value = '';
+  document.getElementById('rb-event-date').value = '';
+  document.getElementById('rb-event-max').value = '';
+  document.getElementById('rb-event-deadline').value = '';
+  document.getElementById('rb-event-note').value = '';
+  document.getElementById('rb-form-status').textContent = '';
+  const btn = document.getElementById('rb-form-submit-btn');
+  btn.disabled = false; btn.textContent = '登録する';
+  rbShowScreen('rb-form-screen');
+  openRbModal();
+}
+
+async function submitRenbanEvent(e) {
+  e.preventDefault();
+  if (!_db) return;
+  const btn = document.getElementById('rb-form-submit-btn');
+  btn.disabled = true; btn.textContent = '登録中...';
+  document.getElementById('rb-form-status').textContent = '';
+  const title = document.getElementById('rb-event-title').value.trim();
+  const date = document.getElementById('rb-event-date').value;
+  const maxRaw = document.getElementById('rb-event-max').value.trim();
+  const deadline = document.getElementById('rb-event-deadline').value || null;
+  const note = document.getElementById('rb-event-note').value.trim();
+  const maxPeople = maxRaw ? parseInt(maxRaw) : null;
+  try {
+    await _db.collection('renban_events').add({
+      title, date, maxPeople, deadline, note,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeRbModal();
+    initRenban();
+  } catch(err) {
+    document.getElementById('rb-form-status').textContent = 'エラー: ' + err.message;
+    btn.disabled = false; btn.textContent = '登録する';
+  }
+}
+
+async function openRenbanDetail(eventId) {
+  if (!_db) return;
+  _rbCurrentEventId = eventId;
+  try {
+    const docSnap = await _db.collection('renban_events').doc(eventId).get();
+    if (!docSnap.exists) return;
+    const ev = { id: docSnap.id, ...docSnap.data() };
+    const today = new Date(); today.setHours(0,0,0,0);
+    const expired = ev.deadline ? new Date(ev.deadline) < today : false;
+
+    document.getElementById('rb-detail-title').textContent = ev.title;
+    document.getElementById('rb-detail-info').innerHTML = `
+      <div class="rb-detail-row"><span class="rb-detail-key">日付</span><span class="rb-detail-val">${ev.date}</span></div>
+      <div class="rb-detail-row"><span class="rb-detail-key">募集人数</span><span class="rb-detail-val">${ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'}</span></div>
+      <div class="rb-detail-row"><span class="rb-detail-key">募集期限</span><span class="rb-detail-val">${ev.deadline ? ev.deadline + (expired ? ' <span class="rb-expired">期限切れ</span>' : '') : '期限なし'}</span></div>
+      ${ev.note ? '<div class="rb-detail-row"><span class="rb-detail-key">備考</span><span class="rb-detail-val">' + escHtml(ev.note) + '</span></div>' : ''}
+    `;
+
+    // 参加者読み込み
+    const pSnap = await _db.collection('renban_events').doc(eventId).collection('participants').orderBy('createdAt', 'asc').get();
+    const participants = pSnap.docs.map(d => d.data());
+    const joins = participants.filter(p => p.type === 'join');
+    const interests = participants.filter(p => p.type === 'interest');
+
+    const renderPList = (list) => {
+      if (!list.length) return '<div class="rb-no-participants">まだいません</div>';
+      return list.map(p => `<div class="rb-participant-card">
+        <div class="rb-participant-name">${escHtml(p.name)}</div>
+        ${p.note ? '<div class="rb-participant-note">' + escHtml(p.note) + '</div>' : ''}
+      </div>`).join('');
+    };
+    document.getElementById('rb-join-list').innerHTML = renderPList(joins);
+    document.getElementById('rb-interest-list').innerHTML = renderPList(interests);
+
+    // 期限切れなら参加ボタン無効化
+    const joinBtn = document.querySelector('#rb-detail-screen .rb-btn.join');
+    const interestBtn = document.querySelector('#rb-detail-screen .rb-btn.interest');
+    joinBtn.disabled = expired; interestBtn.disabled = expired;
+
+    rbShowScreen('rb-detail-screen');
+    openRbModal();
+  } catch(err) {
+    alert('エラー: ' + err.message);
+  }
+}
+
+function openRbJoinModal(type) {
+  _rbJoinType = type;
+  document.getElementById('rb-join-modal-title').textContent = type === 'join' ? '参加する' : '興味あり';
+  document.getElementById('rb-join-name').value = '';
+  document.getElementById('rb-join-note').value = '';
+  document.getElementById('rb-join-status').textContent = '';
+  const btn = document.getElementById('rb-join-submit-btn');
+  btn.disabled = false; btn.textContent = '確定する';
+  rbShowScreen('rb-join-screen');
+}
+
+async function submitRbParticipation() {
+  if (!_db || !_rbCurrentEventId || !_rbJoinType) return;
+  const btn = document.getElementById('rb-join-submit-btn');
+  const name = document.getElementById('rb-join-name').value.trim();
+  const note = document.getElementById('rb-join-note').value.trim();
+  if (!name) { document.getElementById('rb-join-status').textContent = '名前を入力してください'; return; }
+  btn.disabled = true; btn.textContent = '送信中...';
+  document.getElementById('rb-join-status').textContent = '';
+  try {
+    await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add({
+      name, note, type: _rbJoinType,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // 詳細画面に戻って更新
+    await openRenbanDetail(_rbCurrentEventId);
+  } catch(err) {
+    document.getElementById('rb-join-status').textContent = 'エラー: ' + err.message;
+    btn.disabled = false; btn.textContent = '確定する';
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 document.addEventListener('DOMContentLoaded', initFirebase);
 </script>
 
@@ -1920,6 +2185,97 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
       <div id="rsv-list-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── 連番募集モーダル ── -->
+<div id="rb-overlay" class="rb-overlay" onclick="rbOverlayClick(event)">
+  <div class="rb-modal">
+
+    <!-- 一覧 -->
+    <div id="rb-list-screen" class="rb-screen active">
+      <div class="rb-header">
+        <span class="rb-title">連番募集</span>
+        <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+    </div>
+
+    <!-- 登録フォーム -->
+    <div id="rb-form-screen" class="rb-screen">
+      <div class="rb-header">
+        <span class="rb-title">募集を登録する</span>
+        <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+      <form onsubmit="submitRenbanEvent(event)">
+        <div class="rb-form-group">
+          <label class="rb-label">イベント名 <span style="color:var(--red)">*</span></label>
+          <input type="text" id="rb-event-title" class="rb-input" placeholder="例：○○ライブ 東京公演" required>
+        </div>
+        <div class="rb-form-group">
+          <label class="rb-label">日付 <span style="color:var(--red)">*</span></label>
+          <input type="date" id="rb-event-date" class="rb-input" required>
+        </div>
+        <div class="rb-form-group">
+          <label class="rb-label">募集人数（空欄で上限なし）</label>
+          <input type="number" id="rb-event-max" class="rb-input" placeholder="例：2" min="1">
+        </div>
+        <div class="rb-form-group">
+          <label class="rb-label">募集期限（空欄で期限なし）</label>
+          <input type="date" id="rb-event-deadline" class="rb-input">
+        </div>
+        <div class="rb-form-group">
+          <label class="rb-label">備考</label>
+          <textarea id="rb-event-note" class="rb-textarea" placeholder="座席や時間帯など自由に入力"></textarea>
+        </div>
+        <div id="rb-form-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:4px;"></div>
+        <div class="rb-btn-row">
+          <button type="button" class="rb-btn secondary" onclick="closeRbModal()">キャンセル</button>
+          <button type="submit" class="rb-btn primary" id="rb-form-submit-btn">登録する</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- イベント詳細 -->
+    <div id="rb-detail-screen" class="rb-screen">
+      <div class="rb-header">
+        <span class="rb-title" id="rb-detail-title"></span>
+        <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+      <div id="rb-detail-info" class="rb-detail-info"></div>
+      <div class="rb-btn-row" style="margin-top:0;margin-bottom:4px;">
+        <button class="rb-btn join" onclick="openRbJoinModal('join')">参加する</button>
+        <button class="rb-btn interest" onclick="openRbJoinModal('interest')">興味あり</button>
+      </div>
+      <div class="rb-section-label">参加者</div>
+      <div id="rb-join-list" class="rb-participants"></div>
+      <div class="rb-section-label">興味あり</div>
+      <div id="rb-interest-list" class="rb-participants"></div>
+      <div class="rb-btn-row" style="margin-top:16px;">
+        <button class="rb-btn secondary" onclick="closeRbModal()">閉じる</button>
+      </div>
+    </div>
+
+    <!-- 参加 / 興味あり フォーム -->
+    <div id="rb-join-screen" class="rb-screen">
+      <div class="rb-header">
+        <span class="rb-title" id="rb-join-modal-title"></span>
+        <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+      <div class="rb-form-group">
+        <label class="rb-label">名前 <span style="color:var(--red)">*</span></label>
+        <input type="text" id="rb-join-name" class="rb-input" placeholder="匿名も可" required>
+      </div>
+      <div class="rb-form-group">
+        <label class="rb-label">備考（空欄可）</label>
+        <textarea id="rb-join-note" class="rb-textarea" placeholder="一言メモなど"></textarea>
+      </div>
+      <div id="rb-join-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:4px;"></div>
+      <div class="rb-btn-row">
+        <button class="rb-btn secondary" onclick="rbShowScreen('rb-detail-screen')">戻る</button>
+        <button class="rb-btn primary" id="rb-join-submit-btn" onclick="submitRbParticipation()">確定する</button>
+      </div>
     </div>
 
   </div>
