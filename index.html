@@ -1378,11 +1378,14 @@ async function postToX() {
   const note = entry ? entry.note : '';
   const rsvs = _currentDayRsvData;
 
+  const dpr = window.devicePixelRatio || 1;
   const W = 720, pad = 36, rowH = 34;
   const H = 170 + (rsvs.length > 0 ? rsvs.length * rowH + 24 : 48);
   const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
 
   // 背景
   ctx.fillStyle = '#21252b';
