@@ -935,6 +935,10 @@ function showSection(id) {
   if (id==='schedule') renderCalendar();
   if (id==='board') initBoard();
   if (id==='renban') initRenban();
+  if (id==='feedback' && _registeredName) {
+    const fbName = document.getElementById('fb-name');
+    if (fbName && !fbName.value) fbName.value = _registeredName;
+  }
 }
 
 // ── 営業予定カレンダー ──
@@ -1433,6 +1437,8 @@ const FIREBASE_CONFIG = {
 let _db = null;
 let _auth = null;
 let _currentUser = null; // ログイン中ユーザー (null = 未ログイン)
+let _registeredName = null; // マイページで設定した登録名
+let _isAdmin = false; // 管理者フラグ
 
 function initFirebase() {
   try {
@@ -1458,9 +1464,12 @@ function updateAuthUI(user) {
   if (user) {
     loginBtn.style.display = 'none';
     userInfo.style.display = 'flex';
+    _loadUserData(user);
   } else {
     loginBtn.style.display = 'block';
     userInfo.style.display = 'none';
+    _registeredName = null;
+    _isAdmin = false;
   }
   const rbHint = document.getElementById('rb-login-hint');
   if (rbHint) rbHint.style.display = user ? 'none' : 'inline';
@@ -1576,6 +1585,27 @@ async function myPageSignOut() {
   closeMyPage();
 }
 
+// ── ユーザーデータ読み込み（登録名・管理者フラグ）──
+async function _loadUserData(user) {
+  if (!user || !_db) return;
+  try {
+    const [userDoc, adminDoc] = await Promise.all([
+      _db.collection('users').doc(user.uid).get(),
+      _db.collection('admins').doc(user.uid).get()
+    ]);
+    _registeredName = (userDoc.exists && userDoc.data().displayName)
+      ? userDoc.data().displayName
+      : (user.displayName || '');
+    _isAdmin = adminDoc.exists;
+  } catch(e) {
+    _registeredName = user.displayName || '';
+    _isAdmin = false;
+  }
+  // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
+  const fbName = document.getElementById('fb-name');
+  if (fbName && !fbName.value) fbName.value = _registeredName;
+}
+
 // ── ログイン必須ガード ──
 // ログイン済みなら true、未ログインならモーダルを開いて false を返す
 function requireLogin(actionLabel) {
@@ -1666,15 +1696,23 @@ async function openDayDetail(dateStr) {
         const safeId = doc.id.replace(/'/g, "\\'");
         const safeName = name.replace(/'/g, "\\'");
         const safeDateStr = dateStr.replace(/'/g, "\\'");
+        const docUid = dta.uid || null;
+        const isOwner = _currentUser && docUid && docUid === _currentUser.uid;
+        const isLegacy = !docUid;
+        const canManage = isOwner || _isAdmin;
+        let actionsHtml = '';
+        if (canManage) {
+          actionsHtml = `<button class="rsv-edit-btn" onclick="openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
+            <button class="rsv-cancel-btn" onclick="openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>`;
+        } else if (isLegacy) {
+          actionsHtml = `<button class="rsv-edit-btn" onclick="if(requireLogin())openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
+            <button class="rsv-cancel-btn" onclick="if(requireLogin())openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>`;
+        }
         return `<div class="rsv-card">
           <div class="rsv-card-name">${_escHtml(name)}</div>
           ${displayCats.length ? `<div class="rsv-card-cats">${displayCats.map(c=>`<span class="rsv-tag">${c}</span>`).join('')}</div>` : ''}
           ${rNote ? `<div class="rsv-card-note">${_escHtml(rNote)}</div>` : ''}
-          <div class="rsv-card-actions">
-            <button class="rsv-edit-btn" onclick="if(requireLogin())openEditPinModal('${safeId}','${safeDateStr}')">編集</button>
-            <button class="rsv-cancel-btn" onclick="if(requireLogin())openCancelModal('${safeId}','${safeName}','${safeDateStr}')">キャンセル</button>
-          </div>
-          ${!_currentUser ? '<div style="font-size:10px;color:var(--dim);opacity:.65;margin-top:4px;">※ログインしていない場合、編集・キャンセルは次回ログイン後に可能です</div>' : ''}
+          ${actionsHtml ? `<div class="rsv-card-actions">${actionsHtml}</div>` : ''}
         </div>`;
       }).join('');
     }
@@ -1812,12 +1850,14 @@ function _initReservationForm(preselect) {
   populateDateSelect();
   if (preselect) document.getElementById('rsv-date-select').value = preselect;
   document.getElementById('rsv-date-group').style.display = 'block';
-  document.getElementById('rsv-name').value = '';
+  document.getElementById('rsv-name').value = _registeredName || '';
   document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => c.checked = false);
   document.getElementById('rsv-other-text').value = '';
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
   document.getElementById('rsv-pin').value = '';
+  const pinGroup = document.getElementById('rsv-pin-group');
+  if (pinGroup) pinGroup.style.display = _currentUser ? 'none' : '';
   showRsvScreen('rsv-form');
 }
 
@@ -1848,8 +1888,13 @@ function showReservationConfirm(e) {
   const cats = [...document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]:checked')].map(c => c.value);
   const otherText = document.getElementById('rsv-other-text').value.trim();
   const note = document.getElementById('rsv-note').value.trim();
-  const pin = document.getElementById('rsv-pin').value.trim();
-  if (!pin || !/^\d{4,8}$/.test(pin)) { alert('キャンセルPINは4〜8桁の数字で入力してください'); return; }
+  let pin;
+  if (_currentUser) {
+    pin = Math.floor(10000000 * Math.random()).toString().padStart(8, '0');
+  } else {
+    pin = document.getElementById('rsv-pin').value.trim();
+    if (!pin || !/^\d{4,8}$/.test(pin)) { alert('キャンセルPINは4〜8桁の数字で入力してください'); return; }
+  }
   rsvPendingData = { name, categories: cats, otherText, note, pin };
 
   const parts = rsvCurrentDate.split('-');
@@ -1861,7 +1906,7 @@ function showReservationConfirm(e) {
     <div class="rsv-confirm-row"><span class="rsv-confirm-key">お名前</span><span class="rsv-confirm-val">${_escHtml(name)}</span></div>
     <div class="rsv-confirm-row"><span class="rsv-confirm-key">種別</span><span class="rsv-confirm-val">${displayCats.length ? _escHtml(displayCats.join('、')) : 'なし'}</span></div>
     ${note ? `<div class="rsv-confirm-row"><span class="rsv-confirm-key">備考</span><span class="rsv-confirm-val">${_escHtml(note)}</span></div>` : ''}
-    <div class="rsv-confirm-row"><span class="rsv-confirm-key">キャンセルPIN</span><span class="rsv-confirm-val">****（設定済み）</span></div>
+    ${!_currentUser ? `<div class="rsv-confirm-row"><span class="rsv-confirm-key">キャンセルPIN</span><span class="rsv-confirm-val">****（設定済み）</span></div>` : ''}
   `;
   document.querySelector('#rsv-confirm .rsv-title').textContent = _editMode ? '編集確認' : '予約確認';
   document.getElementById('rsv-submit-btn').textContent = _editMode ? '変更を保存' : '確定する';
@@ -1883,6 +1928,7 @@ async function submitReservation() {
       note: rsvPendingData.note,
       pin: rsvPendingData.pin,
     };
+    if (_currentUser) payload.uid = _currentUser.uid;
     if (_editMode && _editDocId) {
       await _db.collection('reservations').doc(_editDocId).update(payload);
     } else {
@@ -1959,14 +2005,52 @@ async function openReservationList() {
 // ── 編集機能 ──
 let _editMode = false, _editDocId = null, _editDateStr = null;
 
-function openEditPinModal(docId, dateStr) {
+async function openEditPinModal(docId, dateStr) {
   _editDocId = docId;
   _editDateStr = dateStr;
+  // ログイン済みの場合は権限チェックし、本人/管理者はPINなしで編集
+  if (_currentUser && _db) {
+    try {
+      const docSnap = await _db.collection('reservations').doc(docId).get();
+      if (!docSnap.exists) { alert('予約が見つかりません'); return; }
+      const data = docSnap.data();
+      const isOwner = data.uid && data.uid === _currentUser.uid;
+      if (isOwner || _isAdmin) {
+        _loadEditForm(data, dateStr);
+        return;
+      }
+      if (data.uid && !isOwner) {
+        alert('この予約は本人のみ編集できます');
+        return;
+      }
+    } catch(e) { /* fallthrough to PIN */ }
+  }
   document.getElementById('edit-pin-input').value = '';
   document.getElementById('edit-pin-error').textContent = '';
   const btn = document.getElementById('edit-pin-confirm-btn');
   btn.disabled = false; btn.textContent = '確認する';
   document.getElementById('edit-pin-modal').style.display = 'flex';
+}
+
+function _loadEditForm(data, dateStr) {
+  _editMode = true;
+  rsvCurrentDate = dateStr;
+  rsvFromDetail = true;
+  populateDateSelect();
+  document.getElementById('rsv-date-select').value = dateStr;
+  document.getElementById('rsv-date-group').style.display = 'block';
+  document.getElementById('rsv-name').value = data.name || '';
+  document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => {
+    c.checked = (data.categories || []).includes(c.value);
+  });
+  const hasOther = (data.categories || []).includes('その他');
+  document.getElementById('rsv-other-wrap').style.display = hasOther ? 'block' : 'none';
+  document.getElementById('rsv-other-text').value = data.otherText || '';
+  document.getElementById('rsv-note').value = data.note || '';
+  document.getElementById('rsv-pin').value = data.pin || '';
+  const pinGroup = document.getElementById('rsv-pin-group');
+  if (pinGroup) pinGroup.style.display = _currentUser ? 'none' : '';
+  showRsvScreen('rsv-form');
 }
 
 function closeEditPinModal() {
@@ -1988,22 +2072,7 @@ async function confirmEditPin() {
     }
     const data = docSnap.data();
     closeEditPinModal();
-    _editMode = true;
-    rsvCurrentDate = _editDateStr;
-    rsvFromDetail = true;
-    populateDateSelect();
-    document.getElementById('rsv-date-select').value = _editDateStr;
-    document.getElementById('rsv-date-group').style.display = 'block';
-    document.getElementById('rsv-name').value = data.name || '';
-    document.querySelectorAll('.rsv-checkbox-grid input[type=checkbox]').forEach(c => {
-      c.checked = (data.categories || []).includes(c.value);
-    });
-    const hasOther = (data.categories || []).includes('その他');
-    document.getElementById('rsv-other-wrap').style.display = hasOther ? 'block' : 'none';
-    document.getElementById('rsv-other-text').value = data.otherText || '';
-    document.getElementById('rsv-note').value = data.note || '';
-    document.getElementById('rsv-pin').value = data.pin || '';
-    showRsvScreen('rsv-form');
+    _loadEditForm(data, _editDateStr);
   } catch(err) {
     document.getElementById('edit-pin-error').textContent = 'エラー: ' + err.message;
     btn.disabled = false; btn.textContent = '確認する';
@@ -2099,10 +2168,38 @@ async function _hashPin(pin) {
 async function _isAdminPin(pin) { return await _hashPin(pin) === ADMIN_PIN_HASH; }
 let _cancelDocId = null, _cancelName = null, _cancelDateStr = null;
 
-function openCancelModal(docId, name, dateStr) {
+async function openCancelModal(docId, name, dateStr) {
   _cancelDocId = docId;
   _cancelName = name;
   _cancelDateStr = dateStr;
+  // ログイン済みの場合は権限チェックし、本人/管理者はPINなしで削除
+  if (_currentUser && _db) {
+    try {
+      const docSnap = await _db.collection('reservations').doc(docId).get();
+      if (!docSnap.exists) { alert('予約が見つかりません'); return; }
+      const data = docSnap.data();
+      const isOwner = data.uid && data.uid === _currentUser.uid;
+      if (isOwner || _isAdmin) {
+        if (!confirm(`「${name}」の予約をキャンセルしますか？`)) return;
+        await _db.collection('reservations').doc(docId).delete();
+        try {
+          const p = dateStr.split('-');
+          const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
+          await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: `__**予約がキャンセルされました**__\n📅 **日付**: ${dateLabel}\n👤 **お名前**: ${name}` })
+          });
+        } catch(e) {}
+        alert('予約をキャンセルしました');
+        openDayDetail(dateStr);
+        return;
+      }
+      if (data.uid && !isOwner) {
+        alert('この予約は本人のみキャンセルできます');
+        return;
+      }
+    } catch(e) { /* fallthrough to PIN */ }
+  }
   document.getElementById('cancel-pin-input').value = '';
   document.getElementById('cancel-error').textContent = '';
   const btn = document.getElementById('cancel-confirm-btn');
@@ -2217,7 +2314,7 @@ function renderRenbanList(events) {
 }
 
 function openRenbanForm() {
-  document.getElementById('rb-event-owner').value = '';
+  document.getElementById('rb-event-owner').value = _registeredName || '';
   document.getElementById('rb-event-title').value = '';
   document.getElementById('rb-event-max').value = '';
   document.getElementById('rb-event-note').value = '';
@@ -2249,10 +2346,12 @@ async function submitRenbanEvent(e) {
   const note = document.getElementById('rb-event-note').value.trim();
   const maxPeople = maxRaw ? parseInt(maxRaw) : null;
   try {
-    await _db.collection('renban_events').add({
+    const rbPayload = {
       owner, title, date, maxPeople, deadline, note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    if (_currentUser) rbPayload.uid = _currentUser.uid;
+    await _db.collection('renban_events').add(rbPayload);
     try {
       const lines = [
         `📢 **連番募集が登録されました**`,
@@ -2298,19 +2397,34 @@ async function openRenbanDetail(eventId) {
 
     // 参加者読み込み
     const pSnap = await _db.collection('renban_events').doc(eventId).collection('participants').orderBy('createdAt', 'asc').get();
-    const participants = pSnap.docs.map(d => d.data());
+    const participants = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const joins = participants.filter(p => p.type === 'join');
     const interests = participants.filter(p => p.type === 'interest');
 
     const renderPList = (list) => {
       if (!list.length) return '<div class="rb-no-participants">まだいません</div>';
-      return list.map(p => `<div class="rb-participant-card">
-        <div class="rb-participant-name">${escHtml(p.name)}</div>
-        ${p.note ? '<div class="rb-participant-note">' + escHtml(p.note) + '</div>' : ''}
-      </div>`).join('');
+      return list.map(p => {
+        const canDeleteP = (_currentUser && p.uid && p.uid === _currentUser.uid) || _isAdmin;
+        return `<div class="rb-participant-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div>
+              <div class="rb-participant-name">${escHtml(p.name)}</div>
+              ${p.note ? '<div class="rb-participant-note">' + escHtml(p.note) + '</div>' : ''}
+            </div>
+            ${canDeleteP ? `<button class="rb-btn secondary" style="padding:3px 10px;font-size:11px;flex-shrink:0;" onclick="deleteRbParticipant('${eventId}','${p.id}')">削除</button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
     };
     document.getElementById('rb-join-list').innerHTML = renderPList(joins);
     document.getElementById('rb-interest-list').innerHTML = renderPList(interests);
+
+    // イベント削除ボタン（本人/管理者のみ）
+    const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
+    const deleteRow = document.getElementById('rb-detail-delete-row');
+    if (deleteRow) deleteRow.style.display = canDeleteEvent ? '' : 'none';
+    const deleteBtn = document.getElementById('rb-detail-delete-btn');
+    if (deleteBtn) deleteBtn.onclick = () => deleteRenbanEvent(eventId);
 
     // 期限切れなら参加ボタン無効化
     const joinBtn = document.querySelector('#rb-detail-screen .rb-btn.join');
@@ -2327,7 +2441,7 @@ async function openRenbanDetail(eventId) {
 function openRbJoinModal(type) {
   _rbJoinType = type;
   document.getElementById('rb-join-modal-title').textContent = type === 'join' ? '参加する' : '興味あり';
-  document.getElementById('rb-join-name').value = '';
+  document.getElementById('rb-join-name').value = _registeredName || '';
   document.getElementById('rb-join-note').value = '';
   document.getElementById('rb-join-status').textContent = '';
   const btn = document.getElementById('rb-join-submit-btn');
@@ -2344,15 +2458,41 @@ async function submitRbParticipation() {
   btn.disabled = true; btn.textContent = '送信中...';
   document.getElementById('rb-join-status').textContent = '';
   try {
-    await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add({
-      name, note, type: _rbJoinType,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    const pData = { name, note, type: _rbJoinType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if (_currentUser) pData.uid = _currentUser.uid;
+    await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add(pData);
     // 詳細画面に戻って更新
     await openRenbanDetail(_rbCurrentEventId);
   } catch(err) {
     document.getElementById('rb-join-status').textContent = 'エラー: ' + err.message;
     btn.disabled = false; btn.textContent = '確定する';
+  }
+}
+
+async function deleteRenbanEvent(eventId) {
+  if (!_db || !_currentUser) return;
+  if (!confirm('このイベントを削除しますか？参加者のデータも全て削除されます。')) return;
+  try {
+    const pSnap = await _db.collection('renban_events').doc(eventId).collection('participants').get();
+    const batch = _db.batch();
+    pSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(_db.collection('renban_events').doc(eventId));
+    await batch.commit();
+    closeRbModal();
+    initRenban();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+}
+
+async function deleteRbParticipant(eventId, participantId) {
+  if (!_db || !_currentUser) return;
+  if (!confirm('参加登録を削除しますか？')) return;
+  try {
+    await _db.collection('renban_events').doc(eventId).collection('participants').doc(participantId).delete();
+    await openRenbanDetail(eventId);
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
   }
 }
 
@@ -2416,9 +2556,9 @@ document.addEventListener('DOMContentLoaded', initFirebase);
           <label class="rsv-label">備考</label>
           <textarea id="rsv-note" class="rsv-textarea" placeholder="自由に入力（任意）"></textarea>
         </div>
-        <div class="rsv-form-group">
+        <div class="rsv-form-group" id="rsv-pin-group">
           <label class="rsv-label">キャンセルPIN（数字4〜8桁）</label>
-          <input type="password" id="rsv-pin" class="rsv-input" placeholder="自分で決めた数字" maxlength="8" inputmode="numeric" required>
+          <input type="password" id="rsv-pin" class="rsv-input" placeholder="自分で決めた数字" maxlength="8" inputmode="numeric">
           <div style="font-size:11px;color:var(--muted);margin-top:4px;">予約をキャンセルするときに使います。忘れずに！</div>
         </div>
         <div class="rsv-btn-row">
@@ -2521,6 +2661,9 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div id="rb-interest-list" class="rb-participants"></div>
       <div class="rb-btn-row" style="margin-top:16px;">
         <button class="rb-btn secondary" onclick="closeRbModal()">閉じる</button>
+      </div>
+      <div id="rb-detail-delete-row" style="display:none;margin-top:8px;">
+        <button id="rb-detail-delete-btn" class="rb-btn secondary" style="width:100%;color:var(--red);border-color:var(--red);">イベントを削除</button>
       </div>
     </div>
 
