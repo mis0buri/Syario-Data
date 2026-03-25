@@ -49,6 +49,20 @@
   }
   nav button:hover { color: var(--text); background: var(--surface2); }
   nav button.active { color: var(--accent); background: var(--surface2); }
+  /* サブナビ（戦績タブ内） */
+  .subnav {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 40px;
+    display: flex; align-items: center; gap: 4px; overflow-x: auto; flex-wrap: nowrap;
+  }
+  .subnav button {
+    background: none; border: none; color: var(--dim);
+    font-family: 'Noto Sans JP', sans-serif; font-size: 12px;
+    padding: 5px 14px; border-radius: 6px; cursor: pointer; transition: all .2s;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .subnav button:hover { color: var(--text); background: var(--surface2); }
+  .subnav button.active { color: var(--accent); font-weight: 700; border-bottom: 2px solid var(--accent); border-radius: 0; }
 
   /* PERIOD FILTER BAR */
   .period-bar {
@@ -502,6 +516,8 @@
     .logo span { margin-left: 6px; font-size: 11px; }
     nav button { font-size: 12px; padding: 5px 9px; }
     #auth-display-name { display:none; }
+    .subnav { padding: 0 12px; height: 36px; }
+    .subnav button { font-size: 11px; padding: 4px 10px; }
 
     .period-bar { padding: 8px 12px; gap: 6px; }
     .period-bar input[type=date] { font-size: 12px; padding: 4px 6px; }
@@ -555,14 +571,11 @@
 <header>
   <div class="logo">シャリオ</div>
   <nav>
-    <button class="active" onclick="showSection('ranking')">総合</button>
-    <button onclick="showSection('member')">個人</button>
-    <button onclick="showSection('graph')">グラフ</button>
-    <button onclick="showSection('history')">履歴</button>
-    <button onclick="showSection('schedule')">営業予定</button>
-    <button onclick="showSection('board')">掲示板</button>
-    <button onclick="showSection('renban')">連番募集</button>
-    <button onclick="showSection('feedback')">ご意見</button>
+    <button class="active" data-nav="sensei" onclick="showSection('ranking')">戦績</button>
+    <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
+    <button data-nav="board" onclick="showSection('board')">掲示板</button>
+    <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
+    <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
   </nav>
   <div id="auth-area">
     <!-- 未ログイン時 -->
@@ -573,6 +586,14 @@
     </div>
   </div>
 </header>
+
+<!-- 戦績サブナビ -->
+<div id="subnav" class="subnav">
+  <button class="active" onclick="showSection('ranking')">総合</button>
+  <button onclick="showSection('member')">個人</button>
+  <button onclick="showSection('graph')">グラフ</button>
+  <button onclick="showSection('history')">履歴</button>
+</div>
 
 <!-- 全画面共通 期間フィルター -->
 <div class="period-bar">
@@ -925,13 +946,31 @@ function refresh() {
 }
 
 // ── ナビ ──
+const _STATS = ['ranking','member','graph','history'];
 function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  const L={ranking:'総合',member:'個人',graph:'グラフ',history:'履歴',schedule:'営業予定',board:'掲示板',renban:'連番募集',feedback:'ご意見'};
-  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.textContent===L[id]));
+
+  const isStats = _STATS.includes(id);
+
+  // メインナビのアクティブ状態
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  const navKey = isStats ? 'sensei' : id;
+  const activeNavBtn = document.querySelector(`nav button[data-nav="${navKey}"]`);
+  if (activeNavBtn) activeNavBtn.classList.add('active');
+
+  // サブナビの表示・アクティブ状態
+  const subnav = document.getElementById('subnav');
+  subnav.style.display = isStats ? '' : 'none';
+  if (isStats) {
+    const subLabels = {ranking:'総合',member:'個人',graph:'グラフ',history:'履歴'};
+    document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
+  }
+
+  // 期間バーの表示
   document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule'||id==='board'||id==='renban') ? 'none' : '';
+
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
   if (id==='schedule') renderCalendar();
