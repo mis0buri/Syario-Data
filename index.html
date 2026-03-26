@@ -164,7 +164,7 @@
     background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
     padding: 10px 12px; display: flex; gap: 8px; align-items: flex-start; margin-bottom: 4px;
   }
-  .jare-prompt-text { font-size: 11px; color: var(--dim); line-height: 1.6; flex: 1; min-width: 0; word-break: break-all; }
+  .jare-prompt-text { font-size: 11px; color: var(--dim); line-height: 1.6; flex: 1; min-width: 0; word-break: break-all; white-space: pre-wrap; }
   .jare-prompt-copy-btn {
     flex-shrink: 0; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
     font-family: 'Noto Sans JP', sans-serif; font-size: 11px; padding: 4px 12px;
@@ -3113,7 +3113,18 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div class="jare-ocr-body" id="jare-ocr-body">
         <p class="jare-ocr-note">① 下のプロンプトをコピーして <a href="https://claude.ai" target="_blank" style="color:var(--accent)">claude.ai</a> に画像と一緒に送る<br>② 返ってきたJSONをそのまま下に貼り付けて「段落に反映」を押す</p>
         <div class="jare-prompt-box">
-          <div class="jare-prompt-text" id="jare-prompt-text">手書きの「じゃれ本」画像です。1枚に2段落ずつ書かれており、各段落の右上に番号があります。全段落のテキストを読み取り、以下のJSON形式のみで返してください。フリガナは《》で囲む（例：魔法《まほう》）、読めない字は●。{"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."}]}</div>
+          <div class="jare-prompt-text" id="jare-prompt-text">手書きの「じゃれ本」という文章の画像です。全部で8段落あり、1枚の画像に2段落ずつ書かれています。各段落の右上に①〜⑧の番号が書いてあります。
+
+すべての段落のテキストを正確に読み取り、以下のルールに従ってJSON形式のみで返してください（説明文・前置き・コードブロック記号は不要です）。
+
+【ルール】
+・フリガナ（ルビ）がある場合は《》で囲む（例：魔法《まほう》）
+・読み取れない文字・判別できない文字は「●」に置き換える
+・明らかに読めない語句はそのまま●●●のように字数分置き換える
+・段落番号は画像に書かれた番号（1〜8）を使う
+・改行はそのまま \n で表現する
+
+{"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."},{"num":3,"text":"..."},{"num":4,"text":"..."},{"num":5,"text":"..."},{"num":6,"text":"..."},{"num":7,"text":"..."},{"num":8,"text":"..."}]}</div>
           <button type="button" class="jare-prompt-copy-btn" onclick="copyJarePrompt()">コピー</button>
         </div>
         <div class="jare-form-row" style="margin-top:12px">
