@@ -2653,11 +2653,16 @@ function renderJareList(docs) {
       </div>`;
     }).join('');
 
+    const groupAdminBtn = _isAdmin
+      ? `<button class="jare-edit-btn" style="margin-left:6px;font-size:11px;padding:2px 10px" onclick="event.stopPropagation();openJareGroupEdit('${_esc(date)}','${_esc(theme)}')">日付・テーマ編集</button>`
+      : '';
+
     html += `<div class="jare-group">
       <div class="jare-group-header" onclick="toggleJareGroup(${gi})">
         <span class="jare-item-arrow" id="jare-grp-arrow-${gi}">▶</span>
         <span>${dateLabel}${themeLabel}</span>
         <span class="jare-group-count">${group.length}作品</span>
+        ${groupAdminBtn}
       </div>
       <div class="jare-group-titles" id="jare-grp-${gi}">${titleRows}</div>
     </div>`;
@@ -2667,6 +2672,51 @@ function renderJareList(docs) {
 
 function _esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openJareGroupEdit(date, theme) {
+  document.getElementById('jare-grpedit-orig-date').value = date;
+  document.getElementById('jare-grpedit-orig-theme').value = theme;
+  document.getElementById('jare-grpedit-date').value = date;
+  document.getElementById('jare-grpedit-theme').value = theme;
+  document.getElementById('jare-grpedit-status').textContent = '';
+  const btn = document.getElementById('jare-grpedit-submit-btn');
+  btn.disabled = false; btn.textContent = '一括変更する';
+  const modal = document.getElementById('jare-group-edit-modal');
+  modal.style.display = 'flex';
+}
+
+function closeJareGroupEdit() {
+  document.getElementById('jare-group-edit-modal').style.display = 'none';
+}
+
+async function saveJareGroupEdit() {
+  if (!_isAdmin || !_db) return;
+  const origDate = document.getElementById('jare-grpedit-orig-date').value;
+  const origTheme = document.getElementById('jare-grpedit-orig-theme').value;
+  const newDate = document.getElementById('jare-grpedit-date').value.trim();
+  const newTheme = document.getElementById('jare-grpedit-theme').value.trim();
+  if (!newDate) { document.getElementById('jare-grpedit-status').textContent = '日付を入力してください'; return; }
+
+  const btn = document.getElementById('jare-grpedit-submit-btn');
+  btn.disabled = true; btn.textContent = '変更中...';
+  document.getElementById('jare-grpedit-status').textContent = '';
+
+  const key = `${origDate}\t${origTheme}`;
+  const targets = _jareDocs.filter(d => {
+    const { date = '', theme = '' } = d.data();
+    return `${date}\t${theme}` === key;
+  });
+
+  try {
+    const batch = _db.batch();
+    targets.forEach(d => batch.update(_db.collection('jare_stories').doc(d.id), { date: newDate, theme: newTheme }));
+    await batch.commit();
+    closeJareGroupEdit();
+  } catch(e) {
+    document.getElementById('jare-grpedit-status').textContent = 'エラー: ' + e.message;
+    btn.disabled = false; btn.textContent = '一括変更する';
+  }
 }
 
 async function moveJareInGroup(docId, dir) {
@@ -3688,6 +3738,29 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     </div>
     <button class="mypage-logout-btn" onclick="myPageSignOut()">ログアウト</button>
     <button class="mypage-close-btn" onclick="closeMyPage()">閉じる</button>
+  </div>
+</div>
+
+<!-- ── じゃれ本 グループ一括編集モーダル ── -->
+<div id="jare-group-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:24px 16px;">
+  <div class="jare-modal-box" style="width:min(400px,100%);">
+    <h3 style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">日付・テーマを一括変更</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:20px;">このグループの全作品の日付・テーマをまとめて変更します</p>
+    <input type="hidden" id="jare-grpedit-orig-date">
+    <input type="hidden" id="jare-grpedit-orig-theme">
+    <div class="jare-form-row">
+      <label>日付</label>
+      <input type="date" id="jare-grpedit-date">
+    </div>
+    <div class="jare-form-row">
+      <label>テーマ</label>
+      <input type="text" id="jare-grpedit-theme" placeholder="（空白も可）">
+    </div>
+    <div id="jare-grpedit-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;"></div>
+    <div class="jare-modal-actions">
+      <button class="jare-cancel-btn" onclick="closeJareGroupEdit()">キャンセル</button>
+      <button class="jare-submit-btn" id="jare-grpedit-submit-btn" onclick="saveJareGroupEdit()">一括変更する</button>
+    </div>
   </div>
 </div>
 
