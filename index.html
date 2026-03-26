@@ -176,12 +176,12 @@
   .jare-img-preview img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 4px; }
   .jare-key-row { display: flex; gap: 8px; margin-bottom: 12px; }
   .jare-key-input {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    flex: 1; min-width: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
     color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 7px 10px;
   }
   .jare-key-input:focus { outline: none; border-color: var(--accent); }
   .jare-key-save-btn {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    flex-shrink: 0; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
     font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 7px 14px;
     border-radius: 6px; cursor: pointer; white-space: nowrap;
   }
@@ -698,6 +698,15 @@
     .fb-file-label { font-size: 12px; padding: 7px 12px; }
     .fb-preview-img { width: 60px; height: 60px; }
     .feedback-submit { width: 100%; text-align: center; padding: 12px; }
+
+    /* じゃれ本モーダル */
+    .jare-modal-box { padding: 16px 14px; }
+    .jare-img-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .jare-form-row input,
+    .jare-form-row textarea,
+    .jare-key-input { font-size: 16px; /* iOSズーム防止 */ }
+    .jare-modal-actions { flex-wrap: wrap; }
+    .jare-cancel-btn, .jare-submit-btn { flex: 1; text-align: center; }
   }
 </style>
 </head>
