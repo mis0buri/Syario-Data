@@ -1771,8 +1771,8 @@ async function loginWithGoogle() {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
     const result = await _auth.signInWithPopup(provider);
-    closeLoginModal();
     _notifyDiscordLogin(result.user, 'Google');
+    location.reload();
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
   }
@@ -1784,8 +1784,8 @@ async function loginWithTwitter() {
   try {
     const provider = new firebase.auth.TwitterAuthProvider();
     const result = await _auth.signInWithPopup(provider);
-    closeLoginModal();
     _notifyDiscordLogin(result.user, 'X');
+    location.reload();
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
   }
