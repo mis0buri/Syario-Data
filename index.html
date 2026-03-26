@@ -1682,6 +1682,7 @@ const FIREBASE_CONFIG = {
 let _db = null;
 let _auth = null;
 let _currentUser = null; // ログイン中ユーザー (null = 未ログイン)
+let _authResolved = false; // onAuthStateChanged が1度でも発火したか
 let _registeredName = null; // マイページで設定した登録名
 let _isAdmin = false; // 管理者フラグ
 
@@ -1715,9 +1716,15 @@ function initFirebase() {
 
 // ── 認証UI更新 ──
 function updateAuthUI(user) {
+  const wasResolved = _authResolved;
+  _authResolved = true;
   const loginBtn = document.getElementById('auth-login-btn');
   const userInfo = document.getElementById('auth-user-info');
   if (!loginBtn || !userInfo) return;
+  // 詳細ページを直リンクで開いた場合、認証確定後に再評価
+  if (!wasResolved && currentSection === 'jare-detail' && _jareDetailDocId) {
+    showJareDetail(_jareDetailDocId);
+  }
   if (user) {
     loginBtn.style.display = 'none';
     userInfo.style.display = 'flex';
@@ -2509,6 +2516,24 @@ function showJareDetail(docId) {
   _jareDetailDocId = docId;
   history.pushState(null, '', '#jare/' + docId);
   showSection('jare-detail');
+
+  // 認証未確定（直リンク時）→ updateAuthUI が確定後に再呼び出す
+  if (!_authResolved) {
+    document.getElementById('jare-detail-meta').textContent = '';
+    document.getElementById('jare-detail-title').textContent = '';
+    document.getElementById('jare-detail-body').innerHTML = '<div style="color:var(--dim);padding:40px 0;text-align:center">読み込み中...</div>';
+    return;
+  }
+
+  // 未ログイン → 本文を表示しない
+  if (!_currentUser) {
+    document.getElementById('jare-detail-meta').textContent = '';
+    document.getElementById('jare-detail-title').textContent = '';
+    document.getElementById('jare-detail-body').innerHTML =
+      '<div style="color:var(--dim);padding:48px 0;text-align:center;font-size:14px;line-height:2">本文を閲覧するには<br>ログインが必要です</div>';
+    return;
+  }
+
   const existing = _jareDocs.find(d => d.id === docId);
   if (existing) {
     _renderJareDetail(docId, existing.data());
