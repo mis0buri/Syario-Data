@@ -2083,9 +2083,26 @@ async function postToX() {
   const note = entry ? entry.note : '';
   const rsvs = _currentDayRsvData;
 
+  // 参加者フェッチ
+  let joins = [], interests = [];
+  if (_db) {
+    try {
+      const pSnap = await _db.collection('rsv_participants').where('date', '==', dateStr).get();
+      const all = pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      joins = all.filter(p => p.type === 'join');
+      interests = all.filter(p => p.type === 'interest');
+    } catch(e) {}
+  }
+
   const dpr = window.devicePixelRatio || 1;
   const W = 720, pad = 36, rowH = 34;
-  const H = 170 + (rsvs.length > 0 ? rsvs.length * rowH + 24 : 48);
+  const rsvSectionH = rsvs.length > 0 ? 48 + rsvs.length * rowH : 48;
+  const hasParticipants = joins.length > 0 || interests.length > 0;
+  const participantSectionH = hasParticipants
+    ? 30 + 24 + joins.length * rowH + (interests.length > 0 ? 16 + 24 + interests.length * rowH : 0) + 20
+    : 20;
+  const H = 154 + rsvSectionH + participantSectionH;
+
   const canvas = document.createElement('canvas');
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
@@ -2125,26 +2142,61 @@ async function postToX() {
   ctx.beginPath(); ctx.moveTo(pad, 130); ctx.lineTo(W - pad, 130); ctx.stroke();
 
   // 予約リスト
+  let curY = 154;
   if (rsvs.length === 0) {
     ctx.fillStyle = '#5c6370';
     ctx.font = "16px 'Noto Sans JP', sans-serif";
-    ctx.fillText('予約はありません', pad, 166);
+    ctx.fillText('予約はありません', pad, curY + 12);
+    curY += 48;
   } else {
     ctx.fillStyle = '#5c6370';
     ctx.font = "13px 'Noto Sans JP', sans-serif";
-    ctx.fillText(`${rsvs.length}件の予約`, pad, 154);
-    rsvs.forEach((rsv, i) => {
-      const ry = 154 + 24 + i * rowH;
+    ctx.fillText(`${rsvs.length}件の予約`, pad, curY);
+    curY += 24;
+    rsvs.forEach(rsv => {
       ctx.fillStyle = '#dde2ec';
       ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
-      ctx.fillText(rsv.name, pad, ry);
+      ctx.fillText(rsv.name, pad, curY);
       if (rsv.cats.length) {
         const nameW = ctx.measureText(rsv.name).width;
         ctx.fillStyle = '#61afef';
         ctx.font = "13px 'Noto Sans JP', sans-serif";
-        ctx.fillText('  ' + rsv.cats.join(' / '), pad + nameW, ry);
+        ctx.fillText('  ' + rsv.cats.join(' / '), pad + nameW, curY);
       }
+      curY += rowH;
     });
+  }
+
+  // 参加・興味あり セクション
+  curY += 14;
+  ctx.strokeStyle = '#3a3f4b';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, curY); ctx.lineTo(W - pad, curY); ctx.stroke();
+  curY += 22;
+
+  const drawPList = (label, list, color) => {
+    ctx.fillStyle = '#5c6370';
+    ctx.font = "13px 'Noto Sans JP', sans-serif";
+    ctx.fillText(`${label}  ${list.length}人`, pad, curY);
+    curY += 24;
+    list.forEach(p => {
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
+      ctx.fillText(p.name || '匿名', pad + 12, curY);
+      if (p.note) {
+        const nameW = ctx.measureText(p.name || '匿名').width;
+        ctx.fillStyle = '#7f848e';
+        ctx.font = "13px 'Noto Sans JP', sans-serif";
+        ctx.fillText('  ' + p.note, pad + 12 + nameW, curY);
+      }
+      curY += rowH;
+    });
+  };
+
+  drawPList('参加', joins, '#98c379');
+  if (interests.length > 0) {
+    curY += 8;
+    drawPList('興味あり', interests, '#e5c07b');
   }
 
   canvas.toBlob(async blob => {
