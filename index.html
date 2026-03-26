@@ -2107,7 +2107,7 @@ async function postToX() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `rsv-${dateStr}.png`; a.click();
     URL.revokeObjectURL(url);
-    setTimeout(() => window.open('https://x.com/intent/tweet?text=' + encodeURIComponent(shareUrl), '_blank'), 400);
+    setTimeout(() => window.open('https://x.com/intent/tweet?url=' + encodeURIComponent(shareUrl), '_blank'), 400);
   }, 'image/png');
 }
 
