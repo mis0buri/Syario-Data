@@ -2501,9 +2501,9 @@ function openJareModal(docId) {
     inp.value = '';
     document.getElementById('jare-img-prev-' + i).innerHTML = 'タップして選択';
   }
-  const keyInp = document.getElementById('jare-claude-key');
-  keyInp.value = '';
-  keyInp.placeholder = localStorage.getItem('syario_claude_key') ? 'APIキー保存済み（変更する場合のみ入力）' : 'Claude API Key';
+  const proxyInp = document.getElementById('jare-proxy-url');
+  proxyInp.value = '';
+  proxyInp.placeholder = localStorage.getItem('syario_ocr_proxy') ? 'Worker URL保存済み（変更する場合のみ入力）' : 'Cloudflare Worker URL';
 
   document.getElementById('jare-modal').classList.add('open');
 }
@@ -2571,13 +2571,13 @@ function onJareImgSelect(input, slot) {
   reader.readAsDataURL(file);
 }
 
-function saveJareClaudeKey() {
-  const val = document.getElementById('jare-claude-key').value.trim();
-  if (!val) { alert('APIキーを入力してください'); return; }
-  localStorage.setItem('syario_claude_key', val);
-  document.getElementById('jare-claude-key').value = '';
-  document.getElementById('jare-claude-key').placeholder = 'APIキー保存済み';
-  _setOcrStatus('APIキーを保存しました', 'ok');
+function saveJareProxyUrl() {
+  const val = document.getElementById('jare-proxy-url').value.trim();
+  if (!val) { alert('Worker URLを入力してください'); return; }
+  localStorage.setItem('syario_ocr_proxy', val);
+  document.getElementById('jare-proxy-url').value = '';
+  document.getElementById('jare-proxy-url').placeholder = 'Worker URL保存済み';
+  _setOcrStatus('Worker URLを保存しました', 'ok');
 }
 
 function _setOcrStatus(msg, cls) {
@@ -2611,10 +2611,10 @@ function _fileToBase64(file) {
 }
 
 async function runJareOcr() {
-  const apiKey = (document.getElementById('jare-claude-key').value.trim()) ||
-                 localStorage.getItem('syario_claude_key') || '';
-  if (!apiKey) {
-    _setOcrStatus('Claude APIキーを入力または保存してください', 'err');
+  const proxyUrl = (document.getElementById('jare-proxy-url').value.trim()) ||
+                   localStorage.getItem('syario_ocr_proxy') || '';
+  if (!proxyUrl) {
+    _setOcrStatus('Cloudflare Worker URLを入力または保存してください', 'err');
     return;
   }
 
@@ -2669,15 +2669,11 @@ async function runJareOcr() {
     const timer = setTimeout(() => controller.abort(), 60000); // 60秒タイムアウト
     let res;
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
+      // Cloudflare Worker経由で送信（APIキーはWorker側で管理）
+      res = await fetch(proxyUrl, {
         method: 'POST',
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-allow-browser': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           max_tokens: 2048,
@@ -3295,8 +3291,8 @@ document.addEventListener('DOMContentLoaded', initFirebase);
           </label>
         </div>
         <div class="jare-key-row">
-          <input type="password" id="jare-claude-key" class="jare-key-input" placeholder="Claude API Key（保存済みの場合は空欄でOK）">
-          <button type="button" class="jare-key-save-btn" onclick="saveJareClaudeKey()">保存</button>
+          <input type="text" id="jare-proxy-url" class="jare-key-input" placeholder="Cloudflare Worker URL（保存済みの場合は空欄でOK）" autocomplete="off">
+          <button type="button" class="jare-key-save-btn" onclick="saveJareProxyUrl()">保存</button>
         </div>
         <div class="jare-model-row">
           <label class="jare-model-label">モデル</label>
