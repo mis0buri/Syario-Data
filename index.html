@@ -2602,7 +2602,7 @@ function renderJareList(docs) {
     const group = comboMap[key];
     const [date, theme] = key.split('\t');
     const parts = date.split('-');
-    const dateLabel = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : date;
+    const dateLabel = parts.length === 3 ? `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日` : date;
     const themeLabel = theme ? ` テーマ: ${_esc(theme)}` : '';
 
     const titleRows = group.map((doc) => {
