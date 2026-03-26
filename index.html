@@ -123,6 +123,12 @@
   }
   .jare-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
   .jare-del-btn:hover { color: var(--red); border-color: var(--red); }
+  .jare-order-btn {
+    background: none; border: 1px solid var(--border); color: var(--dim);
+    font-size: 11px; padding: 2px 7px; border-radius: 4px; cursor: pointer; line-height: 1.2;
+  }
+  .jare-order-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .jare-order-btn:disabled { opacity: .3; cursor: default; }
   /* じゃれ本 詳細ページ */
   .jare-detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .jare-back-btn {
@@ -2597,6 +2603,16 @@ function renderJareList(docs) {
     return da > db ? -1 : da < db ? 1 : 0;
   });
 
+  // グループ内を order フィールドでソート（未設定は createdAt で補完）
+  Object.keys(comboMap).forEach(key => {
+    comboMap[key].sort((a, b) => {
+      const ao = typeof a.data().order === 'number' ? a.data().order : Infinity;
+      const bo = typeof b.data().order === 'number' ? b.data().order : Infinity;
+      if (ao !== bo) return ao - bo;
+      return (a.data().createdAt?.toMillis?.() || 0) - (b.data().createdAt?.toMillis?.() || 0);
+    });
+  });
+
   let html = '';
   comboOrder.forEach((key, gi) => {
     const group = comboMap[key];
@@ -2605,11 +2621,13 @@ function renderJareList(docs) {
     const dateLabel = parts.length === 3 ? `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日` : date;
     const themeLabel = theme ? ` テーマ: ${_esc(theme)}` : '';
 
-    const titleRows = group.map((doc) => {
+    const titleRows = group.map((doc, ti) => {
       const data = doc.data();
       const crown = data.winner ? '<span class="jare-crown">👑</span>' : '';
       const adminBtns = _isAdmin
         ? `<div class="jare-admin-btns">
+            <button class="jare-order-btn" ${ti===0?'disabled':''} onclick="event.stopPropagation();moveJareInGroup('${doc.id}',-1)" title="上へ">↑</button>
+            <button class="jare-order-btn" ${ti===group.length-1?'disabled':''} onclick="event.stopPropagation();moveJareInGroup('${doc.id}',1)" title="下へ">↓</button>
             <button class="jare-edit-btn" onclick="event.stopPropagation();openJareModal('${doc.id}')">編集</button>
             <button class="jare-del-btn" onclick="event.stopPropagation();deleteJareStory('${doc.id}')">削除</button>
            </div>`
@@ -2635,6 +2653,36 @@ function renderJareList(docs) {
 
 function _esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function moveJareInGroup(docId, dir) {
+  if (!_isAdmin || !_db) return;
+  const doc = _jareDocs.find(d => d.id === docId);
+  if (!doc) return;
+  const { date = '', theme = '' } = doc.data();
+  const key = `${date}\t${theme}`;
+
+  // グループ内を現在の表示順で取得
+  const group = _jareDocs
+    .filter(d => { const { date: dt = '', theme: th = '' } = d.data(); return `${dt}\t${th}` === key; })
+    .sort((a, b) => {
+      const ao = typeof a.data().order === 'number' ? a.data().order : Infinity;
+      const bo = typeof b.data().order === 'number' ? b.data().order : Infinity;
+      if (ao !== bo) return ao - bo;
+      return (a.data().createdAt?.toMillis?.() || 0) - (b.data().createdAt?.toMillis?.() || 0);
+    });
+
+  const idx = group.findIndex(d => d.id === docId);
+  const targetIdx = idx + dir;
+  if (idx < 0 || targetIdx < 0 || targetIdx >= group.length) return;
+
+  // 全件を 0,1,2... に正規化しつつ対象2件をスワップ
+  const batch = _db.batch();
+  group.forEach((d, i) => {
+    const newOrder = i === idx ? targetIdx : i === targetIdx ? idx : i;
+    batch.update(_db.collection('jare_stories').doc(d.id), { order: newOrder });
+  });
+  try { await batch.commit(); } catch(e) { alert('順番の変更に失敗しました: ' + e.message); }
 }
 
 function toggleJareGroup(gi) {
