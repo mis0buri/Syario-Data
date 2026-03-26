@@ -2780,6 +2780,7 @@ async function openCancelModal(docId, name, dateStr) {
 
 // ── 連番募集 ──
 let _rbCurrentEventId = null;
+let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
 let _rbDatePicker = null;
 let _rbDeadlinePicker = null;
@@ -2793,31 +2794,97 @@ function closeRbModal() {
 }
 async function shareRenbanEvent() {
   const eventId = _rbCurrentEventId;
-  if (!eventId) return;
-  const titleEl = document.getElementById('rb-detail-title');
-  const title = titleEl ? titleEl.textContent : '';
+  if (!eventId || !_rbCurrentEvent) return;
+  const { ev, joinCount, interestCount } = _rbCurrentEvent;
   const url = location.origin + location.pathname + '#renban/' + eventId;
-  const text = `募集しています\n${url}`;
-  if (navigator.share) {
-    try { await navigator.share({ title, text, url }); return; } catch(e) { if (e.name === 'AbortError') return; }
+
+  // ── canvas画像生成 ──
+  const dpr = window.devicePixelRatio || 1;
+  const W = 720, pad = 36, rowH = 32;
+  const rows = [
+    ['日付', ev.date || ''],
+    ['募集人数', ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'],
+    ['募集期限', ev.deadline || '期限なし'],
+    ...(ev.note ? [['備考', ev.note]] : []),
+    ['参加', joinCount + '人　興味あり ' + interestCount + '人'],
+  ];
+  const H = 60 + 50 + 16 + rows.length * rowH + 20 + 44 + 36;
+  const canvas = document.createElement('canvas');
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // 背景
+  ctx.fillStyle = '#21252b';
+  ctx.fillRect(0, 0, W, H);
+  // アクセントバー
+  ctx.fillStyle = '#c8a96e';
+  ctx.fillRect(0, 0, 6, H);
+
+  await document.fonts.ready;
+
+  // タイトル（長い場合は折り返し）
+  ctx.fillStyle = '#dde2ec';
+  ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+  const maxTitleW = W - pad * 2;
+  let titleLine = ev.title || '';
+  if (ctx.measureText(titleLine).width > maxTitleW) {
+    // 1行に収まるまで切り詰め
+    while (ctx.measureText(titleLine + '…').width > maxTitleW && titleLine.length > 0) titleLine = titleLine.slice(0, -1);
+    titleLine += '…';
   }
-  try { await navigator.clipboard.writeText(text); }
-  catch {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-  }
-  const toast = document.createElement('div');
-  toast.textContent = 'URLをコピーしました';
-  Object.assign(toast.style, {
-    position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
-    background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)',
-    padding:'8px 20px', borderRadius:'8px', fontSize:'13px', zIndex:'9999',
-    boxShadow:'0 4px 16px rgba(0,0,0,.4)', pointerEvents:'none'
+  ctx.fillText(titleLine, pad, 46);
+
+  // 区切り線
+  ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, 62); ctx.lineTo(W - pad, 62); ctx.stroke();
+
+  // 詳細行
+  let y = 62 + 28;
+  rows.forEach(([key, val]) => {
+    ctx.fillStyle = '#7f848e';
+    ctx.font = "13px 'Noto Sans JP', sans-serif";
+    ctx.fillText(key, pad, y);
+    ctx.fillStyle = '#dde2ec';
+    ctx.font = "14px 'Noto Sans JP', sans-serif";
+    // val が長い場合は切り詰め
+    let valStr = String(val);
+    const valX = pad + 90;
+    while (ctx.measureText(valStr + '…').width > W - valX - pad && valStr.length > 0) valStr = valStr.slice(0, -1);
+    if (valStr !== String(val)) valStr += '…';
+    ctx.fillText(valStr, valX, y);
+    y += rowH;
   });
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
+
+  // URL
+  ctx.fillStyle = '#528bff';
+  ctx.font = "12px 'Noto Sans JP', sans-serif";
+  ctx.fillText(url, pad, H - 20);
+
+  canvas.toBlob(async blob => {
+    const file = new File([blob], `renban-${eventId}.png`, { type: 'image/png' });
+    const shareText = `募集しています\n${url}`;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: shareText }); return; }
+      catch(e) { if (e.name === 'AbortError') return; }
+    }
+    // フォールバック：画像ダウンロード + クリップボード
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = objUrl; a.download = `renban-${eventId}.png`; a.click();
+    URL.revokeObjectURL(objUrl);
+    try { await navigator.clipboard.writeText(shareText); } catch {}
+    const toast = document.createElement('div');
+    toast.textContent = 'URLをコピー・画像をダウンロードしました';
+    Object.assign(toast.style, {
+      position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
+      background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)',
+      padding:'8px 20px', borderRadius:'8px', fontSize:'13px', zIndex:'9999',
+      boxShadow:'0 4px 16px rgba(0,0,0,.4)', pointerEvents:'none'
+    });
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+  }, 'image/png');
 }
 function rbOverlayClick(e) {
   if (e.target === document.getElementById('rb-overlay')) closeRbModal();
@@ -2978,6 +3045,7 @@ async function openRenbanDetail(eventId) {
     };
     document.getElementById('rb-join-list').innerHTML = renderPList(joins);
     document.getElementById('rb-interest-list').innerHTML = renderPList(interests);
+    _rbCurrentEvent = { ev, joinCount: joins.length, interestCount: interests.length };
 
     // イベント削除ボタン（本人/管理者のみ）
     const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
