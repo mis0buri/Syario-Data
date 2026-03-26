@@ -2690,13 +2690,14 @@ async function runJareOcr() {
     }
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const msg = errData?.error?.message || `HTTP ${res.status}`;
-      if (res.status === 429) {
-        throw new Error('APIの利用上限に達しました。しばらく待ってから再試行してください。\nhttps://console.anthropic.com/settings/limits でプランを確認できます。');
-      }
-      if (res.status === 401) throw new Error('APIキーが無効です。https://console.anthropic.com/settings/keys で確認してください。');
-      throw new Error(msg);
+      const rawErr = await res.text().catch(() => '');
+      let msg = `HTTP ${res.status}`;
+      try { const j = JSON.parse(rawErr); msg = j?.error?.message || msg; } catch {}
+      if (res.status === 405) throw new Error(`HTTP 405: WorkerのURLが間違っているか、Workerが正しくデプロイされていません。\nURL: ${proxyUrl}\n本文: ${rawErr.slice(0,120)}`);
+      if (res.status === 429) throw new Error('APIの利用上限に達しました。しばらく待ってから再試行してください。');
+      if (res.status === 401) throw new Error('APIキーが無効です。WorkerのANTHROPIC_API_KEY設定を確認してください。');
+      if (res.status === 500) throw new Error(`Workerエラー(500): ${rawErr.slice(0,200)}`);
+      throw new Error(`${msg}\n${rawErr.slice(0,200)}`);
     }
 
     const data = await res.json();
