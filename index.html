@@ -2099,14 +2099,15 @@ async function postToX() {
 
   canvas.toBlob(async blob => {
     const file = new File([blob], `rsv-${dateStr}.png`, { type: 'image/png' });
+    const shareUrl = location.origin + location.pathname + '#schedule/' + dateStr;
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file] }); return; } catch(e) { if (e.name === 'AbortError') return; }
+      try { await navigator.share({ files: [file], text: shareUrl }); return; } catch(e) { if (e.name === 'AbortError') return; }
     }
     // フォールバック：ダウンロード ＋ X投稿画面
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `rsv-${dateStr}.png`; a.click();
     URL.revokeObjectURL(url);
-    setTimeout(() => window.open('https://x.com/intent/tweet', '_blank'), 400);
+    setTimeout(() => window.open('https://x.com/intent/tweet?text=' + encodeURIComponent(shareUrl), '_blank'), 400);
   }, 'image/png');
 }
 
