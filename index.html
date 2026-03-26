@@ -425,7 +425,7 @@
   /* LOADING */
   #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; transition:opacity .4s; }
   #loading .ld-logo { font-family:'Noto Serif JP',serif; font-size:36px; font-weight:900; color:var(--accent); margin-bottom:24px; letter-spacing:.2em; }
-  #loading .ld-bar { width:200px; height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
+  #loading .ld-bar { width:min(200px,80vw); height:2px; background:var(--border); border-radius:2px; overflow:hidden; }
   #loading .ld-bar-inner { height:100%; background:var(--accent); animation:ldAnim 1.2s ease-in-out infinite; }
   @keyframes ldAnim { 0%{width:0%;margin-left:0} 50%{width:60%} 100%{width:0%;margin-left:100%} }
   #error-msg { display:none; background:rgba(230,57,70,.1); border:1px solid var(--red); border-radius:10px; padding:20px 24px; margin-bottom:24px; font-size:13px; color:var(--red); }
@@ -718,6 +718,19 @@
     .jare-form-row textarea { font-size: 16px; /* iOSズーム防止 */ }
     .jare-modal-actions { flex-wrap: wrap; }
     .jare-cancel-btn, .jare-submit-btn { flex: 1; text-align: center; }
+    /* じゃれ本リスト 管理者ボタン縮小 */
+    .jare-order-btn { padding: 2px 5px; font-size: 10px; }
+    .jare-edit-btn, .jare-del-btn { padding: 2px 7px; font-size: 10px; }
+    .jare-admin-btns { gap: 4px; }
+    .jare-combo-select { font-size: 16px; /* iOSズーム防止 */ }
+    /* 予約フォーム */
+    .rsv-input, .rsv-textarea { font-size: 16px; /* iOSズーム防止 */ }
+    .rsv-checkbox-item { padding: 8px 10px; }
+    .rsv-checkbox-item span { font-size: 12px; }
+    /* 連番募集フォーム */
+    .rb-textarea { font-size: 16px; /* iOSズーム防止 */ }
+    /* ローディングバー */
+    #loading .ld-bar { width: min(200px, 80vw); }
   }
 </style>
 </head>
@@ -2811,7 +2824,7 @@ function openJareModal(docId) {
   comboSel.innerHTML = '<option value="">── 新しく入力する ──</option>' +
     combos.map(c => {
       const parts = c.date.split('-');
-      const dl = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : c.date;
+      const dl = parts.length === 3 ? `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日` : c.date;
       const tl = c.theme ? ` テーマ:${c.theme}` : '';
       return `<option value="${_esc(c.date)}\t${_esc(c.theme)}">${dl}${tl}</option>`;
     }).join('');
