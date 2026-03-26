@@ -2697,6 +2697,7 @@ async function runJareOcr() {
       if (res.status === 429) throw new Error('APIの利用上限に達しました。しばらく待ってから再試行してください。');
       if (res.status === 401) throw new Error('APIキーが無効です。WorkerのANTHROPIC_API_KEY設定を確認してください。');
       if (res.status === 500) throw new Error(`Workerエラー(500): ${rawErr.slice(0,200)}`);
+      if (msg.includes('credit balance') || msg.includes('billing')) throw new Error('クレジット残高が不足しています。\nhttps://console.anthropic.com/settings/billing でクレジットを追加してください。');
       throw new Error(`${msg}\n${rawErr.slice(0,200)}`);
     }
 
