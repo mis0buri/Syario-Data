@@ -77,7 +77,74 @@
   .gallery-hub-badge {
     display: block; font-size: 11px; font-weight: 400; color: var(--dim); margin-top: 6px;
   }
-  .preparing-msg { color: var(--dim); font-size: 16px; padding: 40px 0; text-align: center; }
+  /* じゃれ本リスト */
+  .jare-add-btn {
+    float: right; background: var(--accent); border: none; color: var(--bg);
+    font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 700;
+    padding: 4px 14px; border-radius: 6px; cursor: pointer;
+  }
+  .jare-add-btn:hover { opacity: .85; }
+  .jare-empty { color: var(--dim); text-align: center; padding: 32px 0; font-size: 14px; }
+  .jare-group { margin-bottom: 20px; }
+  .jare-date-header {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+    letter-spacing: .06em; padding: 6px 0 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+  }
+  .jare-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 8px; border-radius: 6px; cursor: pointer; transition: background .15s;
+  }
+  .jare-item:hover { background: var(--surface2); }
+  .jare-item-title { font-size: 14px; color: var(--text); }
+  .jare-item-arrow { font-size: 10px; color: var(--dim); margin-right: 6px; transition: transform .2s; }
+  .jare-item-arrow.open { transform: rotate(90deg); }
+  .jare-admin-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .jare-edit-btn, .jare-del-btn {
+    background: none; border: 1px solid var(--border); color: var(--dim);
+    font-size: 11px; padding: 2px 10px; border-radius: 4px; cursor: pointer;
+  }
+  .jare-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .jare-del-btn:hover { color: var(--red); border-color: var(--red); }
+  .jare-story {
+    display: none; padding: 12px 12px 16px; background: var(--surface2);
+    border-radius: 6px; margin: 2px 0 8px; line-height: 1.9;
+  }
+  .jare-story.open { display: block; }
+  .jare-para { font-size: 14px; color: var(--text); white-space: pre-wrap; }
+  .jare-para-sep { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
+
+  /* じゃれ本モーダル */
+  #jare-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 300; align-items: flex-start; justify-content: center; padding: 24px 16px; overflow-y: auto;
+  }
+  #jare-modal.open { display: flex; }
+  .jare-modal-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px 24px; width: min(560px,100%); margin: auto;
+  }
+  .jare-modal-box h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 20px; }
+  .jare-form-row { margin-bottom: 14px; display: flex; flex-direction: column; gap: 5px; }
+  .jare-form-row label { font-size: 12px; color: var(--dim); }
+  .jare-form-row input, .jare-form-row textarea {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px;
+    padding: 8px 12px; width: 100%; resize: vertical;
+  }
+  .jare-form-row input:focus, .jare-form-row textarea:focus { outline: none; border-color: var(--accent); }
+  .jare-para-label { font-size: 12px; color: var(--dim); margin: 14px 0 6px; font-weight: 700; }
+  .jare-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .jare-cancel-btn {
+    background: none; border: 1px solid var(--border); color: var(--dim);
+    font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 7px 20px; border-radius: 6px; cursor: pointer;
+  }
+  .jare-cancel-btn:hover { color: var(--text); border-color: var(--text); }
+  .jare-submit-btn {
+    background: var(--accent); border: none; color: var(--bg);
+    font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 700; padding: 7px 24px; border-radius: 6px; cursor: pointer;
+  }
+  .jare-submit-btn:hover { opacity: .85; }
+  #jare-modal-status { font-size: 13px; color: var(--red); margin-top: 8px; text-align: right; }
 
   /* PERIOD FILTER BAR */
   .period-bar {
@@ -787,7 +854,7 @@
     <div class="card">
       <div class="card-title">ギャラリー</div>
       <div class="gallery-hub">
-        <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本<span class="gallery-hub-badge">準備中</span></button>
+        <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本</button>
       </div>
     </div>
   </div>
@@ -795,8 +862,11 @@
   <!-- じゃれ本 -->
   <div id="sec-jare" class="section">
     <div class="card">
-      <div class="card-title">じゃれ本</div>
-      <div class="preparing-msg">準備中</div>
+      <div class="card-title">
+        じゃれ本
+        <button id="jare-add-btn" class="jare-add-btn" onclick="openJareModal()" style="display:none">＋ 追加</button>
+      </div>
+      <div id="jare-list"><div class="jare-empty">読み込み中...</div></div>
     </div>
   </div>
 </main>
@@ -1023,6 +1093,7 @@ function showSection(id) {
   if (id==='schedule') renderCalendar();
   if (id==='board') initBoard();
   if (id==='renban') initRenban();
+  if (id==='jare') initJare();
   if (id==='feedback' && _registeredName) {
     const fbName = document.getElementById('fb-name');
     if (fbName && !fbName.value) fbName.value = _registeredName;
@@ -1559,6 +1630,7 @@ function updateAuthUI(user) {
     _registeredName = null;
     _isAdmin = false;
     _refreshBoardIfActive();
+    _refreshJareIfActive();
   }
   const rbHint = document.getElementById('rb-login-hint');
   if (rbHint) rbHint.style.display = user ? 'none' : 'inline';
@@ -1695,8 +1767,9 @@ async function _loadUserData(user) {
   // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
   const fbName = document.getElementById('fb-name');
   if (fbName && !fbName.value) fbName.value = _registeredName;
-  // 掲示板を再レンダリング（削除ボタン表示を反映）
+  // 掲示板・じゃれ本を再レンダリング（削除ボタン表示を反映）
   _refreshBoardIfActive();
+  _refreshJareIfActive();
 }
 
 // ── ログイン必須ガード ──
@@ -2222,6 +2295,184 @@ function _refreshBoardIfActive() {
   }
 }
 
+// ── じゃれ本 ──
+const _JARE_CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+let _jareInited = false;
+let _jareUnsubscribe = null;
+
+function _resetJare() {
+  if (_jareUnsubscribe) { _jareUnsubscribe(); _jareUnsubscribe = null; }
+  _jareInited = false;
+}
+
+function _refreshJareIfActive() {
+  if (currentSection === 'jare') {
+    _resetJare();
+    initJare();
+  }
+}
+
+function initJare() {
+  const addBtn = document.getElementById('jare-add-btn');
+  if (addBtn) addBtn.style.display = _isAdmin ? '' : 'none';
+
+  if (_jareInited) return;
+  _jareInited = true;
+
+  const listEl = document.getElementById('jare-list');
+  if (!_db) { listEl.innerHTML = '<div class="jare-empty">Firebase未設定</div>'; return; }
+  if (_jareUnsubscribe) _jareUnsubscribe();
+  _jareUnsubscribe = _db.collection('jare_stories')
+    .onSnapshot(snap => {
+      const docs = snap.docs.slice().sort((a, b) => {
+        const da = a.data(), db2 = b.data();
+        if (da.date !== db2.date) return da.date > db2.date ? -1 : 1;
+        const ca = da.createdAt?.toMillis?.() || 0;
+        const cb2 = db2.createdAt?.toMillis?.() || 0;
+        return ca - cb2;
+      });
+      renderJareList(docs);
+    }, () => {
+      document.getElementById('jare-list').innerHTML = '<div class="jare-empty">読み込みに失敗しました</div>';
+    });
+}
+
+function renderJareList(docs) {
+  const listEl = document.getElementById('jare-list');
+  if (!docs.length) { listEl.innerHTML = '<div class="jare-empty">まだ作品がありません</div>'; return; }
+
+  // Group by date
+  const dateMap = {};
+  docs.forEach(d => {
+    const date = d.data().date || '';
+    if (!dateMap[date]) dateMap[date] = [];
+    dateMap[date].push(d);
+  });
+
+  let html = '';
+  Object.keys(dateMap).sort((a,b) => a > b ? -1 : 1).forEach(date => {
+    const group = dateMap[date];
+    const multi = group.length > 1;
+    // format date "YYYY-MM-DD" → "M/D"
+    const parts = date.split('-');
+    const dateLabel = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : date;
+
+    group.forEach((doc, i) => {
+      const data = doc.data();
+      const idx = multi ? _JARE_CIRCLED[i] || `(${i+1})` : '';
+      const themeLabel = data.theme ? ` テーマ:${_esc(data.theme)}` : '';
+      const paras = Array.isArray(data.paragraphs) ? data.paragraphs : [];
+      const storyHtml = paras.map((p, pi) =>
+        `${pi > 0 ? '<hr class="jare-para-sep">' : ''}<div class="jare-para">${_esc(p)}</div>`
+      ).join('');
+      const adminBtns = _isAdmin
+        ? `<div class="jare-admin-btns">
+            <button class="jare-edit-btn" onclick="event.stopPropagation();openJareModal('${doc.id}')">編集</button>
+            <button class="jare-del-btn" onclick="event.stopPropagation();deleteJareStory('${doc.id}')">削除</button>
+           </div>`
+        : '';
+
+      html += `<div class="jare-group">
+        <div class="jare-date-header">${dateLabel}${idx}${themeLabel}</div>
+        <div class="jare-item" onclick="toggleJareStory('${doc.id}')">
+          <span style="display:flex;align-items:center;gap:6px;">
+            <span class="jare-item-arrow" id="jare-arrow-${doc.id}">▶</span>
+            <span class="jare-item-title">${_esc(data.title||'（無題）')}</span>
+          </span>
+          ${adminBtns}
+        </div>
+        <div class="jare-story" id="jare-story-${doc.id}">${storyHtml || '<div class="jare-para" style="color:var(--dim)">（段落なし）</div>'}</div>
+      </div>`;
+    });
+  });
+  listEl.innerHTML = html;
+}
+
+function _esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleJareStory(docId) {
+  const story = document.getElementById('jare-story-' + docId);
+  const arrow = document.getElementById('jare-arrow-' + docId);
+  if (!story) return;
+  const open = story.classList.toggle('open');
+  if (arrow) { arrow.textContent = open ? '▼' : '▶'; arrow.classList.toggle('open', open); }
+}
+
+function openJareModal(docId) {
+  document.getElementById('jare-edit-id').value = docId || '';
+  document.getElementById('jare-modal-heading').textContent = docId ? 'じゃれ本を編集' : 'じゃれ本を追加';
+  document.getElementById('jare-modal-status').textContent = '';
+  document.getElementById('jare-submit-btn').disabled = false;
+
+  if (docId) {
+    _db.collection('jare_stories').doc(docId).get().then(doc => {
+      if (!doc.exists) return;
+      const d = doc.data();
+      document.getElementById('jare-date').value = d.date || '';
+      document.getElementById('jare-theme').value = d.theme || '';
+      document.getElementById('jare-title-input').value = d.title || '';
+      const paras = d.paragraphs || [];
+      for (let i = 1; i <= 8; i++) {
+        document.getElementById('jare-p' + i).value = paras[i-1] || '';
+      }
+    });
+  } else {
+    document.getElementById('jare-date').value = '';
+    document.getElementById('jare-theme').value = '';
+    document.getElementById('jare-title-input').value = '';
+    for (let i = 1; i <= 8; i++) document.getElementById('jare-p' + i).value = '';
+  }
+  document.getElementById('jare-modal').classList.add('open');
+}
+
+function closeJareModal() {
+  document.getElementById('jare-modal').classList.remove('open');
+}
+
+async function submitJareStory() {
+  const statusEl = document.getElementById('jare-modal-status');
+  const btn = document.getElementById('jare-submit-btn');
+  const docId = document.getElementById('jare-edit-id').value;
+  const date = document.getElementById('jare-date').value.trim();
+  const theme = document.getElementById('jare-theme').value.trim();
+  const title = document.getElementById('jare-title-input').value.trim();
+  const paragraphs = [];
+  for (let i = 1; i <= 8; i++) paragraphs.push(document.getElementById('jare-p' + i).value.trim());
+
+  if (!date) { statusEl.textContent = '日付を入力してください'; return; }
+  if (!theme) { statusEl.textContent = 'テーマを入力してください'; return; }
+  if (!title) { statusEl.textContent = 'タイトルを入力してください'; return; }
+  if (paragraphs.every(p => !p)) { statusEl.textContent = '段落を1つ以上入力してください'; return; }
+
+  btn.disabled = true; btn.textContent = '保存中...';
+  statusEl.textContent = '';
+  try {
+    const payload = { date, theme, title, paragraphs };
+    if (docId) {
+      await _db.collection('jare_stories').doc(docId).update(payload);
+    } else {
+      payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await _db.collection('jare_stories').add(payload);
+    }
+    closeJareModal();
+  } catch(e) {
+    statusEl.textContent = '保存に失敗しました: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '保存';
+  }
+}
+
+async function deleteJareStory(docId) {
+  if (!confirm('この作品を削除しますか？')) return;
+  try {
+    await _db.collection('jare_stories').doc(docId).delete();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+}
+
 // ── キャンセル機能 ──
 async function openCancelModal(docId, name, dateStr) {
   if (!_currentUser) { openLoginModal(); return; }
@@ -2731,6 +2982,40 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     </div>
     <button class="mypage-logout-btn" onclick="myPageSignOut()">ログアウト</button>
     <button class="mypage-close-btn" onclick="closeMyPage()">閉じる</button>
+  </div>
+</div>
+
+<!-- ── じゃれ本 追加/編集モーダル ── -->
+<div id="jare-modal">
+  <div class="jare-modal-box">
+    <h3 id="jare-modal-heading">じゃれ本を追加</h3>
+    <input type="hidden" id="jare-edit-id">
+    <div class="jare-form-row">
+      <label>日付</label>
+      <input type="date" id="jare-date">
+    </div>
+    <div class="jare-form-row">
+      <label>テーマ</label>
+      <input type="text" id="jare-theme" placeholder="テーマを入力">
+    </div>
+    <div class="jare-form-row">
+      <label>タイトル</label>
+      <input type="text" id="jare-title-input" placeholder="タイトルを入力">
+    </div>
+    <div class="jare-para-label">段落（全8段落）</div>
+    <div class="jare-form-row"><label>段落 1</label><textarea id="jare-p1" rows="3" placeholder="段落1"></textarea></div>
+    <div class="jare-form-row"><label>段落 2</label><textarea id="jare-p2" rows="3" placeholder="段落2"></textarea></div>
+    <div class="jare-form-row"><label>段落 3</label><textarea id="jare-p3" rows="3" placeholder="段落3"></textarea></div>
+    <div class="jare-form-row"><label>段落 4</label><textarea id="jare-p4" rows="3" placeholder="段落4"></textarea></div>
+    <div class="jare-form-row"><label>段落 5</label><textarea id="jare-p5" rows="3" placeholder="段落5"></textarea></div>
+    <div class="jare-form-row"><label>段落 6</label><textarea id="jare-p6" rows="3" placeholder="段落6"></textarea></div>
+    <div class="jare-form-row"><label>段落 7</label><textarea id="jare-p7" rows="3" placeholder="段落7"></textarea></div>
+    <div class="jare-form-row"><label>段落 8</label><textarea id="jare-p8" rows="3" placeholder="段落8"></textarea></div>
+    <div class="jare-modal-actions">
+      <button class="jare-cancel-btn" onclick="closeJareModal()">キャンセル</button>
+      <button class="jare-submit-btn" id="jare-submit-btn" onclick="submitJareStory()">保存</button>
+    </div>
+    <div id="jare-modal-status"></div>
   </div>
 </div>
 
