@@ -2787,11 +2787,30 @@ function copyJarePrompt() {
   });
 }
 
+function _fixJsonNewlines(str) {
+  // JSON文字列リテラル内に実際の改行・タブ文字が含まれる場合にエスケープする
+  let out = '', inStr = false, esc = false;
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if (esc) { out += c; esc = false; continue; }
+    if (c === '\\' && inStr) { out += c; esc = true; continue; }
+    if (c === '"') { out += c; inStr = !inStr; continue; }
+    if (inStr) {
+      if (c === '\n') { out += '\\n'; continue; }
+      if (c === '\r') { out += '\\r'; continue; }
+      if (c === '\t') { out += '\\t'; continue; }
+    }
+    out += c;
+  }
+  return out;
+}
+
 function applyJareJson() {
   const raw = document.getElementById('jare-json-paste').value.trim();
   if (!raw) { _setOcrStatus('JSONを貼り付けてください', 'err'); return; }
-  // \n \t \r \\ \" \/ \b \f \uXXXX 以外の不正なバックスラッシュを二重にしてエスケープ
-  const sanitized = raw.replace(/\\([^"\\/bfnrtu])/g, '\\\\$1');
+  // ① 文字列値内の実際の改行・タブをエスケープ（コピペ時に \n が実改行になるケース対策）
+  // ② 不正なバックスラッシュエスケープを修正
+  const sanitized = _fixJsonNewlines(raw).replace(/\\([^"\\/bfnrtu])/g, '\\\\$1');
   let parsed;
   try { parsed = JSON.parse(sanitized); }
   catch {
