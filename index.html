@@ -971,6 +971,7 @@
       <div class="jare-detail-title-row">
         <span id="jare-detail-title" class="jare-detail-title"></span>
         <button class="jare-share-btn" style="font-size:13px;padding:6px 16px" onclick="shareJareDetail()">共有</button>
+        <button id="jare-detail-edit-btn" class="jare-edit-btn" style="display:none;font-size:13px;padding:6px 14px" onclick="openJareModal(_jareDetailDocId)">編集</button>
       </div>
       <div id="jare-detail-body"></div>
     </div>
@@ -2751,6 +2752,8 @@ function _renderJareDetail(docId, data) {
 
   const crown = data.winner ? '👑 ' : '';
   document.getElementById('jare-detail-title').textContent = crown + (data.title || '（無題）');
+  const editBtn = document.getElementById('jare-detail-edit-btn');
+  if (editBtn) editBtn.style.display = _isAdmin ? '' : 'none';
 
   const paras = Array.isArray(data.paragraphs) ? data.paragraphs : [];
   document.getElementById('jare-detail-body').innerHTML = paras.length
