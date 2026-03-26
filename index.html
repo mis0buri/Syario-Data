@@ -159,33 +159,18 @@
   .jare-ocr-arrow.open { transform: rotate(180deg); }
   .jare-ocr-body { display: none; padding: 14px; }
   .jare-ocr-body.open { display: block; }
-  .jare-ocr-note { font-size: 11px; color: var(--dim); margin-bottom: 12px; line-height: 1.6; }
-  .jare-img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .jare-img-slot {
-    display: flex; flex-direction: column; align-items: center;
-    border: 1px dashed var(--border); border-radius: 6px; padding: 8px;
-    cursor: pointer; transition: border-color .2s;
+  .jare-ocr-note { font-size: 11px; color: var(--dim); margin-bottom: 12px; line-height: 1.8; }
+  .jare-prompt-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; display: flex; gap: 8px; align-items: flex-start; margin-bottom: 4px;
   }
-  .jare-img-slot:hover { border-color: var(--accent); }
-  .jare-img-slot-label { font-size: 11px; color: var(--dim); margin-bottom: 6px; }
-  .jare-img-input { display: none; }
-  .jare-img-preview {
-    width: 100%; min-height: 80px; display: flex; align-items: center; justify-content: center;
-    color: var(--dim); font-size: 11px; border-radius: 4px; overflow: hidden;
-  }
-  .jare-img-preview img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 4px; }
-  .jare-key-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  .jare-key-input {
-    flex: 1; min-width: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 7px 10px;
-  }
-  .jare-key-input:focus { outline: none; border-color: var(--accent); }
-  .jare-key-save-btn {
+  .jare-prompt-text { font-size: 11px; color: var(--dim); line-height: 1.6; flex: 1; min-width: 0; word-break: break-all; }
+  .jare-prompt-copy-btn {
     flex-shrink: 0; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-    font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 7px 14px;
-    border-radius: 6px; cursor: pointer; white-space: nowrap;
+    font-family: 'Noto Sans JP', sans-serif; font-size: 11px; padding: 4px 12px;
+    border-radius: 4px; cursor: pointer; white-space: nowrap;
   }
-  .jare-key-save-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .jare-prompt-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
   .jare-ocr-run-btn {
     width: 100%; background: var(--surface2); border: 1px solid var(--accent); color: var(--accent);
     font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 700;
@@ -196,14 +181,6 @@
   .jare-ocr-status { font-size: 12px; margin-top: 10px; min-height: 18px; line-height: 1.6; white-space: pre-wrap; }
   .jare-ocr-status.ok { color: var(--green); }
   .jare-ocr-status.err { color: var(--red); }
-  .jare-model-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-  .jare-model-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
-  .jare-model-select {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 6px 10px;
-  }
-  .jare-model-select:focus { outline: none; border-color: var(--accent); }
-
   /* PERIOD FILTER BAR */
   .period-bar {
     background: var(--surface); border-bottom: 1px solid var(--border);
@@ -701,10 +678,8 @@
 
     /* じゃれ本モーダル */
     .jare-modal-box { padding: 16px 14px; }
-    .jare-img-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
     .jare-form-row input,
-    .jare-form-row textarea,
-    .jare-key-input { font-size: 16px; /* iOSズーム防止 */ }
+    .jare-form-row textarea { font-size: 16px; /* iOSズーム防止 */ }
     .jare-modal-actions { flex-wrap: wrap; }
     .jare-cancel-btn, .jare-submit-btn { flex: 1; text-align: center; }
   }
@@ -2496,14 +2471,8 @@ function openJareModal(docId) {
   document.getElementById('jare-ocr-arrow').classList.remove('open');
   document.getElementById('jare-ocr-status').textContent = '';
   document.getElementById('jare-ocr-status').className = 'jare-ocr-status';
-  for (let i = 1; i <= 4; i++) {
-    const inp = document.getElementById('jare-img-' + i);
-    inp.value = '';
-    document.getElementById('jare-img-prev-' + i).innerHTML = 'タップして選択';
-  }
-  const keyInp = document.getElementById('jare-gemini-key');
-  keyInp.value = '';
-  keyInp.placeholder = localStorage.getItem('syario_gemini_key') ? 'APIキー保存済み（変更する場合のみ入力）' : 'Gemini API Key';
+  const jsonPaste = document.getElementById('jare-json-paste');
+  if (jsonPaste) jsonPaste.value = '';
 
   document.getElementById('jare-modal').classList.add('open');
 }
@@ -2554,30 +2523,12 @@ async function deleteJareStory(docId) {
   }
 }
 
-// ── じゃれ本 OCR ──
+// ── じゃれ本 Claude連携 ──
 function toggleJareOcrPanel() {
   const body = document.getElementById('jare-ocr-body');
   const arrow = document.getElementById('jare-ocr-arrow');
   const open = body.classList.toggle('open');
   arrow.classList.toggle('open', open);
-}
-
-function onJareImgSelect(input, slot) {
-  const file = input.files[0];
-  const prev = document.getElementById('jare-img-prev-' + slot);
-  if (!file) { prev.textContent = 'タップして選択'; return; }
-  const reader = new FileReader();
-  reader.onload = e => { prev.innerHTML = `<img src="${e.target.result}" alt="page${slot}">`; };
-  reader.readAsDataURL(file);
-}
-
-function saveJareGeminiKey() {
-  const val = document.getElementById('jare-gemini-key').value.trim();
-  if (!val) { alert('APIキーを入力してください'); return; }
-  localStorage.setItem('syario_gemini_key', val);
-  document.getElementById('jare-gemini-key').value = '';
-  document.getElementById('jare-gemini-key').placeholder = 'APIキー保存済み';
-  _setOcrStatus('APIキーを保存しました', 'ok');
 }
 
 function _setOcrStatus(msg, cls) {
@@ -2586,157 +2537,42 @@ function _setOcrStatus(msg, cls) {
   el.className = 'jare-ocr-status' + (cls ? ' ' + cls : '');
 }
 
-// 画像をCanvas経由で圧縮してbase64に変換（最大900px / JPEG 80%）
-function _fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const MAX = 900;
-      let { width, height } = img;
-      if (width > MAX || height > MAX) {
-        if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
-        else { width = Math.round(width * MAX / height); height = MAX; }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.80);
-      resolve(dataUrl.split(',')[1]);
-    };
-    img.onerror = reject;
-    img.src = url;
+function copyJarePrompt() {
+  const text = document.getElementById('jare-prompt-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.jare-prompt-copy-btn');
+    btn.textContent = 'コピー済み';
+    setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.querySelector('.jare-prompt-copy-btn');
+    btn.textContent = 'コピー済み';
+    setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
   });
 }
 
-function _ocrCountdown(sec, onDone) {
-  _setOcrStatus(`レート制限中... ${sec}秒後に自動再試行します`);
-  if (sec <= 0) { onDone(); return; }
-  setTimeout(() => _ocrCountdown(sec - 1, onDone), 1000);
-}
-
-async function runJareOcr() {
-  const apiKey = (document.getElementById('jare-gemini-key').value.trim()) ||
-                 localStorage.getItem('syario_gemini_key') || '';
-  if (!apiKey) {
-    _setOcrStatus('Gemini APIキーを入力または保存してください', 'err');
-    return;
+function applyJareJson() {
+  const raw = document.getElementById('jare-json-paste').value.trim();
+  if (!raw) { _setOcrStatus('JSONを貼り付けてください', 'err'); return; }
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) { _setOcrStatus('JSONの形式が正しくありません', 'err'); return; }
+    try { parsed = JSON.parse(m[0]); } catch { _setOcrStatus('JSONの解析に失敗しました', 'err'); return; }
   }
-
-  const slots = [];
-  for (let i = 1; i <= 4; i++) {
-    const inp = document.getElementById('jare-img-' + i);
-    if (inp.files[0]) slots.push({ slot: i, file: inp.files[0] });
-  }
-  if (!slots.length) { _setOcrStatus('画像を1枚以上選択してください', 'err'); return; }
-
-  const btn = document.getElementById('jare-ocr-btn');
-  btn.disabled = true;
-
-  try {
-    const slotNums = slots.map(s => s.slot);
-    const prompt =
-      `これは「じゃれ本」という複数人が1段落ずつ書いた手書きの文章です。` +
-      `画像は${slots.length}枚あり、1枚に2段落ずつ書かれています。` +
-      `各段落の右上または右側に段落番号（1〜8、①〜⑧など）が書かれているので、その番号で段落を特定してください。` +
-      `アップロード順の対応：` + slotNums.map(s => `${s}枚目→段落${s*2-1}と${s*2}`).join('、') + `。` +
-      `\n\n【読み取りルール】\n` +
-      `・手書きの文字を正確に読み取ること\n` +
-      `・フリガナは対象漢字の直後に《》で記載（例: 魔法《まほう》）\n` +
-      `・読み取れない文字は●に置換、文脈で推測できれば補完可\n` +
-      `・段落番号自体は本文に含めないこと\n` +
-      `・改行は\\nで表現\n` +
-      `\n以下のJSON形式のみで出力（余分なテキスト不要）：\n` +
-      `{"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."},...]}`;
-
-    const parts = [];
-    let totalKB = 0;
-    for (const { slot, file } of slots) {
-      _setOcrStatus(`画像 ${slot}/${slots.length} を圧縮中...`);
-      const b64 = await _fileToBase64(file);
-      totalKB += Math.round(b64.length * 0.75 / 1024);
-      parts.push({ inlineData: { mimeType: 'image/jpeg', data: b64 } });
-    }
-    parts.push({ text: prompt });
-    _setOcrStatus(`送信中... (合計約${totalKB}KB)`);
-
-    const model = document.getElementById('jare-gemini-model').value || 'gemini-2.0-flash-lite';
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
-    let res;
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
-          })
-        }
-      );
-    } catch(fetchErr) {
-      if (fetchErr.name === 'AbortError') throw new Error('タイムアウトしました。通信が不安定な可能性があります。');
-      throw new Error('通信エラー: ' + fetchErr.message);
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!res.ok) {
-      const rawErr = await res.text().catch(() => '');
-      let msg = `HTTP ${res.status}`;
-      try { const j = JSON.parse(rawErr); msg = j?.error?.message || msg; } catch {}
-      if (res.status === 429) {
-        // retryDelay を取得（ヘッダー or エラー本文から）
-        let wait = 61;
-        const retryHeader = res.headers.get('retry-after') || res.headers.get('x-ratelimit-reset-requests');
-        if (retryHeader) wait = Math.ceil(parseFloat(retryHeader)) + 1;
-        else {
-          try {
-            const j = JSON.parse(rawErr);
-            const retryStr = j?.error?.details?.find(d => d?.['@type']?.includes('RetryInfo'))?.retryDelay;
-            if (retryStr) wait = Math.ceil(parseFloat(retryStr)) + 1;
-          } catch {}
-        }
-        await new Promise(resolve => _ocrCountdown(wait, resolve));
-        // ボタン状態を戻して再試行
-        btn.disabled = false;
-        runJareOcr();
-        return;
-      }
-      if (res.status === 400) throw new Error('APIキーが無効か、モデルが対応していません: ' + msg);
-      throw new Error(msg);
-    }
-
-    const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    let parsed;
-    try { parsed = JSON.parse(raw); }
-    catch {
-      const m = raw.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error('JSONの解析に失敗しました。\n受信内容: ' + raw.slice(0, 100));
-      parsed = JSON.parse(m[0]);
-    }
-
-    const paras = parsed?.paragraphs || [];
-    if (!paras.length) throw new Error('段落を読み取れませんでした');
-
-    let filled = 0;
-    paras.forEach(({ num, text }) => {
-      const n = parseInt(num);
-      if (n >= 1 && n <= 8) { const el = document.getElementById('jare-p' + n); if (el) { el.value = text || ''; filled++; } }
-    });
-
-    _setOcrStatus(`${filled}段落を読み取りました。内容を確認・修正してから保存してください。`, 'ok');
-  } catch(e) {
-    _setOcrStatus('エラー: ' + e.message, 'err');
-  } finally {
-    btn.disabled = false;
-  }
+  const paras = parsed?.paragraphs || [];
+  if (!paras.length) { _setOcrStatus('段落データが見つかりません', 'err'); return; }
+  let filled = 0;
+  paras.forEach(({ num, text }) => {
+    const n = parseInt(num);
+    if (n >= 1 && n <= 8) { const el = document.getElementById('jare-p' + n); if (el) { el.value = text || ''; filled++; } }
+  });
+  _setOcrStatus(`${filled}段落を反映しました。内容を確認・修正してから保存してください。`, 'ok');
 }
 
 // ── キャンセル機能 ──
@@ -3268,48 +3104,23 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <label>タイトル</label>
       <input type="text" id="jare-title-input" placeholder="タイトルを入力">
     </div>
-    <!-- OCR セクション -->
+    <!-- Claude連携セクション -->
     <div class="jare-ocr-section">
       <button type="button" class="jare-ocr-toggle" onclick="toggleJareOcrPanel()">
-        <span>画像から読み取る（OCR）</span>
+        <span>Claudeで読み取る</span>
         <span class="jare-ocr-arrow" id="jare-ocr-arrow">▼</span>
       </button>
       <div class="jare-ocr-body" id="jare-ocr-body">
-        <p class="jare-ocr-note">手書き4枚の画像をアップロードすると段落を自動入力します。右上の段落番号を読み取って該当欄に入れます。</p>
-        <div class="jare-img-grid">
-          <label class="jare-img-slot" for="jare-img-1">
-            <span class="jare-img-slot-label">1枚目　段落①②</span>
-            <div class="jare-img-preview" id="jare-img-prev-1">タップして選択</div>
-            <input type="file" id="jare-img-1" accept="image/*" class="jare-img-input" onchange="onJareImgSelect(this,1)">
-          </label>
-          <label class="jare-img-slot" for="jare-img-2">
-            <span class="jare-img-slot-label">2枚目　段落③④</span>
-            <div class="jare-img-preview" id="jare-img-prev-2">タップして選択</div>
-            <input type="file" id="jare-img-2" accept="image/*" class="jare-img-input" onchange="onJareImgSelect(this,2)">
-          </label>
-          <label class="jare-img-slot" for="jare-img-3">
-            <span class="jare-img-slot-label">3枚目　段落⑤⑥</span>
-            <div class="jare-img-preview" id="jare-img-prev-3">タップして選択</div>
-            <input type="file" id="jare-img-3" accept="image/*" class="jare-img-input" onchange="onJareImgSelect(this,3)">
-          </label>
-          <label class="jare-img-slot" for="jare-img-4">
-            <span class="jare-img-slot-label">4枚目　段落⑦⑧</span>
-            <div class="jare-img-preview" id="jare-img-prev-4">タップして選択</div>
-            <input type="file" id="jare-img-4" accept="image/*" class="jare-img-input" onchange="onJareImgSelect(this,4)">
-          </label>
+        <p class="jare-ocr-note">① 下のプロンプトをコピーして <a href="https://claude.ai" target="_blank" style="color:var(--accent)">claude.ai</a> に画像と一緒に送る<br>② 返ってきたJSONをそのまま下に貼り付けて「段落に反映」を押す</p>
+        <div class="jare-prompt-box">
+          <div class="jare-prompt-text" id="jare-prompt-text">手書きの「じゃれ本」画像です。1枚に2段落ずつ書かれており、各段落の右上に番号があります。全段落のテキストを読み取り、以下のJSON形式のみで返してください。フリガナは《》で囲む（例：魔法《まほう》）、読めない字は●。{"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."}]}</div>
+          <button type="button" class="jare-prompt-copy-btn" onclick="copyJarePrompt()">コピー</button>
         </div>
-        <div class="jare-key-row">
-          <input type="password" id="jare-gemini-key" class="jare-key-input" placeholder="Gemini API Key（保存済みの場合は空欄でOK）" autocomplete="off">
-          <button type="button" class="jare-key-save-btn" onclick="saveJareGeminiKey()">保存</button>
+        <div class="jare-form-row" style="margin-top:12px">
+          <label>ClaudeのJSON返答を貼り付け</label>
+          <textarea id="jare-json-paste" rows="4" placeholder='{"paragraphs":[{"num":1,"text":"..."},...]}' style="font-size:12px;font-family:monospace"></textarea>
         </div>
-        <div class="jare-model-row">
-          <label class="jare-model-label">モデル</label>
-          <select id="jare-gemini-model" class="jare-model-select">
-            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite（無料・推奨）</option>
-            <option value="gemini-2.0-flash">gemini-2.0-flash（高精度・無料枠少なめ）</option>
-          </select>
-        </div>
-        <button type="button" id="jare-ocr-btn" class="jare-ocr-run-btn" onclick="runJareOcr()">読み取り開始</button>
+        <button type="button" class="jare-ocr-run-btn" onclick="applyJareJson()">段落に反映</button>
         <div id="jare-ocr-status" class="jare-ocr-status"></div>
       </div>
     </div>
