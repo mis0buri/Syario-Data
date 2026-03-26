@@ -1795,14 +1795,14 @@ async function loginWithTwitter() {
   }
 }
 
-function _notifyDiscordLogin(user, provider) {
+async function _notifyDiscordLogin(user, provider) {
   const key = 'syario_loggedin_' + user.uid;
-  if (localStorage.getItem(key)) return; // 既にログイン済みの端末
+  if (localStorage.getItem(key)) return;
   localStorage.setItem(key, '1');
   const name = user.displayName || '(名前なし)';
   const email = user.email || '(メールなし)';
   const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-  fetch('https://discord.com/api/webhooks/1486620241294397483/moDgwuhBw70TSEbnEvLqQhgc7t8cjPFeqUDmWPVawx00_-O2CUJ3lN027EVUG_7g_nwW', {
+  await fetch('https://discord.com/api/webhooks/1486620241294397483/moDgwuhBw70TSEbnEvLqQhgc7t8cjPFeqUDmWPVawx00_-O2CUJ3lN027EVUG_7g_nwW', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: `🔑 初回ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` })
@@ -1977,6 +1977,13 @@ async function openDayDetail(dateStr) {
 
   const listEl = document.getElementById('rsv-detail-list');
   listEl.innerHTML = '<div class="rsv-empty">読み込み中...</div>';
+  document.getElementById('rsv-join-list').innerHTML = '';
+  document.getElementById('rsv-interest-list').innerHTML = '';
+  document.getElementById('rsv-interest-hint').textContent = '';
+  const joinBtn = document.getElementById('rsv-join-btn');
+  const interestBtn = document.getElementById('rsv-interest-btn');
+  if (joinBtn) joinBtn.disabled = false;
+  if (interestBtn) interestBtn.disabled = false;
 
   if (!_db) {
     listEl.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">Firebase未設定（FIREBASE_CONFIGを入力してください）</div>';
@@ -2025,6 +2032,38 @@ async function openDayDetail(dateStr) {
     listEl.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">読み込みエラー</div>';
     console.error(e);
   }
+
+  // 参加者・興味あり読み込み
+  try {
+    const pSnap = await _db.collection('rsv_participants')
+      .where('date', '==', dateStr)
+      .orderBy('createdAt', 'asc')
+      .get();
+    const participants = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const joins = participants.filter(p => p.type === 'join');
+    const interests = participants.filter(p => p.type === 'interest');
+    const renderPList = (list) => {
+      if (!list.length) return '<div class="rsv-empty" style="font-size:12px;padding:4px 0">まだいません</div>';
+      return list.map(p => {
+        const safeId = p.id.replace(/'/g, "\\'");
+        const safeDateStr = dateStr.replace(/'/g, "\\'");
+        const isOwner = _currentUser && p.uid && p.uid === _currentUser.uid;
+        const canDelete = isOwner || _isAdmin;
+        return `<div class="rsv-card" style="padding:8px 12px;margin-bottom:6px;">
+          <span class="rsv-card-name" style="font-size:14px;">${_escHtml(p.name || '匿名')}</span>
+          ${p.note ? `<span style="font-size:12px;color:var(--dim);margin-left:8px;">${_escHtml(p.note)}</span>` : ''}
+          ${canDelete ? `<button class="rsv-cancel-btn" style="float:right;margin-top:-2px;" onclick="deleteRsvParticipant('${safeDateStr}','${safeId}')">削除</button>` : ''}
+        </div>`;
+      }).join('');
+    };
+    document.getElementById('rsv-join-list').innerHTML = renderPList(joins);
+    document.getElementById('rsv-interest-list').innerHTML = renderPList(interests);
+    const alreadyIn = _currentUser && participants.some(p => p.uid && p.uid === _currentUser.uid);
+    if (joinBtn) joinBtn.disabled = alreadyIn;
+    if (interestBtn) interestBtn.disabled = alreadyIn;
+    const hint = document.getElementById('rsv-interest-hint');
+    if (hint) hint.textContent = alreadyIn ? '既に登録済みです' : '';
+  } catch(e) { console.error('rsv_participants error:', e); }
 }
 
 async function postToX() {
@@ -2864,6 +2903,57 @@ async function openCancelModal(docId, name, dateStr) {
   } catch(e) { alert('エラー: ' + e.message); }
 }
 
+// ── 予約参加・興味あり ──
+let _rsvInterestType = null;
+
+function openRsvInterestModal(type) {
+  _rsvInterestType = type;
+  document.getElementById('rsv-interest-modal-title').textContent = type === 'join' ? '参加する' : '興味あり';
+  document.getElementById('rsv-interest-name').value = _registeredName || '';
+  document.getElementById('rsv-interest-note').value = '';
+  document.getElementById('rsv-interest-status').textContent = '';
+  const btn = document.getElementById('rsv-interest-submit-btn');
+  btn.disabled = false; btn.textContent = '確定する';
+  showRsvScreen('rsv-interest-screen');
+}
+
+async function submitRsvParticipation() {
+  if (!_db || !rsvCurrentDate || !_rsvInterestType) return;
+  const btn = document.getElementById('rsv-interest-submit-btn');
+  const name = document.getElementById('rsv-interest-name').value.trim();
+  const note = document.getElementById('rsv-interest-note').value.trim();
+  if (!name) { document.getElementById('rsv-interest-status').textContent = '名前を入力してください'; return; }
+  btn.disabled = true; btn.textContent = '送信中...';
+  document.getElementById('rsv-interest-status').textContent = '';
+  try {
+    if (_currentUser) {
+      const dupSnap = await _db.collection('rsv_participants')
+        .where('date', '==', rsvCurrentDate)
+        .where('uid', '==', _currentUser.uid).get();
+      if (!dupSnap.empty) {
+        document.getElementById('rsv-interest-status').textContent = '既に登録済みです';
+        btn.disabled = false; btn.textContent = '確定する'; return;
+      }
+    }
+    const pData = { date: rsvCurrentDate, name, note, type: _rsvInterestType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+    if (_currentUser) pData.uid = _currentUser.uid;
+    await _db.collection('rsv_participants').add(pData);
+    await openDayDetail(rsvCurrentDate);
+  } catch(err) {
+    document.getElementById('rsv-interest-status').textContent = 'エラー: ' + err.message;
+    btn.disabled = false; btn.textContent = '確定する';
+  }
+}
+
+async function deleteRsvParticipant(dateStr, participantId) {
+  if (!_db) return;
+  if (!confirm('登録を削除しますか？')) return;
+  try {
+    await _db.collection('rsv_participants').doc(participantId).delete();
+    await openDayDetail(dateStr);
+  } catch(e) { alert('削除に失敗しました: ' + e.message); }
+}
+
 // ── 連番募集 ──
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
@@ -3252,9 +3342,39 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div id="rsv-detail-info" class="rsv-date-info"></div>
       <div class="rsv-section-title">登録済み予約</div>
       <div id="rsv-detail-list"></div>
+      <div class="rb-btn-row" style="margin-top:12px;margin-bottom:2px;">
+        <button class="rb-btn join" id="rsv-join-btn" onclick="openRsvInterestModal('join')">参加する</button>
+        <button class="rb-btn interest" id="rsv-interest-btn" onclick="openRsvInterestModal('interest')">興味あり</button>
+      </div>
+      <div id="rsv-interest-hint" style="font-size:11px;color:var(--dim);text-align:center;min-height:16px;margin-bottom:8px;"></div>
+      <div class="rb-section-label">参加</div>
+      <div id="rsv-join-list" class="rb-participants"></div>
+      <div class="rb-section-label">興味あり</div>
+      <div id="rsv-interest-list" class="rb-participants"></div>
       <div class="rsv-btn-row">
         <button class="rsv-btn x-post" onclick="postToX()">共有</button>
         <button class="rsv-btn primary" onclick="openReservationForm()">予約する</button>
+      </div>
+    </div>
+
+    <!-- 参加 / 興味あり フォーム -->
+    <div id="rsv-interest-screen" class="rsv-screen">
+      <div class="rsv-header">
+        <span class="rsv-title" id="rsv-interest-modal-title"></span>
+        <button class="rsv-close" onclick="showRsvScreen('rsv-detail')">✕</button>
+      </div>
+      <div class="rsv-form-group">
+        <label class="rsv-label">名前 <span style="color:var(--red)">*</span></label>
+        <input type="text" id="rsv-interest-name" class="rsv-input" placeholder="匿名も可">
+      </div>
+      <div class="rsv-form-group">
+        <label class="rsv-label">一言メモ（任意）</label>
+        <textarea id="rsv-interest-note" class="rsv-input" rows="3" style="resize:vertical;font-family:'Noto Sans JP',sans-serif" placeholder="一言メモなど"></textarea>
+      </div>
+      <div id="rsv-interest-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:4px;"></div>
+      <div class="rsv-btn-row">
+        <button class="rsv-btn secondary" onclick="showRsvScreen('rsv-detail')">戻る</button>
+        <button class="rsv-btn primary" id="rsv-interest-submit-btn" onclick="submitRsvParticipation()">確定する</button>
       </div>
     </div>
 
