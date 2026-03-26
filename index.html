@@ -1699,9 +1699,13 @@ function initFirebase() {
   } catch(e) {
     console.warn('Firebase init error:', e);
   }
-  // ハッシュルーティング: #jare/<docId> で直接詳細ページを開く
+  // ハッシュルーティング
   const initHash = location.hash;
-  if (initHash.startsWith('#jare/')) {
+  if (initHash.startsWith('#renban/')) {
+    const eventId = initHash.slice(8);
+    showSection('renban');
+    initRenban().then(() => openRenbanDetail(eventId));
+  } else if (initHash.startsWith('#jare/')) {
     const docId = initHash.slice(6);
     showSection('jare');
     initJare();
@@ -2785,6 +2789,35 @@ function openRbModal() {
 }
 function closeRbModal() {
   document.getElementById('rb-overlay').classList.remove('open');
+  if (location.hash.startsWith('#renban/')) history.pushState(null, '', location.pathname + location.search);
+}
+async function shareRenbanEvent() {
+  const eventId = _rbCurrentEventId;
+  if (!eventId) return;
+  const titleEl = document.getElementById('rb-detail-title');
+  const title = titleEl ? titleEl.textContent : '';
+  const url = location.origin + location.pathname + '#renban/' + eventId;
+  const text = `募集しています\n${url}`;
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url }); return; } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  const toast = document.createElement('div');
+  toast.textContent = 'URLをコピーしました';
+  Object.assign(toast.style, {
+    position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
+    background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)',
+    padding:'8px 20px', borderRadius:'8px', fontSize:'13px', zIndex:'9999',
+    boxShadow:'0 4px 16px rgba(0,0,0,.4)', pointerEvents:'none'
+  });
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2000);
 }
 function rbOverlayClick(e) {
   if (e.target === document.getElementById('rb-overlay')) closeRbModal();
@@ -3205,6 +3238,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div class="rb-section-label">興味あり</div>
       <div id="rb-interest-list" class="rb-participants"></div>
       <div class="rb-btn-row" style="margin-top:16px;">
+        <button class="rb-btn secondary" style="flex:none;padding:11px 18px;" onclick="shareRenbanEvent()">共有</button>
         <button class="rb-btn secondary" onclick="closeRbModal()">閉じる</button>
       </div>
       <div id="rb-detail-delete-row" style="display:none;margin-top:8px;">
