@@ -1754,8 +1754,9 @@ async function loginWithGoogle() {
   if (!_auth) return;
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    await _auth.signInWithPopup(provider);
+    const result = await _auth.signInWithPopup(provider);
     closeLoginModal();
+    _notifyDiscordLogin(result.user, 'Google');
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
   }
@@ -1766,11 +1767,26 @@ async function loginWithTwitter() {
   if (!_auth) return;
   try {
     const provider = new firebase.auth.TwitterAuthProvider();
-    await _auth.signInWithPopup(provider);
+    const result = await _auth.signInWithPopup(provider);
     closeLoginModal();
+    _notifyDiscordLogin(result.user, 'X');
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
   }
+}
+
+function _notifyDiscordLogin(user, provider) {
+  const key = 'syario_loggedin_' + user.uid;
+  if (localStorage.getItem(key)) return; // 既にログイン済みの端末
+  localStorage.setItem(key, '1');
+  const name = user.displayName || '(名前なし)';
+  const email = user.email || '(メールなし)';
+  const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  fetch('https://discord.com/api/webhooks/1486620241294397483/moDgwuhBw70TSEbnEvLqQhgc7t8cjPFeqUDmWPVawx00_-O2CUJ3lN027EVUG_7g_nwW', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: `🔑 初回ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` })
+  }).catch(() => {});
 }
 
 // ── ログアウト ──
