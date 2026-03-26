@@ -1776,13 +1776,16 @@ async function loginWithTwitter() {
 }
 
 function _notifyDiscordLogin(user, provider) {
+  const key = 'syario_loggedin_' + user.uid;
+  if (localStorage.getItem(key)) return; // 既にログイン済みの端末
+  localStorage.setItem(key, '1');
   const name = user.displayName || '(名前なし)';
   const email = user.email || '(メールなし)';
   const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   fetch('https://discord.com/api/webhooks/1486620241294397483/moDgwuhBw70TSEbnEvLqQhgc7t8cjPFeqUDmWPVawx00_-O2CUJ3lN027EVUG_7g_nwW', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: `🔑 新規ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` })
+    body: JSON.stringify({ content: `🔑 初回ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` })
   }).catch(() => {});
 }
 
