@@ -85,18 +85,36 @@
   }
   .jare-add-btn:hover { opacity: .85; }
   .jare-empty { color: var(--dim); text-align: center; padding: 32px 0; font-size: 14px; }
-  .jare-group { margin-bottom: 20px; }
-  .jare-date-header {
-    font-size: 13px; font-weight: 700; color: var(--accent);
-    letter-spacing: .06em; padding: 6px 0 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+  .jare-group { margin-bottom: 16px; }
+  .jare-group-header {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .06em;
+    padding: 7px 8px; border-bottom: 1px solid var(--border);
+    cursor: pointer; border-radius: 6px 6px 0 0; transition: background .15s;
   }
-  .jare-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 8px; border-radius: 6px; cursor: pointer; transition: background .15s;
+  .jare-group-header:hover { background: var(--surface2); }
+  .jare-group-count { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--dim); }
+  .jare-group-titles { display: none; }
+  .jare-group-titles.open { display: block; }
+  .jare-title-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 8px; border-radius: 6px; transition: background .15s;
   }
-  .jare-item:hover { background: var(--surface2); }
-  .jare-item-title { font-size: 14px; color: var(--text); }
-  .jare-item-arrow { font-size: 10px; color: var(--dim); margin-right: 6px; transition: transform .2s; }
+  .jare-title-row:hover { background: var(--surface2); }
+  .jare-title-text { flex: 1; font-size: 14px; color: var(--text); cursor: pointer; min-width: 0; }
+  .jare-title-text:hover { color: var(--accent); }
+  .jare-share-btn {
+    flex-shrink: 0; background: none; border: 1px solid var(--border); color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 4px 12px;
+    border-radius: 6px; cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .jare-share-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .jare-crown { font-size: 13px; margin-right: 3px; }
+  .jare-winner-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 6px; }
+  .jare-winner-row label { font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .jare-winner-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+  .jare-combo-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 6px 8px; border-radius: 6px; }
+  .jare-item-arrow { font-size: 10px; color: var(--dim); transition: transform .2s; }
   .jare-item-arrow.open { transform: rotate(90deg); }
   .jare-admin-btns { display: flex; gap: 6px; flex-shrink: 0; }
   .jare-edit-btn, .jare-del-btn {
@@ -105,13 +123,24 @@
   }
   .jare-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
   .jare-del-btn:hover { color: var(--red); border-color: var(--red); }
-  .jare-story {
-    display: none; padding: 12px 12px 16px; background: var(--surface2);
-    border-radius: 6px; margin: 2px 0 8px; line-height: 1.9;
+  /* じゃれ本 詳細ページ */
+  .jare-detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .jare-back-btn {
+    background: none; border: 1px solid var(--border); color: var(--dim);
+    font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 6px 14px;
+    border-radius: 6px; cursor: pointer; transition: all .15s;
   }
-  .jare-story.open { display: block; }
-  .jare-para { font-size: 14px; color: var(--text); white-space: pre-wrap; }
-  .jare-para-sep { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
+  .jare-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .jare-detail-meta { font-size: 13px; color: var(--accent); font-weight: 700; letter-spacing: .06em; }
+  .jare-detail-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .jare-detail-title { font-size: 18px; font-weight: 700; color: var(--text); flex: 1; }
+  .jare-para {
+    display: flex; gap: 8px; font-size: 14px; color: var(--text);
+    padding: 12px 12px 16px; background: var(--surface2); border-radius: 6px; line-height: 1.9;
+  }
+  .jare-para-num { font-size: 13px; color: var(--accent); font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .jare-para-text { white-space: pre-wrap; flex: 1; }
+  .jare-para-sep { border: none; border-top: 1px dashed var(--border); margin: 6px 0; }
 
   /* じゃれ本モーダル */
   #jare-modal {
@@ -911,6 +940,21 @@
       <div id="jare-list"><div class="jare-empty">読み込み中...</div></div>
     </div>
   </div>
+
+  <!-- じゃれ本 詳細 -->
+  <div id="sec-jare-detail" class="section">
+    <div class="card">
+      <div class="jare-detail-header">
+        <button class="jare-back-btn" onclick="backToJareList()">← 一覧へ戻る</button>
+        <div id="jare-detail-meta" class="jare-detail-meta"></div>
+      </div>
+      <div class="jare-detail-title-row">
+        <span id="jare-detail-title" class="jare-detail-title"></span>
+        <button class="jare-share-btn" style="font-size:13px;padding:6px 16px" onclick="shareJareDetail()">共有</button>
+      </div>
+      <div id="jare-detail-body"></div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -1098,7 +1142,7 @@ function refresh() {
 
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
-const _GALLERY = ['gallery','jare'];
+const _GALLERY = ['gallery','jare','jare-detail'];
 function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -1123,7 +1167,7 @@ function showSection(id) {
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isGallery) {
-    const subLabels = {jare:'じゃれ本'};
+    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本'};
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
@@ -1654,6 +1698,14 @@ function initFirebase() {
     }
   } catch(e) {
     console.warn('Firebase init error:', e);
+  }
+  // ハッシュルーティング: #jare/<docId> で直接詳細ページを開く
+  const initHash = location.hash;
+  if (initHash.startsWith('#jare/')) {
+    const docId = initHash.slice(6);
+    showSection('jare');
+    initJare();
+    showJareDetail(docId);
   }
 }
 
@@ -2341,6 +2393,7 @@ function _refreshBoardIfActive() {
 const _JARE_CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
 let _jareInited = false;
 let _jareUnsubscribe = null;
+let _jareDocs = [];
 
 function _resetJare() {
   if (_jareUnsubscribe) { _jareUnsubscribe(); _jareUnsubscribe = null; }
@@ -2348,7 +2401,7 @@ function _resetJare() {
 }
 
 function _refreshJareIfActive() {
-  if (currentSection === 'jare') {
+  if (currentSection === 'jare' || currentSection === 'jare-detail') {
     _resetJare();
     initJare();
   }
@@ -2380,52 +2433,56 @@ function initJare() {
 }
 
 function renderJareList(docs) {
+  _jareDocs = docs;
   const listEl = document.getElementById('jare-list');
   if (!docs.length) { listEl.innerHTML = '<div class="jare-empty">まだ作品がありません</div>'; return; }
 
-  // Group by date
-  const dateMap = {};
+  // Group by date+theme (preserve insertion order for same-date sorting)
+  const comboMap = {};
+  const comboOrder = [];
   docs.forEach(d => {
-    const date = d.data().date || '';
-    if (!dateMap[date]) dateMap[date] = [];
-    dateMap[date].push(d);
+    const { date = '', theme = '' } = d.data();
+    const key = `${date}\t${theme}`;
+    if (!comboMap[key]) { comboMap[key] = []; comboOrder.push(key); }
+    comboMap[key].push(d);
+  });
+  comboOrder.sort((a, b) => {
+    const da = a.split('\t')[0], db = b.split('\t')[0];
+    return da > db ? -1 : da < db ? 1 : 0;
   });
 
   let html = '';
-  Object.keys(dateMap).sort((a,b) => a > b ? -1 : 1).forEach(date => {
-    const group = dateMap[date];
-    const multi = group.length > 1;
-    // format date "YYYY-MM-DD" → "M/D"
+  comboOrder.forEach((key, gi) => {
+    const group = comboMap[key];
+    const [date, theme] = key.split('\t');
     const parts = date.split('-');
     const dateLabel = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : date;
+    const themeLabel = theme ? ` テーマ: ${_esc(theme)}` : '';
 
-    group.forEach((doc, i) => {
+    const titleRows = group.map((doc) => {
       const data = doc.data();
-      const idx = multi ? _JARE_CIRCLED[i] || `(${i+1})` : '';
-      const themeLabel = data.theme ? ` テーマ:${_esc(data.theme)}` : '';
-      const paras = Array.isArray(data.paragraphs) ? data.paragraphs : [];
-      const storyHtml = paras.map((p, pi) =>
-        `${pi > 0 ? '<hr class="jare-para-sep">' : ''}<div class="jare-para">${_esc(p)}</div>`
-      ).join('');
+      const crown = data.winner ? '<span class="jare-crown">👑</span>' : '';
       const adminBtns = _isAdmin
         ? `<div class="jare-admin-btns">
             <button class="jare-edit-btn" onclick="event.stopPropagation();openJareModal('${doc.id}')">編集</button>
             <button class="jare-del-btn" onclick="event.stopPropagation();deleteJareStory('${doc.id}')">削除</button>
            </div>`
         : '';
-
-      html += `<div class="jare-group">
-        <div class="jare-date-header">${dateLabel}${idx}${themeLabel}</div>
-        <div class="jare-item" onclick="toggleJareStory('${doc.id}')">
-          <span style="display:flex;align-items:center;gap:6px;">
-            <span class="jare-item-arrow" id="jare-arrow-${doc.id}">▶</span>
-            <span class="jare-item-title">${_esc(data.title||'（無題）')}</span>
-          </span>
-          ${adminBtns}
-        </div>
-        <div class="jare-story" id="jare-story-${doc.id}">${storyHtml || '<div class="jare-para" style="color:var(--dim)">（段落なし）</div>'}</div>
+      return `<div class="jare-title-row">
+        <span class="jare-title-text" onclick="showJareDetail('${doc.id}')">${crown}${_esc(data.title||'（無題）')}</span>
+        <button class="jare-share-btn" onclick="shareJare('${doc.id}')">共有</button>
+        ${adminBtns}
       </div>`;
-    });
+    }).join('');
+
+    html += `<div class="jare-group">
+      <div class="jare-group-header" onclick="toggleJareGroup(${gi})">
+        <span class="jare-item-arrow" id="jare-grp-arrow-${gi}">▶</span>
+        <span>${dateLabel}${themeLabel}</span>
+        <span class="jare-group-count">${group.length}作品</span>
+      </div>
+      <div class="jare-group-titles" id="jare-grp-${gi}">${titleRows}</div>
+    </div>`;
   });
   listEl.innerHTML = html;
 }
@@ -2434,12 +2491,93 @@ function _esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function toggleJareStory(docId) {
-  const story = document.getElementById('jare-story-' + docId);
-  const arrow = document.getElementById('jare-arrow-' + docId);
-  if (!story) return;
-  const open = story.classList.toggle('open');
+function toggleJareGroup(gi) {
+  const titles = document.getElementById('jare-grp-' + gi);
+  const arrow = document.getElementById('jare-grp-arrow-' + gi);
+  if (!titles) return;
+  const open = titles.classList.toggle('open');
   if (arrow) { arrow.textContent = open ? '▼' : '▶'; arrow.classList.toggle('open', open); }
+}
+
+let _jareDetailDocId = null;
+
+function showJareDetail(docId) {
+  _jareDetailDocId = docId;
+  history.pushState(null, '', '#jare/' + docId);
+  showSection('jare-detail');
+  const existing = _jareDocs.find(d => d.id === docId);
+  if (existing) {
+    _renderJareDetail(docId, existing.data());
+  } else {
+    document.getElementById('jare-detail-body').innerHTML = '<div style="color:var(--dim);padding:20px 0;text-align:center">読み込み中...</div>';
+    if (_db) _db.collection('jare_stories').doc(docId).get().then(snap => {
+      if (snap.exists) _renderJareDetail(docId, snap.data());
+    });
+  }
+}
+
+function _renderJareDetail(docId, data) {
+  const parts = (data.date || '').split('-');
+  const dateLabel = parts.length === 3
+    ? `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日`
+    : data.date || '';
+  const themeLabel = data.theme ? ` テーマ: ${data.theme}` : '';
+  document.getElementById('jare-detail-meta').textContent = dateLabel + themeLabel;
+
+  const crown = data.winner ? '👑 ' : '';
+  document.getElementById('jare-detail-title').textContent = crown + (data.title || '（無題）');
+
+  const paras = Array.isArray(data.paragraphs) ? data.paragraphs : [];
+  document.getElementById('jare-detail-body').innerHTML = paras.length
+    ? paras.map((p, i) =>
+        `${i > 0 ? '<hr class="jare-para-sep">' : ''}<div class="jare-para"><span class="jare-para-num">${_JARE_CIRCLED[i]}</span><span class="jare-para-text">${_esc(p)}</span></div>`
+      ).join('')
+    : '<div style="color:var(--dim);padding:20px 0;text-align:center">（段落なし）</div>';
+}
+
+async function shareJare(docId) {
+  const doc = _jareDocs.find(d => d.id === docId);
+  const title = doc ? (doc.data().title || '（無題）') : '';
+  const url = location.origin + location.pathname + '#jare/' + docId;
+  await _doShareJare(title, url);
+}
+
+async function shareJareDetail() {
+  const url = location.origin + location.pathname + '#jare/' + (_jareDetailDocId || '');
+  const titleEl = document.getElementById('jare-detail-title');
+  const title = titleEl ? titleEl.textContent.replace(/^👑\s*/, '') : '';
+  await _doShareJare(title, url);
+}
+
+async function _doShareJare(title, url) {
+  const text = `${title}\n${url}`;
+  if (navigator.share) {
+    try { await navigator.share({ title, text, url }); return; } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  // 一時的に「コピー済み」と表示するトースト
+  const toast = document.createElement('div');
+  toast.textContent = 'URLをコピーしました';
+  Object.assign(toast.style, {
+    position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
+    background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text)',
+    padding:'8px 20px', borderRadius:'8px', fontSize:'13px', zIndex:'9999',
+    boxShadow:'0 4px 16px rgba(0,0,0,.4)', pointerEvents:'none'
+  });
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2000);
+}
+
+function backToJareList() {
+  history.pushState(null, '', location.pathname + location.search);
+  showSection('jare');
 }
 
 function openJareModal(docId) {
@@ -2448,6 +2586,25 @@ function openJareModal(docId) {
   document.getElementById('jare-modal-status').textContent = '';
   document.getElementById('jare-submit-btn').disabled = false;
 
+  // 既存の日付+テーマ一覧をドロップダウンに反映
+  const comboSel = document.getElementById('jare-existing-combo');
+  const seen = new Set();
+  const combos = [];
+  _jareDocs.forEach(d => {
+    const { date = '', theme = '' } = d.data();
+    const k = `${date}\t${theme}`;
+    if (!seen.has(k)) { seen.add(k); combos.push({ date, theme }); }
+  });
+  combos.sort((a, b) => a.date > b.date ? -1 : a.date < b.date ? 1 : 0);
+  comboSel.innerHTML = '<option value="">── 新しく入力する ──</option>' +
+    combos.map(c => {
+      const parts = c.date.split('-');
+      const dl = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : c.date;
+      const tl = c.theme ? ` テーマ:${c.theme}` : '';
+      return `<option value="${_esc(c.date)}\t${_esc(c.theme)}">${dl}${tl}</option>`;
+    }).join('');
+  comboSel.value = '';
+
   if (docId) {
     _db.collection('jare_stories').doc(docId).get().then(doc => {
       if (!doc.exists) return;
@@ -2455,15 +2612,20 @@ function openJareModal(docId) {
       document.getElementById('jare-date').value = d.date || '';
       document.getElementById('jare-theme').value = d.theme || '';
       document.getElementById('jare-title-input').value = d.title || '';
+      document.getElementById('jare-winner-check').checked = !!d.winner;
       const paras = d.paragraphs || [];
       for (let i = 1; i <= 8; i++) {
         document.getElementById('jare-p' + i).value = paras[i-1] || '';
       }
+      // ドロップダウンを編集中のcomboに合わせる
+      const k = `${d.date || ''}\t${d.theme || ''}`;
+      if ([...comboSel.options].some(o => o.value === k)) comboSel.value = k;
     });
   } else {
     document.getElementById('jare-date').value = '';
     document.getElementById('jare-theme').value = '';
     document.getElementById('jare-title-input').value = '';
+    document.getElementById('jare-winner-check').checked = false;
     for (let i = 1; i <= 8; i++) document.getElementById('jare-p' + i).value = '';
   }
   // OCRパネルをリセット
@@ -2477,6 +2639,14 @@ function openJareModal(docId) {
   document.getElementById('jare-modal').classList.add('open');
 }
 
+function onJareComboChange() {
+  const val = document.getElementById('jare-existing-combo').value;
+  if (!val) return;
+  const [date, theme] = val.split('\t');
+  document.getElementById('jare-date').value = date || '';
+  document.getElementById('jare-theme').value = theme || '';
+}
+
 function closeJareModal() {
   document.getElementById('jare-modal').classList.remove('open');
 }
@@ -2488,6 +2658,7 @@ async function submitJareStory() {
   const date = document.getElementById('jare-date').value.trim();
   const theme = document.getElementById('jare-theme').value.trim();
   const title = document.getElementById('jare-title-input').value.trim();
+  const winner = document.getElementById('jare-winner-check').checked;
   const paragraphs = [];
   for (let i = 1; i <= 8; i++) paragraphs.push(document.getElementById('jare-p' + i).value.trim());
 
@@ -2499,7 +2670,7 @@ async function submitJareStory() {
   btn.disabled = true; btn.textContent = '保存中...';
   statusEl.textContent = '';
   try {
-    const payload = { date, theme, title, paragraphs };
+    const payload = { date, theme, title, winner, paragraphs };
     if (docId) {
       await _db.collection('jare_stories').doc(docId).update(payload);
     } else {
@@ -3093,6 +3264,10 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     <h3 id="jare-modal-heading">じゃれ本を追加</h3>
     <input type="hidden" id="jare-edit-id">
     <div class="jare-form-row">
+      <label>既存の日付・テーマから選ぶ</label>
+      <select id="jare-existing-combo" class="jare-combo-select" onchange="onJareComboChange()"></select>
+    </div>
+    <div class="jare-form-row">
       <label>日付</label>
       <input type="date" id="jare-date">
     </div>
@@ -3103,6 +3278,9 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     <div class="jare-form-row">
       <label>タイトル</label>
       <input type="text" id="jare-title-input" placeholder="タイトルを入力">
+    </div>
+    <div class="jare-winner-row">
+      <label><input type="checkbox" id="jare-winner-check"> 👑 優勝作品</label>
     </div>
     <!-- Claude連携セクション -->
     <div class="jare-ocr-section">
@@ -3123,6 +3301,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
 ・明らかに読めない語句はそのまま●●●のように字数分置き換える
 ・段落番号は画像に書かれた番号（1〜8）を使う
 ・改行はそのまま \n で表現する
+・ただし画像に改行がない場合でも、読みやすさのために適切な長さ（目安: 1行20〜30文字程度）で文章の切れ目（読点・句点・接続詞の前後など）に改行を入れる
 
 {"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."},{"num":3,"text":"..."},{"num":4,"text":"..."},{"num":5,"text":"..."},{"num":6,"text":"..."},{"num":7,"text":"..."},{"num":8,"text":"..."}]}</div>
           <button type="button" class="jare-prompt-copy-btn" onclick="copyJarePrompt()">コピー</button>
