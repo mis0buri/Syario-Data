@@ -1727,6 +1727,10 @@ function initFirebase() {
     showSection('jare');
     initJare();
     showJareDetail(docId);
+  } else if (initHash.startsWith('#schedule/')) {
+    const dateStr = initHash.slice(10);
+    showSection('schedule');
+    renderCalendar().then(() => openDayDetail(dateStr));
   }
 }
 
@@ -1936,6 +1940,7 @@ function showRsvScreen(id) {
 
 function closeRsvModal() {
   document.getElementById('rsv-overlay').classList.remove('open');
+  if (location.hash.startsWith('#schedule/')) history.pushState(null, '', location.pathname + location.search);
   rsvCurrentDate = null;
   rsvPendingData = null;
   _editMode = false;
@@ -1948,6 +1953,7 @@ function rsvOverlayClick(e) {
 
 async function openDayDetail(dateStr) {
   rsvCurrentDate = dateStr;
+  history.pushState(null, '', '#schedule/' + dateStr);
   const parts = dateStr.split('-');
   const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
   const entry = SCHEDULE_DATA[dateStr];
