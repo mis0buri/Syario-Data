@@ -64,6 +64,21 @@
   .subnav button:hover { color: var(--text); background: var(--surface2); }
   .subnav button.active { color: var(--accent); font-weight: 700; border-bottom: 2px solid var(--accent); border-radius: 0; }
 
+  /* ギャラリー ハブ */
+  .gallery-hub { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 0; }
+  .gallery-hub-btn {
+    position: relative;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 18px; font-weight: 700;
+    padding: 32px 40px; border-radius: 12px; cursor: pointer; transition: all .2s;
+    min-width: 160px;
+  }
+  .gallery-hub-btn:hover { background: var(--border); border-color: var(--accent); color: var(--accent); }
+  .gallery-hub-badge {
+    display: block; font-size: 11px; font-weight: 400; color: var(--dim); margin-top: 6px;
+  }
+  .preparing-msg { color: var(--dim); font-size: 16px; padding: 40px 0; text-align: center; }
+
   /* PERIOD FILTER BAR */
   .period-bar {
     background: var(--surface); border-bottom: 1px solid var(--border);
@@ -572,6 +587,7 @@
   <div class="logo">シャリオ</div>
   <nav>
     <button class="active" data-nav="sensei" onclick="showSection('ranking')">戦績</button>
+    <button data-nav="gallery" onclick="showSection('gallery')">ギャラリー</button>
     <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
@@ -593,6 +609,11 @@
   <button onclick="showSection('member')">個人</button>
   <button onclick="showSection('graph')">グラフ</button>
   <button onclick="showSection('history')">履歴</button>
+</div>
+
+<!-- ギャラリーサブナビ -->
+<div id="subnav-gallery" class="subnav" style="display:none">
+  <button class="active" onclick="showSection('jare')">じゃれ本</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -758,6 +779,24 @@
         <div id="fb-status"></div>
         <button class="feedback-submit" type="submit">送信</button>
       </form>
+    </div>
+  </div>
+
+  <!-- ギャラリー ハブ -->
+  <div id="sec-gallery" class="section">
+    <div class="card">
+      <div class="card-title">ギャラリー</div>
+      <div class="gallery-hub">
+        <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本<span class="gallery-hub-badge">準備中</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- じゃれ本 -->
+  <div id="sec-jare" class="section">
+    <div class="card">
+      <div class="card-title">じゃれ本</div>
+      <div class="preparing-msg">準備中</div>
     </div>
   </div>
 </main>
@@ -947,29 +986,37 @@ function refresh() {
 
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
+const _GALLERY = ['gallery','jare'];
 function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
 
   const isStats = _STATS.includes(id);
+  const isGallery = _GALLERY.includes(id);
 
   // メインナビのアクティブ状態
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  const navKey = isStats ? 'sensei' : id;
+  const navKey = isStats ? 'sensei' : isGallery ? 'gallery' : id;
   const activeNavBtn = document.querySelector(`nav button[data-nav="${navKey}"]`);
   if (activeNavBtn) activeNavBtn.classList.add('active');
 
   // サブナビの表示・アクティブ状態
   const subnav = document.getElementById('subnav');
+  const subnavGallery = document.getElementById('subnav-gallery');
   subnav.style.display = isStats ? '' : 'none';
+  subnavGallery.style.display = isGallery ? '' : 'none';
   if (isStats) {
     const subLabels = {ranking:'総合',member:'個人',graph:'グラフ',history:'履歴'};
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
+  if (isGallery) {
+    const subLabels = {jare:'じゃれ本'};
+    document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
+  }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule'||id==='board'||id==='renban') ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='feedback'||id==='schedule'||id==='board'||id==='renban'||isGallery) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
