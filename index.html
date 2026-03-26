@@ -2501,9 +2501,9 @@ function openJareModal(docId) {
     inp.value = '';
     document.getElementById('jare-img-prev-' + i).innerHTML = 'タップして選択';
   }
-  const proxyInp = document.getElementById('jare-proxy-url');
-  proxyInp.value = '';
-  proxyInp.placeholder = localStorage.getItem('syario_ocr_proxy') ? 'Worker URL保存済み（変更する場合のみ入力）' : 'Cloudflare Worker URL';
+  const keyInp = document.getElementById('jare-gemini-key');
+  keyInp.value = '';
+  keyInp.placeholder = localStorage.getItem('syario_gemini_key') ? 'APIキー保存済み（変更する場合のみ入力）' : 'Gemini API Key';
 
   document.getElementById('jare-modal').classList.add('open');
 }
@@ -2571,13 +2571,13 @@ function onJareImgSelect(input, slot) {
   reader.readAsDataURL(file);
 }
 
-function saveJareProxyUrl() {
-  const val = document.getElementById('jare-proxy-url').value.trim();
-  if (!val) { alert('Worker URLを入力してください'); return; }
-  localStorage.setItem('syario_ocr_proxy', val);
-  document.getElementById('jare-proxy-url').value = '';
-  document.getElementById('jare-proxy-url').placeholder = 'Worker URL保存済み';
-  _setOcrStatus('Worker URLを保存しました', 'ok');
+function saveJareGeminiKey() {
+  const val = document.getElementById('jare-gemini-key').value.trim();
+  if (!val) { alert('APIキーを入力してください'); return; }
+  localStorage.setItem('syario_gemini_key', val);
+  document.getElementById('jare-gemini-key').value = '';
+  document.getElementById('jare-gemini-key').placeholder = 'APIキー保存済み';
+  _setOcrStatus('APIキーを保存しました', 'ok');
 }
 
 function _setOcrStatus(msg, cls) {
@@ -2611,10 +2611,10 @@ function _fileToBase64(file) {
 }
 
 async function runJareOcr() {
-  const proxyUrl = (document.getElementById('jare-proxy-url').value.trim()) ||
-                   localStorage.getItem('syario_ocr_proxy') || '';
-  if (!proxyUrl) {
-    _setOcrStatus('Cloudflare Worker URLを入力または保存してください', 'err');
+  const apiKey = (document.getElementById('jare-gemini-key').value.trim()) ||
+                 localStorage.getItem('syario_gemini_key') || '';
+  if (!apiKey) {
+    _setOcrStatus('Gemini APIキーを入力または保存してください', 'err');
     return;
   }
 
@@ -2623,14 +2623,10 @@ async function runJareOcr() {
     const inp = document.getElementById('jare-img-' + i);
     if (inp.files[0]) slots.push({ slot: i, file: inp.files[0] });
   }
-  if (!slots.length) {
-    _setOcrStatus('画像を1枚以上選択してください', 'err');
-    return;
-  }
+  if (!slots.length) { _setOcrStatus('画像を1枚以上選択してください', 'err'); return; }
 
   const btn = document.getElementById('jare-ocr-btn');
   btn.disabled = true;
-  _setOcrStatus('読み取り中... しばらくお待ちください');
 
   try {
     const slotNums = slots.map(s => s.slot);
@@ -2638,53 +2634,47 @@ async function runJareOcr() {
       `これは「じゃれ本」という複数人が1段落ずつ書いた手書きの文章です。` +
       `画像は${slots.length}枚あり、1枚に2段落ずつ書かれています。` +
       `各段落の右上または右側に段落番号（1〜8、①〜⑧など）が書かれているので、その番号で段落を特定してください。` +
-      `アップロード順に画像の対応段落はおおむね次の通りです：` +
-      slotNums.map(s => `${s}枚目→段落${s*2-1}と${s*2}`).join('、') + `。` +
+      `アップロード順の対応：` + slotNums.map(s => `${s}枚目→段落${s*2-1}と${s*2}`).join('、') + `。` +
       `\n\n【読み取りルール】\n` +
       `・手書きの文字を正確に読み取ること\n` +
-      `・フリガナ（ルビ）は対象の漢字の直後に《》で囲んで記載（例: 魔法《まほう》）\n` +
-      `・どうしても読み取れない文字は●に置き換えること\n` +
-      `・文脈から推測できる場合は自然な文字に補完してよい\n` +
+      `・フリガナは対象漢字の直後に《》で記載（例: 魔法《まほう》）\n` +
+      `・読み取れない文字は●に置換、文脈で推測できれば補完可\n` +
       `・段落番号自体は本文に含めないこと\n` +
-      `・改行は\\nで表現すること\n` +
-      `\n以下のJSON形式のみで出力してください（前後に余分なテキスト不要）：\n` +
-      `{"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."},...]}` +
-      `\n存在する段落のみ含めてください。`;
+      `・改行は\\nで表現\n` +
+      `\n以下のJSON形式のみで出力（余分なテキスト不要）：\n` +
+      `{"paragraphs":[{"num":1,"text":"..."},{"num":2,"text":"..."},...]}`;
 
-    // Claude API用のコンテンツ配列（画像→テキストの順）
-    // Canvas圧縮後は常にJPEGになる
-    const content = [];
+    const parts = [];
     let totalKB = 0;
     for (const { slot, file } of slots) {
       _setOcrStatus(`画像 ${slot}/${slots.length} を圧縮中...`);
       const b64 = await _fileToBase64(file);
       totalKB += Math.round(b64.length * 0.75 / 1024);
-      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } });
+      parts.push({ inlineData: { mimeType: 'image/jpeg', data: b64 } });
     }
-    content.push({ type: 'text', text: prompt });
+    parts.push({ text: prompt });
     _setOcrStatus(`送信中... (合計約${totalKB}KB)`);
 
-    const model = document.getElementById('jare-claude-model').value || 'claude-haiku-4-5-20251001';
+    const model = document.getElementById('jare-gemini-model').value || 'gemini-2.0-flash-lite';
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000); // 60秒タイムアウト
+    const timer = setTimeout(() => controller.abort(), 60000);
     let res;
     try {
-      // Cloudflare Worker経由で送信（APIキーはWorker側で管理）
-      res = await fetch(proxyUrl, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          max_tokens: 2048,
-          messages: [{ role: 'user', content }]
-        })
-      });
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
+          })
+        }
+      );
     } catch(fetchErr) {
-      if (fetchErr.name === 'AbortError') {
-        throw new Error('タイムアウトしました。画像が大きすぎるか通信が不安定です。');
-      }
-      throw new Error('通信エラー: ' + fetchErr.message + '\nAPIキーを確認し、時間をおいて再試行してください。');
+      if (fetchErr.name === 'AbortError') throw new Error('タイムアウトしました。通信が不安定な可能性があります。');
+      throw new Error('通信エラー: ' + fetchErr.message);
     } finally {
       clearTimeout(timer);
     }
@@ -2693,22 +2683,19 @@ async function runJareOcr() {
       const rawErr = await res.text().catch(() => '');
       let msg = `HTTP ${res.status}`;
       try { const j = JSON.parse(rawErr); msg = j?.error?.message || msg; } catch {}
-      if (res.status === 405) throw new Error(`HTTP 405: WorkerのURLが間違っているか、Workerが正しくデプロイされていません。\nURL: ${proxyUrl}\n本文: ${rawErr.slice(0,120)}`);
-      if (res.status === 429) throw new Error('APIの利用上限に達しました。しばらく待ってから再試行してください。');
-      if (res.status === 401) throw new Error('APIキーが無効です。WorkerのANTHROPIC_API_KEY設定を確認してください。');
-      if (res.status === 500) throw new Error(`Workerエラー(500): ${rawErr.slice(0,200)}`);
-      throw new Error(`${msg}\n${rawErr.slice(0,200)}`);
+      if (res.status === 429) throw new Error('APIの利用上限に達しました。しばらく待って再試行してください。');
+      if (res.status === 400) throw new Error('APIキーが無効か、モデルが対応していません: ' + msg);
+      throw new Error(msg);
     }
 
     const data = await res.json();
-    const raw = data?.content?.[0]?.text || '';
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
+    try { parsed = JSON.parse(raw); }
+    catch {
       const m = raw.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error('JSONの解析に失敗しました。画像を確認してください。\n受信内容: ' + raw.slice(0, 100));
+      if (!m) throw new Error('JSONの解析に失敗しました。\n受信内容: ' + raw.slice(0, 100));
       parsed = JSON.parse(m[0]);
     }
 
@@ -2718,13 +2705,10 @@ async function runJareOcr() {
     let filled = 0;
     paras.forEach(({ num, text }) => {
       const n = parseInt(num);
-      if (n >= 1 && n <= 8) {
-        const el = document.getElementById('jare-p' + n);
-        if (el) { el.value = text || ''; filled++; }
-      }
+      if (n >= 1 && n <= 8) { const el = document.getElementById('jare-p' + n); if (el) { el.value = text || ''; filled++; } }
     });
 
-    _setOcrStatus(`${filled}段落を読み取って入力しました。内容を確認・修正してから保存してください。`, 'ok');
+    _setOcrStatus(`${filled}段落を読み取りました。内容を確認・修正してから保存してください。`, 'ok');
   } catch(e) {
     _setOcrStatus('エラー: ' + e.message, 'err');
   } finally {
@@ -3292,15 +3276,14 @@ document.addEventListener('DOMContentLoaded', initFirebase);
           </label>
         </div>
         <div class="jare-key-row">
-          <input type="text" id="jare-proxy-url" class="jare-key-input" placeholder="Cloudflare Worker URL（保存済みの場合は空欄でOK）" autocomplete="off">
-          <button type="button" class="jare-key-save-btn" onclick="saveJareProxyUrl()">保存</button>
+          <input type="password" id="jare-gemini-key" class="jare-key-input" placeholder="Gemini API Key（保存済みの場合は空欄でOK）" autocomplete="off">
+          <button type="button" class="jare-key-save-btn" onclick="saveJareGeminiKey()">保存</button>
         </div>
         <div class="jare-model-row">
           <label class="jare-model-label">モデル</label>
-          <select id="jare-claude-model" class="jare-model-select">
-            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5（高速・低コスト・推奨）</option>
-            <option value="claude-sonnet-4-6">claude-sonnet-4-6（高精度）</option>
-            <option value="claude-opus-4-6">claude-opus-4-6（最高精度・高コスト）</option>
+          <select id="jare-gemini-model" class="jare-model-select">
+            <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite（無料・推奨）</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash（高精度・無料枠少なめ）</option>
           </select>
         </div>
         <button type="button" id="jare-ocr-btn" class="jare-ocr-run-btn" onclick="runJareOcr()">読み取り開始</button>
