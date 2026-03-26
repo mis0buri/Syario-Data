@@ -2610,6 +2610,12 @@ function _fileToBase64(file) {
   });
 }
 
+function _ocrCountdown(sec, onDone) {
+  _setOcrStatus(`レート制限中... ${sec}秒後に自動再試行します`);
+  if (sec <= 0) { onDone(); return; }
+  setTimeout(() => _ocrCountdown(sec - 1, onDone), 1000);
+}
+
 async function runJareOcr() {
   const apiKey = (document.getElementById('jare-gemini-key').value.trim()) ||
                  localStorage.getItem('syario_gemini_key') || '';
@@ -2683,7 +2689,24 @@ async function runJareOcr() {
       const rawErr = await res.text().catch(() => '');
       let msg = `HTTP ${res.status}`;
       try { const j = JSON.parse(rawErr); msg = j?.error?.message || msg; } catch {}
-      if (res.status === 429) throw new Error('APIの利用上限に達しました。しばらく待って再試行してください。');
+      if (res.status === 429) {
+        // retryDelay を取得（ヘッダー or エラー本文から）
+        let wait = 61;
+        const retryHeader = res.headers.get('retry-after') || res.headers.get('x-ratelimit-reset-requests');
+        if (retryHeader) wait = Math.ceil(parseFloat(retryHeader)) + 1;
+        else {
+          try {
+            const j = JSON.parse(rawErr);
+            const retryStr = j?.error?.details?.find(d => d?.['@type']?.includes('RetryInfo'))?.retryDelay;
+            if (retryStr) wait = Math.ceil(parseFloat(retryStr)) + 1;
+          } catch {}
+        }
+        await new Promise(resolve => _ocrCountdown(wait, resolve));
+        // ボタン状態を戻して再試行
+        btn.disabled = false;
+        runJareOcr();
+        return;
+      }
       if (res.status === 400) throw new Error('APIキーが無効か、モデルが対応していません: ' + msg);
       throw new Error(msg);
     }
