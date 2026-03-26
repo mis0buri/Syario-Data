@@ -2037,9 +2037,14 @@ async function openDayDetail(dateStr) {
   try {
     const pSnap = await _db.collection('rsv_participants')
       .where('date', '==', dateStr)
-      .orderBy('createdAt', 'asc')
       .get();
-    const participants = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const participants = pSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const ta = a.createdAt ? a.createdAt.toMillis ? a.createdAt.toMillis() : 0 : 0;
+        const tb = b.createdAt ? b.createdAt.toMillis ? b.createdAt.toMillis() : 0 : 0;
+        return ta - tb;
+      });
     const joins = participants.filter(p => p.type === 'join');
     const interests = participants.filter(p => p.type === 'interest');
     const renderPList = (list) => {
