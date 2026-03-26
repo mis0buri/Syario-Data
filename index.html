@@ -96,6 +96,11 @@
   }
   .jare-item:hover { background: var(--surface2); }
   .jare-item-title { font-size: 14px; color: var(--text); }
+  .jare-crown { font-size: 13px; margin-right: 3px; }
+  .jare-winner-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 6px; }
+  .jare-winner-row label { font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .jare-winner-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+  .jare-combo-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 6px 8px; border-radius: 6px; }
   .jare-item-arrow { font-size: 10px; color: var(--dim); margin-right: 6px; transition: transform .2s; }
   .jare-item-arrow.open { transform: rotate(90deg); }
   .jare-admin-btns { display: flex; gap: 6px; flex-shrink: 0; }
@@ -2341,6 +2346,7 @@ function _refreshBoardIfActive() {
 const _JARE_CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
 let _jareInited = false;
 let _jareUnsubscribe = null;
+let _jareDocs = [];
 
 function _resetJare() {
   if (_jareUnsubscribe) { _jareUnsubscribe(); _jareUnsubscribe = null; }
@@ -2380,29 +2386,34 @@ function initJare() {
 }
 
 function renderJareList(docs) {
+  _jareDocs = docs;
   const listEl = document.getElementById('jare-list');
   if (!docs.length) { listEl.innerHTML = '<div class="jare-empty">まだ作品がありません</div>'; return; }
 
-  // Group by date
-  const dateMap = {};
+  // Group by date+theme
+  const comboMap = {};
   docs.forEach(d => {
-    const date = d.data().date || '';
-    if (!dateMap[date]) dateMap[date] = [];
-    dateMap[date].push(d);
+    const { date = '', theme = '' } = d.data();
+    const key = `${date}\t${theme}`;
+    if (!comboMap[key]) comboMap[key] = [];
+    comboMap[key].push(d);
   });
 
   let html = '';
-  Object.keys(dateMap).sort((a,b) => a > b ? -1 : 1).forEach(date => {
-    const group = dateMap[date];
+  Object.keys(comboMap).sort((a, b) => {
+    const da = a.split('\t')[0], db = b.split('\t')[0];
+    return da > db ? -1 : da < db ? 1 : 0;
+  }).forEach(key => {
+    const group = comboMap[key];
     const multi = group.length > 1;
-    // format date "YYYY-MM-DD" → "M/D"
+    const [date, theme] = key.split('\t');
     const parts = date.split('-');
     const dateLabel = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : date;
+    const themeLabel = theme ? ` テーマ:${_esc(theme)}` : '';
 
     group.forEach((doc, i) => {
       const data = doc.data();
       const idx = multi ? _JARE_CIRCLED[i] || `(${i+1})` : '';
-      const themeLabel = data.theme ? ` テーマ:${_esc(data.theme)}` : '';
       const paras = Array.isArray(data.paragraphs) ? data.paragraphs : [];
       const storyHtml = paras.map((p, pi) =>
         `${pi > 0 ? '<hr class="jare-para-sep">' : ''}<div class="jare-para">${_esc(p)}</div>`
@@ -2413,13 +2424,14 @@ function renderJareList(docs) {
             <button class="jare-del-btn" onclick="event.stopPropagation();deleteJareStory('${doc.id}')">削除</button>
            </div>`
         : '';
+      const crown = data.winner ? '<span class="jare-crown">👑</span>' : '';
 
       html += `<div class="jare-group">
         <div class="jare-date-header">${dateLabel}${idx}${themeLabel}</div>
         <div class="jare-item" onclick="toggleJareStory('${doc.id}')">
           <span style="display:flex;align-items:center;gap:6px;">
             <span class="jare-item-arrow" id="jare-arrow-${doc.id}">▶</span>
-            <span class="jare-item-title">${_esc(data.title||'（無題）')}</span>
+            <span class="jare-item-title">${crown}${_esc(data.title||'（無題）')}</span>
           </span>
           ${adminBtns}
         </div>
@@ -2448,6 +2460,25 @@ function openJareModal(docId) {
   document.getElementById('jare-modal-status').textContent = '';
   document.getElementById('jare-submit-btn').disabled = false;
 
+  // 既存の日付+テーマ一覧をドロップダウンに反映
+  const comboSel = document.getElementById('jare-existing-combo');
+  const seen = new Set();
+  const combos = [];
+  _jareDocs.forEach(d => {
+    const { date = '', theme = '' } = d.data();
+    const k = `${date}\t${theme}`;
+    if (!seen.has(k)) { seen.add(k); combos.push({ date, theme }); }
+  });
+  combos.sort((a, b) => a.date > b.date ? -1 : a.date < b.date ? 1 : 0);
+  comboSel.innerHTML = '<option value="">── 新しく入力する ──</option>' +
+    combos.map(c => {
+      const parts = c.date.split('-');
+      const dl = parts.length === 3 ? `${parseInt(parts[1])}/${parseInt(parts[2])}` : c.date;
+      const tl = c.theme ? ` テーマ:${c.theme}` : '';
+      return `<option value="${_esc(c.date)}\t${_esc(c.theme)}">${dl}${tl}</option>`;
+    }).join('');
+  comboSel.value = '';
+
   if (docId) {
     _db.collection('jare_stories').doc(docId).get().then(doc => {
       if (!doc.exists) return;
@@ -2455,15 +2486,20 @@ function openJareModal(docId) {
       document.getElementById('jare-date').value = d.date || '';
       document.getElementById('jare-theme').value = d.theme || '';
       document.getElementById('jare-title-input').value = d.title || '';
+      document.getElementById('jare-winner-check').checked = !!d.winner;
       const paras = d.paragraphs || [];
       for (let i = 1; i <= 8; i++) {
         document.getElementById('jare-p' + i).value = paras[i-1] || '';
       }
+      // ドロップダウンを編集中のcomboに合わせる
+      const k = `${d.date || ''}\t${d.theme || ''}`;
+      if ([...comboSel.options].some(o => o.value === k)) comboSel.value = k;
     });
   } else {
     document.getElementById('jare-date').value = '';
     document.getElementById('jare-theme').value = '';
     document.getElementById('jare-title-input').value = '';
+    document.getElementById('jare-winner-check').checked = false;
     for (let i = 1; i <= 8; i++) document.getElementById('jare-p' + i).value = '';
   }
   // OCRパネルをリセット
@@ -2477,6 +2513,14 @@ function openJareModal(docId) {
   document.getElementById('jare-modal').classList.add('open');
 }
 
+function onJareComboChange() {
+  const val = document.getElementById('jare-existing-combo').value;
+  if (!val) return;
+  const [date, theme] = val.split('\t');
+  document.getElementById('jare-date').value = date || '';
+  document.getElementById('jare-theme').value = theme || '';
+}
+
 function closeJareModal() {
   document.getElementById('jare-modal').classList.remove('open');
 }
@@ -2488,6 +2532,7 @@ async function submitJareStory() {
   const date = document.getElementById('jare-date').value.trim();
   const theme = document.getElementById('jare-theme').value.trim();
   const title = document.getElementById('jare-title-input').value.trim();
+  const winner = document.getElementById('jare-winner-check').checked;
   const paragraphs = [];
   for (let i = 1; i <= 8; i++) paragraphs.push(document.getElementById('jare-p' + i).value.trim());
 
@@ -2499,7 +2544,7 @@ async function submitJareStory() {
   btn.disabled = true; btn.textContent = '保存中...';
   statusEl.textContent = '';
   try {
-    const payload = { date, theme, title, paragraphs };
+    const payload = { date, theme, title, winner, paragraphs };
     if (docId) {
       await _db.collection('jare_stories').doc(docId).update(payload);
     } else {
@@ -3093,6 +3138,10 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     <h3 id="jare-modal-heading">じゃれ本を追加</h3>
     <input type="hidden" id="jare-edit-id">
     <div class="jare-form-row">
+      <label>既存の日付・テーマから選ぶ</label>
+      <select id="jare-existing-combo" class="jare-combo-select" onchange="onJareComboChange()"></select>
+    </div>
+    <div class="jare-form-row">
       <label>日付</label>
       <input type="date" id="jare-date">
     </div>
@@ -3103,6 +3152,9 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     <div class="jare-form-row">
       <label>タイトル</label>
       <input type="text" id="jare-title-input" placeholder="タイトルを入力">
+    </div>
+    <div class="jare-winner-row">
+      <label><input type="checkbox" id="jare-winner-check"> 👑 優勝作品</label>
     </div>
     <!-- Claude連携セクション -->
     <div class="jare-ocr-section">
