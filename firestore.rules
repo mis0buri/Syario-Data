@@ -28,7 +28,7 @@ service cloud.firestore {
         (resource.data.uid == request.auth.uid || isAdmin());
       match /participants/{partId} {
         allow read, create: if true;
-        allow delete: if request.auth != null &&
+        allow update, delete: if request.auth != null &&
           (resource.data.uid == request.auth.uid || isAdmin());
       }
     }
