@@ -1413,7 +1413,8 @@ async function renderTopSchedule() {
       const cntHtml = cnt != null
         ? `<span style="font-size:11px;margin-left:6px;color:${cnt > 0 ? 'var(--accent)' : 'var(--dim)'}">${cnt > 0 ? `予約${cnt}件` : '予約なし'}</span>`
         : '';
-      return `<div class="top-schedule-row">
+      const onclick = `showSection('schedule');calYear=${parts[0]};calMonth=${parseInt(parts[1])-1};renderCalendar().then(()=>openDayDetail('${d}'))`;
+      return `<div class="top-schedule-row top-update-link" onclick="${onclick}">
         <span class="top-schedule-date">${label}</span>
         <span><span class="cal-mark ${MARK_CSS[entry.mark]||''}" style="font-size:15px">${entry.mark}</span>${noteHtml}${cntHtml}</span>
       </div>`;
