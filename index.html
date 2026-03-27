@@ -3511,14 +3511,16 @@ async function shareRenbanEvent() {
   ];
 
   // 参加者リスト（参加→興味あり順、最大5人）
+  const noteRowH = 20;
   const allP = [
-    ...joins.map(p => ({ name: p.name || '匿名', t: 'join' })),
-    ...interests.map(p => ({ name: p.name || '匿名', t: 'interest' })),
+    ...joins.map(p => ({ name: p.name || '匿名', note: p.note || '', t: 'join' })),
+    ...interests.map(p => ({ name: p.name || '匿名', note: p.note || '', t: 'interest' })),
   ].slice(0, 5);
   const totalP = joinCount + interestCount;
   const hasMore = totalP > 5;
+  const pTotalH = allP.reduce((sum, p) => sum + pRowH + (p.note ? noteRowH : 0), 0);
   const pSectionH = allP.length > 0
-    ? (16 + 22 + allP.length * pRowH + (hasMore ? pRowH : 0) + 12)
+    ? (16 + 22 + pTotalH + (hasMore ? pRowH : 0) + 12)
     : 0;
 
   const H = 60 + 50 + 16 + rows.length * rowH + pSectionH + 28;
@@ -3587,6 +3589,16 @@ async function shareRenbanEvent() {
       if (nameStr !== p.name) nameStr += '…';
       ctx.fillText(`${icon} ${nameStr}`, pad + 16, y);
       y += pRowH;
+      if (p.note) {
+        ctx.fillStyle = '#7f848e';
+        ctx.font = "12px 'Noto Sans JP', sans-serif";
+        let noteStr = p.note;
+        const maxNoteW = W - pad * 2 - 36;
+        while (ctx.measureText(noteStr + '…').width > maxNoteW && noteStr.length > 0) noteStr = noteStr.slice(0, -1);
+        if (noteStr !== p.note) noteStr += '…';
+        ctx.fillText(noteStr, pad + 32, y);
+        y += noteRowH;
+      }
     });
     if (hasMore) {
       ctx.fillStyle = '#7f848e';
