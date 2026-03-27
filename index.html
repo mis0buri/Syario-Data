@@ -681,6 +681,11 @@
   .top-update-time { font-size:11px; color:var(--dim); margin-top:2px; }
   .top-update-link { cursor:pointer; border-radius:6px; margin:0 -8px; padding-left:8px; padding-right:8px; transition:background .15s; }
   .top-update-link:hover { background:var(--surface2); }
+  .top-jare-card { cursor:pointer; transition:border-color .2s; }
+  .top-jare-card:hover { border-color:var(--accent); }
+  .top-jare-title { font-size:17px; font-weight:700; color:var(--text); margin:6px 0 10px; line-height:1.6; }
+  .top-jare-meta { font-size:12px; color:var(--dim); margin-bottom:10px; }
+  .top-jare-footer { font-size:12px; color:var(--accent); text-align:right; }
   .logo { cursor:pointer; user-select:none; }
 
   /* ── MOBILE ── */
@@ -823,6 +828,10 @@
         <div class="card-title">今後の予定</div>
         <div class="top-schedule-list" id="top-schedule-list"></div>
       </div>
+    </div>
+    <div class="card top-jare-card" onclick="goToTopJare()">
+      <div class="card-title">今日のじゃれ本</div>
+      <div id="top-jare-content"><div class="empty">読み込み中...</div></div>
     </div>
     <div class="card">
       <div class="card-title">最近の更新</div>
@@ -1305,8 +1314,39 @@ function renderTopSchedule() {
   }).join('');
 }
 
+let _topJareDocId = null;
+
+function goToTopJare() {
+  if (_topJareDocId) showJareDetail(_topJareDocId);
+}
+
+async function renderTopJare() {
+  const el = document.getElementById('top-jare-content');
+  if (!el) return;
+  if (!_db) { el.innerHTML = '<div class="empty">読み込めませんでした</div>'; return; }
+  try {
+    const snap = await _db.collection('jare_stories').get();
+    const docs = snap.docs.filter(d => d.data().title);
+    if (!docs.length) { el.innerHTML = '<div class="empty">まだ作品がありません</div>'; return; }
+    const dayNum = Math.floor(Date.now() / 86400000);
+    const pick = docs[dayNum % docs.length];
+    const data = pick.data();
+    _topJareDocId = pick.id;
+    const metaParts = [];
+    if (data.date) metaParts.push(data.date.replace(/-/g, '/'));
+    if (data.theme) metaParts.push(data.theme);
+    el.innerHTML = `
+      <div class="top-jare-title">${_escHtml(data.title)}</div>
+      ${metaParts.length ? `<div class="top-jare-meta">${metaParts.map(_escHtml).join(' — ')}</div>` : ''}
+      <div class="top-jare-footer">読む →</div>`;
+  } catch(e) {
+    el.innerHTML = '<div class="empty">読み込みに失敗しました</div>';
+  }
+}
+
 async function initTopPage() {
   renderTopSchedule();
+  renderTopJare();
 
   const listEl = document.getElementById('top-updates-list');
   if (!listEl) return;
@@ -1316,9 +1356,10 @@ async function initTopPage() {
   }
   listEl.innerHTML = '<div class="empty">読み込み中...</div>';
   try {
-    const [rsvSnap, boardSnap] = await Promise.all([
+    const [rsvSnap, boardSnap, renbanSnap] = await Promise.all([
       _db.collection('reservations').orderBy('createdAt', 'desc').limit(5).get(),
-      _db.collection('board_comments').orderBy('ts', 'desc').limit(3).get()
+      _db.collection('board_comments').orderBy('ts', 'desc').limit(3).get(),
+      _db.collection('renban_events').orderBy('createdAt', 'desc').limit(3).get()
     ]);
     const items = [];
     rsvSnap.docs.forEach(doc => {
@@ -1330,6 +1371,11 @@ async function initTopPage() {
       const d = doc.data();
       const ts = d.ts ? (d.ts.toMillis ? d.ts.toMillis() : 0) : 0;
       items.push({ type: 'board', ts, name: d.name || '匿名', body: d.body || '' });
+    });
+    renbanSnap.docs.forEach(doc => {
+      const d = doc.data();
+      const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
+      items.push({ type: 'renban', ts, id: doc.id, title: d.title || '(無題)', owner: d.owner || '匿名' });
     });
     items.sort((a, b) => b.ts - a.ts);
     if (!items.length) { listEl.innerHTML = '<div class="empty">更新はありません</div>'; return; }
@@ -1344,11 +1390,17 @@ async function initTopPage() {
           <span class="top-update-icon">📅</span>
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong> さんが <strong>${dLabel}</strong> に予約しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
-      } else {
+      } else if (item.type === 'board') {
         const preview = item.body.length > 36 ? item.body.slice(0, 36) + '…' : item.body;
         return `<div class="top-update-item top-update-link" onclick="showSection('board')">
           <span class="top-update-icon">💬</span>
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong>：${_escHtml(preview)}<div class="top-update-time">${timeStr}</div></div>
+        </div>`;
+      } else {
+        const onclick = `showSection('renban');initRenban().then(()=>openRenbanDetail('${item.id}'))`;
+        return `<div class="top-update-item top-update-link" onclick="${onclick}">
+          <span class="top-update-icon">📢</span>
+          <div class="top-update-text"><strong>${_escHtml(item.owner)}</strong> さんが <strong>${_escHtml(item.title)}</strong> の連番を募集しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       }
     }).join('');
