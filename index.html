@@ -65,13 +65,13 @@
   .subnav button.active { color: var(--accent); font-weight: 700; border-bottom: 2px solid var(--accent); border-radius: 0; }
 
   /* ギャラリー ハブ */
-  .gallery-hub { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px 0; }
+  .gallery-hub { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
   .gallery-hub-btn {
     position: relative;
     background: var(--surface2); border: 1px solid var(--border);
     color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 18px; font-weight: 700;
-    padding: 32px 40px; border-radius: 12px; cursor: pointer; transition: all .2s;
-    min-width: 160px;
+    padding: 20px 28px; border-radius: 12px; cursor: pointer; transition: all .2s;
+    width: 100%; text-align: left;
   }
   .gallery-hub-btn:hover { background: var(--border); border-color: var(--accent); color: var(--accent); }
   .gallery-hub-badge {
