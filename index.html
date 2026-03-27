@@ -779,7 +779,7 @@
 </div>
 
 <header>
-  <div class="logo" onclick="showSection('top')"><span style="color:#e08080;font-size:inherit;font-weight:inherit">シ</span><span style="color:#72c072;font-size:inherit;font-weight:inherit">ャ</span><span style="color:#6b9ed4;font-size:inherit;font-weight:inherit">リ</span><span style="color:#d4c045;font-size:inherit;font-weight:inherit">オ</span></div>
+  <div class="logo" onclick="showSection('top')"><span style="color:#e08080;font-size:inherit;font-weight:inherit;margin-left:0">シ</span><span style="color:#72c072;font-size:inherit;font-weight:inherit;margin-left:0">ャ</span><span style="color:#6b9ed4;font-size:inherit;font-weight:inherit;margin-left:0">リ</span><span style="color:#d4c045;font-size:inherit;font-weight:inherit;margin-left:0">オ</span></div>
   <nav>
     <button data-nav="sensei" onclick="showSection('ranking')">戦績</button>
     <button data-nav="gallery" onclick="showSection('gallery')">ギャラリー</button>
@@ -1401,16 +1401,35 @@ async function renderTopSchedule() {
   if (!listEl) return;
   const upcoming5 = upcomingOpen.slice(0, 5);
   if (!upcoming5.length) { listEl.innerHTML = '<div class="empty">予定なし</div>'; return; }
-  listEl.innerHTML = upcoming5.map(d => {
-    const entry = SCHEDULE_DATA[d];
-    const parts = d.split('-');
-    const label = `${parseInt(parts[1])}月${parseInt(parts[2])}日（${DOW[new Date(d).getDay()]}）`;
-    const noteHtml = entry.note ? `<span style="font-size:11px;color:var(--dim);margin-left:4px">${entry.note}</span>` : '';
-    return `<div class="top-schedule-row">
-      <span class="top-schedule-date">${label}</span>
-      <span><span class="cal-mark ${MARK_CSS[entry.mark]||''}" style="font-size:15px">${entry.mark}</span>${noteHtml}</span>
-    </div>`;
-  }).join('');
+
+  // まず件数なしで即時描画
+  const renderRows = (counts) => {
+    listEl.innerHTML = upcoming5.map(d => {
+      const entry = SCHEDULE_DATA[d];
+      const parts = d.split('-');
+      const label = `${parseInt(parts[1])}月${parseInt(parts[2])}日（${DOW[new Date(d).getDay()]}）`;
+      const noteHtml = entry.note ? `<span style="font-size:11px;color:var(--dim);margin-left:4px">${entry.note}</span>` : '';
+      const cnt = counts ? counts[d] : null;
+      const cntHtml = cnt != null
+        ? `<span style="font-size:11px;margin-left:6px;color:${cnt > 0 ? 'var(--accent)' : 'var(--dim)'}">${cnt > 0 ? `予約${cnt}件` : '予約なし'}</span>`
+        : '';
+      return `<div class="top-schedule-row">
+        <span class="top-schedule-date">${label}</span>
+        <span><span class="cal-mark ${MARK_CSS[entry.mark]||''}" style="font-size:15px">${entry.mark}</span>${noteHtml}${cntHtml}</span>
+      </div>`;
+    }).join('');
+  };
+
+  renderRows(null);
+
+  if (_db) {
+    try {
+      const snaps = await Promise.all(upcoming5.map(d => _db.collection('reservations').where('date', '==', d).get()));
+      const counts = {};
+      upcoming5.forEach((d, i) => { counts[d] = snaps[i].size; });
+      renderRows(counts);
+    } catch(e) { /* 取得失敗時はそのまま */ }
+  }
 }
 
 let _topJareDocId = null;
