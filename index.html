@@ -113,7 +113,7 @@
   .jare-winner-row { display: flex; align-items: center; gap: 8px; padding: 4px 0 6px; }
   .jare-winner-row label { font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .jare-winner-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
-  .jare-combo-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 6px 8px; border-radius: 6px; }
+  .jare-combo-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 6px 8px; border-radius: 6px; box-sizing: border-box; }
   .jare-item-arrow { font-size: 10px; color: var(--dim); transition: transform .2s; }
   .jare-item-arrow.open { transform: rotate(90deg); }
   .jare-admin-btns { display: flex; gap: 6px; flex-shrink: 0; }
@@ -164,7 +164,7 @@
   .jare-form-row input, .jare-form-row textarea {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
     color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px;
-    padding: 8px 12px; width: 100%; resize: vertical;
+    padding: 8px 12px; width: 100%; resize: vertical; box-sizing: border-box;
   }
   .jare-form-row input:focus, .jare-form-row textarea:focus { outline: none; border-color: var(--accent); }
   .jare-para-label { font-size: 12px; color: var(--dim); margin: 14px 0 6px; font-weight: 700; }
@@ -400,7 +400,7 @@
   .rsv-btn.x-post:hover { border-color:var(--accent); color:var(--accent); }
   .rsv-form-group { margin-bottom:16px; }
   .rsv-label { font-size:12px; color:var(--dim); margin-bottom:7px; display:block; }
-  .rsv-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; }
+  .rsv-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; box-sizing:border-box; }
   .rsv-input:focus { outline:none; border-color:var(--accent); }
   .rsv-checkbox-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .rsv-checkbox-item { display:flex; align-items:center; gap:8px; background:var(--surface2); border-radius:8px; padding:10px 12px; cursor:pointer; border:1px solid transparent; transition:all .2s; }
@@ -408,7 +408,7 @@
   .rsv-checkbox-item input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; cursor:pointer; flex-shrink:0; }
   .rsv-checkbox-item span { font-size:13px; }
   .rsv-other-wrap { display:none; margin-top:8px; }
-  .rsv-textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; min-height:80px; resize:vertical; }
+  .rsv-textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; min-height:80px; resize:vertical; box-sizing:border-box; }
   .rsv-textarea:focus { outline:none; border-color:var(--accent); }
   .rsv-confirm-row { display:flex; justify-content:space-between; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; gap:12px; }
   .rsv-confirm-row:last-child { border-bottom:none; }
@@ -580,13 +580,13 @@
   .rb-label { font-size:12px; color:var(--dim); margin-bottom:6px; display:block; }
   .rb-input {
     width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
-    color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif;
+    color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif; box-sizing:border-box;
   }
   .rb-input:focus { outline:none; border-color:var(--accent); }
   .rb-textarea {
     width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
     color:var(--text); font-size:14px; padding:10px 12px; font-family:'Noto Sans JP',sans-serif;
-    min-height:72px; resize:vertical;
+    min-height:72px; resize:vertical; box-sizing:border-box;
   }
   .rb-textarea:focus { outline:none; border-color:var(--accent); }
   .rb-btn-row { display:flex; gap:10px; margin-top:18px; }
