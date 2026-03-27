@@ -3496,20 +3496,32 @@ function closeRbModal() {
 async function shareRenbanEvent() {
   const eventId = _rbCurrentEventId;
   if (!eventId || !_rbCurrentEvent) return;
-  const { ev, joinCount, interestCount } = _rbCurrentEvent;
+  const { ev, joinCount, interestCount, joins = [], interests = [] } = _rbCurrentEvent;
   const url = location.origin + location.pathname + '#renban/' + eventId;
 
   // ── canvas画像生成 ──
   const dpr = window.devicePixelRatio || 1;
-  const W = 720, pad = 36, rowH = 32;
+  const W = 720, pad = 36, rowH = 32, pRowH = 28;
   const rows = [
     ['日付', ev.date || ''],
     ['募集人数', ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'],
     ['募集期限', ev.deadline || '期限なし'],
     ...(ev.note ? [['備考', ev.note]] : []),
-    ['参加', joinCount + '人　興味あり ' + interestCount + '人'],
+    ['参加 / 興味', `✅ ${joinCount}人　👀 ${interestCount}人`],
   ];
-  const H = 60 + 50 + 16 + rows.length * rowH + 20 + 44 + 36;
+
+  // 参加者リスト（参加→興味あり順、最大5人）
+  const allP = [
+    ...joins.map(p => ({ name: p.name || '匿名', t: 'join' })),
+    ...interests.map(p => ({ name: p.name || '匿名', t: 'interest' })),
+  ].slice(0, 5);
+  const totalP = joinCount + interestCount;
+  const hasMore = totalP > 5;
+  const pSectionH = allP.length > 0
+    ? (16 + 22 + allP.length * pRowH + (hasMore ? pRowH : 0) + 12)
+    : 0;
+
+  const H = 60 + 50 + 16 + rows.length * rowH + pSectionH + 28;
   const canvas = document.createElement('canvas');
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
@@ -3525,13 +3537,12 @@ async function shareRenbanEvent() {
 
   await document.fonts.ready;
 
-  // タイトル（長い場合は折り返し）
+  // タイトル
   ctx.fillStyle = '#dde2ec';
   ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
   const maxTitleW = W - pad * 2;
   let titleLine = ev.title || '';
   if (ctx.measureText(titleLine).width > maxTitleW) {
-    // 1行に収まるまで切り詰め
     while (ctx.measureText(titleLine + '…').width > maxTitleW && titleLine.length > 0) titleLine = titleLine.slice(0, -1);
     titleLine += '…';
   }
@@ -3549,19 +3560,40 @@ async function shareRenbanEvent() {
     ctx.fillText(key, pad, y);
     ctx.fillStyle = '#dde2ec';
     ctx.font = "14px 'Noto Sans JP', sans-serif";
-    // val が長い場合は切り詰め
     let valStr = String(val);
-    const valX = pad + 90;
+    const valX = pad + 100;
     while (ctx.measureText(valStr + '…').width > W - valX - pad && valStr.length > 0) valStr = valStr.slice(0, -1);
     if (valStr !== String(val)) valStr += '…';
     ctx.fillText(valStr, valX, y);
     y += rowH;
   });
 
-  // URL
-  ctx.fillStyle = '#528bff';
-  ctx.font = "12px 'Noto Sans JP', sans-serif";
-  ctx.fillText(url, pad, H - 20);
+  // 参加者セクション
+  if (allP.length > 0) {
+    y += 8;
+    ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+    y += 20;
+    ctx.fillStyle = '#7f848e';
+    ctx.font = "12px 'Noto Sans JP', sans-serif";
+    ctx.fillText('参加者', pad, y);
+    y += pRowH - 2;
+    allP.forEach(p => {
+      const icon = p.t === 'join' ? '✅' : '👀';
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "14px 'Noto Sans JP', sans-serif";
+      let nameStr = p.name;
+      while (ctx.measureText(icon + ' ' + nameStr + '…').width > W - pad * 2 - 20 && nameStr.length > 0) nameStr = nameStr.slice(0, -1);
+      if (nameStr !== p.name) nameStr += '…';
+      ctx.fillText(`${icon} ${nameStr}`, pad + 16, y);
+      y += pRowH;
+    });
+    if (hasMore) {
+      ctx.fillStyle = '#7f848e';
+      ctx.font = "12px 'Noto Sans JP', sans-serif";
+      ctx.fillText(`… 他 ${totalP - 5} 人`, pad + 16, y);
+    }
+  }
 
   canvas.toBlob(async blob => {
     const file = new File([blob], `renban-${eventId}.png`, { type: 'image/png' });
@@ -3751,7 +3783,7 @@ async function openRenbanDetail(eventId) {
     };
     document.getElementById('rb-join-list').innerHTML = renderPList(joins);
     document.getElementById('rb-interest-list').innerHTML = renderPList(interests);
-    _rbCurrentEvent = { ev, joinCount: joins.length, interestCount: interests.length };
+    _rbCurrentEvent = { ev, joinCount: joins.length, interestCount: interests.length, joins, interests };
 
     // イベント削除ボタン（本人/管理者のみ）
     const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
