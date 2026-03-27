@@ -2673,6 +2673,12 @@ function renderJareList(docs) {
     </div>`;
   });
   listEl.innerHTML = html;
+
+  // 詳細ページ表示中かつ読み込み待ちなら内容を再評価
+  if (currentSection === 'jare-detail' && _jareDetailDocId && _authResolved && _currentUser) {
+    const doc = docs.find(d => d.id === _jareDetailDocId);
+    if (doc) _renderJareDetail(_jareDetailDocId, doc.data());
+  }
 }
 
 function _esc(s) {
@@ -2791,9 +2797,21 @@ function showJareDetail(docId) {
     _renderJareDetail(docId, existing.data());
   } else {
     document.getElementById('jare-detail-body').innerHTML = '<div style="color:var(--dim);padding:20px 0;text-align:center">読み込み中...</div>';
-    if (_db) _db.collection('jare_stories').doc(docId).get().then(snap => {
-      if (snap.exists) _renderJareDetail(docId, snap.data());
-    });
+    if (_db) {
+      _db.collection('jare_stories').doc(docId).get()
+        .then(snap => {
+          if (snap.exists) _renderJareDetail(docId, snap.data());
+          else document.getElementById('jare-detail-body').innerHTML =
+            '<div style="color:var(--dim);padding:20px 0;text-align:center">作品が見つかりませんでした</div>';
+        })
+        .catch(() => {
+          document.getElementById('jare-detail-body').innerHTML =
+            '<div style="color:var(--red);padding:20px 0;text-align:center">読み込みに失敗しました</div>';
+        });
+    } else {
+      document.getElementById('jare-detail-body').innerHTML =
+        '<div style="color:var(--red);padding:20px 0;text-align:center">読み込みに失敗しました</div>';
+    }
   }
 }
 
