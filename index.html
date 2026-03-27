@@ -677,6 +677,9 @@
   .top-next-date { font-size:20px; font-weight:700; text-align:center; color:var(--text); margin-top:4px; }
   .top-next-note { font-size:13px; color:var(--dim); text-align:center; margin-top:4px; }
   .top-next-until { font-size:13px; color:var(--accent); text-align:center; margin-top:10px; font-weight:700; letter-spacing:.05em; }
+  .top-next-rsv { font-size:13px; text-align:center; margin-top:8px; }
+  .top-next-card { cursor:pointer; transition:border-color .2s; }
+  .top-next-card:hover { border-color:var(--accent); }
   .top-schedule-list { display:flex; flex-direction:column; }
   .top-schedule-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:9px 0; border-bottom:1px solid var(--border); gap:8px; }
   .top-schedule-row:last-child { border-bottom:none; }
@@ -828,7 +831,7 @@
   <!-- トップページ -->
   <div id="sec-top" class="section active">
     <div class="top-grid">
-      <div class="card">
+      <div class="card top-next-card" onclick="goToNextDay()">
         <div class="card-title">次の営業日</div>
         <div id="top-next-day"><div class="empty">読み込み中...</div></div>
       </div>
@@ -1331,7 +1334,18 @@ function showSection(id) {
 }
 
 // ── トップページ ──
-function renderTopSchedule() {
+let _topNextDate = null;
+
+function goToNextDay() {
+  if (!_topNextDate) return;
+  const parts = _topNextDate.split('-');
+  showSection('schedule');
+  calYear = parseInt(parts[0]);
+  calMonth = parseInt(parts[1]) - 1;
+  renderCalendar().then(() => openDayDetail(_topNextDate));
+}
+
+async function renderTopSchedule() {
   const today = new Date();
   const todayStr = dateStr(today);
   const MARK_CSS = { '◎':'mark-open', '〇':'mark-half', '△':'mark-short', '×':'mark-closed' };
@@ -1344,6 +1358,7 @@ function renderTopSchedule() {
   if (nextEl) {
     if (upcomingOpen.length) {
       const nd = upcomingOpen[0];
+      _topNextDate = nd;
       const entry = SCHEDULE_DATA[nd];
       const parts = nd.split('-');
       const label = `${parseInt(parts[1])}月${parseInt(parts[2])}日`;
@@ -1354,8 +1369,30 @@ function renderTopSchedule() {
         <div class="top-next-mark"><span class="cal-mark ${MARK_CSS[entry.mark]||''}">${entry.mark}</span></div>
         <div class="top-next-date">${label}（${dow}）</div>
         ${entry.note ? `<div class="top-next-note">${entry.note}</div>` : ''}
-        <div class="top-next-until">${untilStr}</div>`;
+        <div class="top-next-until">${untilStr}</div>
+        <div class="top-next-rsv" id="top-next-rsv" style="color:var(--dim)">予約 ...</div>`;
+      if (_db) {
+        try {
+          const snap = await _db.collection('reservations').where('date', '==', nd).get();
+          const rsvEl = document.getElementById('top-next-rsv');
+          if (rsvEl) {
+            if (snap.size > 0) {
+              rsvEl.textContent = `予約 ${snap.size}件`;
+              rsvEl.style.color = 'var(--accent)';
+            } else {
+              rsvEl.textContent = '予約なし';
+            }
+          }
+        } catch(e) {
+          const rsvEl = document.getElementById('top-next-rsv');
+          if (rsvEl) rsvEl.textContent = '';
+        }
+      } else {
+        const rsvEl = document.getElementById('top-next-rsv');
+        if (rsvEl) rsvEl.textContent = '';
+      }
     } else {
+      _topNextDate = null;
       nextEl.innerHTML = '<div class="empty">予定なし</div>';
     }
   }
