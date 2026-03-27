@@ -3412,13 +3412,18 @@ async function openRenbanDetail(eventId) {
       if (!list.length) return '<div class="rb-no-participants">まだいません</div>';
       return list.map(p => {
         const canDeleteP = (_currentUser && p.uid && p.uid === _currentUser.uid) || _isAdmin;
+        const switchLabel = p.type === 'join' ? '→興味あり' : '→参加する';
+        const switchType = p.type === 'join' ? 'interest' : 'join';
         return `<div class="rb-participant-card">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
             <div>
               <div class="rb-participant-name">${escHtml(p.name)}</div>
               ${p.note ? '<div class="rb-participant-note">' + escHtml(p.note) + '</div>' : ''}
             </div>
-            ${canDeleteP ? `<button class="rb-btn secondary" style="padding:3px 10px;font-size:11px;flex-shrink:0;" onclick="deleteRbParticipant('${eventId}','${p.id}')">削除</button>` : ''}
+            ${canDeleteP ? `<div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="rb-btn secondary" style="padding:3px 8px;font-size:11px;" onclick="switchRbParticipantType('${eventId}','${p.id}','${switchType}')">${switchLabel}</button>
+              <button class="rb-btn secondary" style="padding:3px 10px;font-size:11px;" onclick="deleteRbParticipant('${eventId}','${p.id}')">削除</button>
+            </div>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -3513,6 +3518,14 @@ async function deleteRenbanEvent(eventId) {
   } catch(e) {
     alert('削除に失敗しました: ' + e.message);
   }
+}
+
+async function switchRbParticipantType(eventId, participantId, newType) {
+  if (!_db || !_currentUser) return;
+  try {
+    await _db.collection('renban_events').doc(eventId).collection('participants').doc(participantId).update({ type: newType });
+    await openRenbanDetail(eventId);
+  } catch(e) { alert('切替に失敗しました: ' + e.message); }
 }
 
 async function deleteRbParticipant(eventId, participantId) {
