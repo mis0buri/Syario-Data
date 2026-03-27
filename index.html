@@ -2074,10 +2074,15 @@ async function openDayDetail(dateStr) {
         const safeDateStr = dateStr.replace(/'/g, "\\'");
         const isOwner = _currentUser && p.uid && p.uid === _currentUser.uid;
         const canDelete = isOwner || _isAdmin;
+        const switchLabel = p.type === 'join' ? '→興味あり' : '→参加する';
+        const switchType = p.type === 'join' ? 'interest' : 'join';
         return `<div class="rsv-card" style="padding:8px 12px;margin-bottom:6px;">
           <span class="rsv-card-name" style="font-size:14px;">${_escHtml(p.name || '匿名')}</span>
           ${p.note ? `<span style="font-size:12px;color:var(--dim);margin-left:8px;">${_escHtml(p.note)}</span>` : ''}
-          ${canDelete ? `<button class="rsv-cancel-btn" style="float:right;margin-top:-2px;" onclick="deleteRsvParticipant('${safeDateStr}','${safeId}')">削除</button>` : ''}
+          ${canDelete ? `<div style="float:right;display:flex;gap:6px;margin-top:-2px;">
+            <button class="rsv-edit-btn" style="font-size:11px;padding:3px 8px;" onclick="switchRsvParticipantType('${safeDateStr}','${safeId}','${switchType}')">${switchLabel}</button>
+            <button class="rsv-cancel-btn" onclick="deleteRsvParticipant('${safeDateStr}','${safeId}')">削除</button>
+          </div>` : ''}
         </div>`;
       }).join('');
     };
@@ -3116,6 +3121,14 @@ async function submitRsvParticipation() {
     document.getElementById('rsv-interest-status').textContent = 'エラー: ' + err.message;
     btn.disabled = false; btn.textContent = '確定する';
   }
+}
+
+async function switchRsvParticipantType(dateStr, participantId, newType) {
+  if (!_db) return;
+  try {
+    await _db.collection('rsv_participants').doc(participantId).update({ type: newType });
+    await openDayDetail(dateStr);
+  } catch(e) { alert('切替に失敗しました: ' + e.message); }
 }
 
 async function deleteRsvParticipant(dateStr, participantId) {
