@@ -788,7 +788,7 @@
 </header>
 
 <!-- 戦績サブナビ -->
-<div id="subnav" class="subnav">
+<div id="subnav" class="subnav" style="display:none">
   <button class="active" onclick="showSection('ranking')">総合</button>
   <button onclick="showSection('member')">個人</button>
   <button onclick="showSection('graph')">グラフ</button>
@@ -801,7 +801,7 @@
 </div>
 
 <!-- 全画面共通 期間フィルター -->
-<div class="period-bar">
+<div class="period-bar" style="display:none">
   <label>期間</label>
   <input type="date" id="filter-start" onchange="onPeriodChange()">
   <span class="period-sep">〜</span>
