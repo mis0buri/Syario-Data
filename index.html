@@ -679,6 +679,8 @@
   .top-update-icon { flex-shrink:0; font-size:15px; margin-top:1px; }
   .top-update-text { flex:1; font-size:13px; color:var(--text); line-height:1.5; }
   .top-update-time { font-size:11px; color:var(--dim); margin-top:2px; }
+  .top-update-link { cursor:pointer; border-radius:6px; margin:0 -8px; padding-left:8px; padding-right:8px; transition:background .15s; }
+  .top-update-link:hover { background:var(--surface2); }
   .logo { cursor:pointer; user-select:none; }
 
   /* ── MOBILE ── */
@@ -1336,13 +1338,15 @@ async function initTopPage() {
       if (item.type === 'rsv') {
         const parts = item.date ? item.date.split('-') : [];
         const dLabel = parts.length === 3 ? `${parseInt(parts[1])}月${parseInt(parts[2])}日` : (item.date || '');
-        return `<div class="top-update-item">
+        const y = parts[0], m = parseInt(parts[1]) - 1;
+        const onclick = `showSection('schedule');calYear=${y};calMonth=${m};renderCalendar().then(()=>openDayDetail('${item.date}'))`;
+        return `<div class="top-update-item top-update-link" onclick="${onclick}">
           <span class="top-update-icon">📅</span>
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong> さんが <strong>${dLabel}</strong> に予約しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       } else {
         const preview = item.body.length > 36 ? item.body.slice(0, 36) + '…' : item.body;
-        return `<div class="top-update-item">
+        return `<div class="top-update-item top-update-link" onclick="showSection('board')">
           <span class="top-update-icon">💬</span>
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong>：${_escHtml(preview)}<div class="top-update-time">${timeStr}</div></div>
         </div>`;
