@@ -3174,7 +3174,7 @@ async function shareJareDetail() {
 async function _doShareJare(title, url) {
   const text = `${title}\n${url}`;
   if (navigator.share) {
-    try { await navigator.share({ title, text, url }); return; } catch(e) { if (e.name === 'AbortError') return; }
+    try { await navigator.share({ title, text: title, url }); return; } catch(e) { if (e.name === 'AbortError') return; }
   }
   try {
     await navigator.clipboard.writeText(text);
