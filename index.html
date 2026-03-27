@@ -662,6 +662,14 @@
   .mypage-close-btn { background:none; border:none; color:var(--dim); font-size:13px; cursor:pointer; text-align:center; padding:4px; }
   .mypage-close-btn:hover { color:var(--text); }
 
+  /* ── SAKURA DECORATION ── */
+  #sec-top { position: relative; isolation: isolate; }
+  .sakura-deco { position: absolute; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+  .sakura-tree { position: absolute; bottom: 0; width: 260px; opacity: .18; }
+  .sakura-tree.s-left  { left: -50px; transform: scaleX(-1); }
+  .sakura-tree.s-right { right: -50px; }
+  @media(max-width:640px) { .sakura-tree { width: 150px; } }
+
   /* ── TOP PAGE ── */
   .top-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media(max-width:640px){ .top-grid { grid-template-columns:1fr; } }
@@ -839,6 +847,60 @@
         <div class="empty">読み込み中...</div>
       </div>
     </div>
+  </div>
+
+  <!-- 桜の木デコレーション（いらすとや等の画像URLがあれば src に差し替え可） -->
+  <div class="sakura-deco" aria-hidden="true">
+    <svg class="sakura-tree s-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
+      <line x1="100" y1="255" x2="58"  y2="172" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="248" x2="146" y2="168" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="238" x2="104" y2="152" stroke="#8b6147" stroke-width="10" stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="32"  y2="112" stroke="#8b6147" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="76"  y2="122" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="172" y2="106" stroke="#8b6147" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="128" y2="116" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="185" x2="84"  y2="134" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="182" x2="122" y2="132" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <circle cx="100" cy="112" r="40" fill="#ffb7c5"/>
+      <circle cx="48"  cy="98"  r="34" fill="#ffb7c5"/>
+      <circle cx="160" cy="94"  r="35" fill="#ffb7c5"/>
+      <circle cx="77"  cy="76"  r="30" fill="#ffc0cb"/>
+      <circle cx="128" cy="80"  r="32" fill="#ffc0cb"/>
+      <circle cx="100" cy="66"  r="36" fill="#ffb7c5"/>
+      <circle cx="60"  cy="66"  r="25" fill="#ffc0cb"/>
+      <circle cx="144" cy="70"  r="27" fill="#ffc0cb"/>
+      <circle cx="32"  cy="84"  r="20" fill="#ffb7c5"/>
+      <circle cx="172" cy="80"  r="22" fill="#ffb7c5"/>
+      <circle cx="100" cy="46"  r="28" fill="#ffb7c5"/>
+      <circle cx="78"  cy="50"  r="22" fill="#ffc0cb"/>
+      <circle cx="122" cy="54"  r="24" fill="#ffc0cb"/>
+    </svg>
+    <svg class="sakura-tree s-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
+      <line x1="100" y1="255" x2="58"  y2="172" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="248" x2="146" y2="168" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="238" x2="104" y2="152" stroke="#8b6147" stroke-width="10" stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="32"  y2="112" stroke="#8b6147" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="76"  y2="122" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="172" y2="106" stroke="#8b6147" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="128" y2="116" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="185" x2="84"  y2="134" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="182" x2="122" y2="132" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
+      <circle cx="100" cy="112" r="40" fill="#ffb7c5"/>
+      <circle cx="48"  cy="98"  r="34" fill="#ffb7c5"/>
+      <circle cx="160" cy="94"  r="35" fill="#ffb7c5"/>
+      <circle cx="77"  cy="76"  r="30" fill="#ffc0cb"/>
+      <circle cx="128" cy="80"  r="32" fill="#ffc0cb"/>
+      <circle cx="100" cy="66"  r="36" fill="#ffb7c5"/>
+      <circle cx="60"  cy="66"  r="25" fill="#ffc0cb"/>
+      <circle cx="144" cy="70"  r="27" fill="#ffc0cb"/>
+      <circle cx="32"  cy="84"  r="20" fill="#ffb7c5"/>
+      <circle cx="172" cy="80"  r="22" fill="#ffb7c5"/>
+      <circle cx="100" cy="46"  r="28" fill="#ffb7c5"/>
+      <circle cx="78"  cy="50"  r="22" fill="#ffc0cb"/>
+      <circle cx="122" cy="54"  r="24" fill="#ffc0cb"/>
+    </svg>
   </div>
 
   <!-- 総合ランキング -->
