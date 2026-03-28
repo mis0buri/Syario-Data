@@ -560,6 +560,24 @@
     border-radius:4px; font-size:11px; color:var(--accent); padding:2px 8px;
   }
   .renban-empty { text-align:center; padding:48px 0; color:var(--dim); font-size:14px; }
+  /* 募集一覧 */
+  .boshu-section { margin-bottom:28px; }
+  .boshu-section:last-child { margin-bottom:0; }
+  .boshu-section-heading {
+    font-family:'Noto Serif JP',serif; font-size:13px; color:var(--accent);
+    letter-spacing:.12em; padding:0 0 8px; border-bottom:1px solid var(--border); margin-bottom:12px;
+  }
+  .boshu-rsv-item {
+    background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; cursor:pointer; transition:all .2s;
+  }
+  .boshu-rsv-item:hover { border-color:var(--accent); }
+  .boshu-rsv-date { font-size:15px; font-weight:700; margin-bottom:6px; }
+  .boshu-rsv-entries { display:flex; flex-direction:column; gap:4px; }
+  .boshu-rsv-entry { font-size:12px; color:var(--dim); display:flex; align-items:center; gap:6px; }
+  .boshu-rsv-cats { color:var(--text); opacity:.7; }
+  .top-boshu-card { cursor:pointer; transition:border-color .2s; }
+  .top-boshu-card:hover { border-color:var(--accent); }
   /* 連番詳細・モーダル */
   .rb-overlay {
     display:none; position:fixed; inset:0; z-index:1000;
@@ -850,6 +868,11 @@
         <div class="empty">読み込み中...</div>
       </div>
     </div>
+    <div class="card top-boshu-card" onclick="showSection('boshu')">
+      <div class="card-title">募集一覧</div>
+      <div style="font-size:13px;color:var(--dim);margin-top:6px;">連番募集・予約の受付状況を確認できます</div>
+      <div style="margin-top:12px;text-align:right;font-size:12px;color:var(--accent);letter-spacing:.05em;">一覧を見る →</div>
+    </div>
   </div>
 
   <!-- 桜の木デコレーション（いらすとや等の画像URLがあれば src に差し替え可） -->
@@ -1013,6 +1036,25 @@
       <div class="card-title">連番募集一覧</div>
       <div class="renban-list" id="renban-list">
         <div class="renban-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 募集一覧 -->
+  <div id="sec-boshu" class="section">
+    <div class="card">
+      <div class="card-title">募集一覧</div>
+      <div class="boshu-section">
+        <div class="boshu-section-heading">連番募集</div>
+        <div class="renban-list" id="boshu-renban-list">
+          <div class="renban-empty">読み込み中...</div>
+        </div>
+      </div>
+      <div class="boshu-section">
+        <div class="boshu-section-heading">予約</div>
+        <div class="renban-list" id="boshu-rsv-list">
+          <div class="renban-empty">読み込み中...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1318,13 +1360,14 @@ function showSection(id) {
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='renban'||isGallery) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='renban'||id==='boshu'||isGallery) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
   if (id==='schedule') renderCalendar();
   if (id==='board') initBoard();
   if (id==='renban') initRenban();
+  if (id==='boshu') initBoshu();
   if (id==='jare') initJare();
   if (id==='top') initTopPage();
   if (id==='feedback' && _registeredName) {
@@ -3688,6 +3731,87 @@ function renderRenbanList(events) {
       ${ev.note ? '<div style="font-size:12px;color:var(--dim);margin-top:6px;">' + escHtml(ev.note) + '</div>' : ''}
     </div>`;
   }).join('');
+}
+
+async function initBoshu() {
+  const renbanEl = document.getElementById('boshu-renban-list');
+  const rsvEl    = document.getElementById('boshu-rsv-list');
+  if (!_db) {
+    renbanEl.innerHTML = '<div class="renban-empty">データベース未接続</div>';
+    rsvEl.innerHTML    = '<div class="renban-empty">データベース未接続</div>';
+    return;
+  }
+
+  // ── 連番募集 ──
+  try {
+    const snap = await _db.collection('renban_events').orderBy('date', 'asc').get();
+    const events = await Promise.all(snap.docs.map(async d => {
+      const ev = { id: d.id, ...d.data() };
+      const pSnap = await _db.collection('renban_events').doc(d.id).collection('participants').get();
+      ev._joinCount     = pSnap.docs.filter(p => p.data().type === 'join').length;
+      ev._interestCount = pSnap.docs.filter(p => p.data().type === 'interest').length;
+      return ev;
+    }));
+    if (!events.length) {
+      renbanEl.innerHTML = '<div class="renban-empty">現在募集中のイベントはありません</div>';
+    } else {
+      const todayJST = new Date(new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Tokyo'}) + 'T00:00:00+09:00');
+      renbanEl.innerHTML = events.map(ev => {
+        const expired  = ev.deadline ? new Date(ev.deadline + 'T00:00:00+09:00') < todayJST : false;
+        const maxStr   = ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし';
+        const deadlineStr = ev.deadline || '期限なし';
+        return `<div class="renban-item" onclick="openRenbanDetail('${ev.id}')">
+          <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
+          <div class="renban-item-meta">
+            ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
+            <span>📅 ${ev.date}</span>
+            <span>👥 ${maxStr}</span>
+            <span>⏰ ${deadlineStr}</span>
+            <span style="color:#4caf82">✅ 参加 ${ev._joinCount}人</span>
+            <span style="color:#61afef">👀 興味あり ${ev._interestCount}人</span>
+          </div>
+          ${ev.note ? '<div style="font-size:12px;color:var(--dim);margin-top:6px;">' + escHtml(ev.note) + '</div>' : ''}
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    renbanEl.innerHTML = '<div class="renban-empty">読み込みエラー: ' + e.message + '</div>';
+  }
+
+  // ── 予約（今日以降） ──
+  try {
+    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Tokyo'});
+    const snap = await _db.collection('reservations').where('date', '>=', todayStr).orderBy('date', 'asc').get();
+    if (snap.empty) {
+      rsvEl.innerHTML = '<div class="renban-empty">今後の予約はありません</div>';
+    } else {
+      const DOW = ['日','月','火','水','木','金','土'];
+      // 日付ごとにまとめる
+      const byDate = {};
+      snap.docs.forEach(d => {
+        const r = { id: d.id, ...d.data() };
+        (byDate[r.date] = byDate[r.date] || []).push(r);
+      });
+      rsvEl.innerHTML = Object.keys(byDate).sort().map(date => {
+        const [y, mo, d] = date.split('-').map(Number);
+        const dow   = DOW[new Date(Date.UTC(y, mo-1, d)).getUTCDay()];
+        const label = `${mo}月${d}日（${dow}）`;
+        const entries = byDate[date].map(r => {
+          const cats = (r.categories || []).filter(c => c !== 'その他').join('・') || r.otherText || '';
+          return `<div class="boshu-rsv-entry">
+            <span>👤 ${escHtml(r.name)}</span>
+            ${cats ? `<span class="boshu-rsv-cats">${escHtml(cats)}</span>` : ''}
+          </div>`;
+        }).join('');
+        return `<div class="boshu-rsv-item" onclick="openDayDetail('${date}')">
+          <div class="boshu-rsv-date">📅 ${label}</div>
+          <div class="boshu-rsv-entries">${entries}</div>
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    rsvEl.innerHTML = '<div class="renban-empty">読み込みエラー: ' + e.message + '</div>';
+  }
 }
 
 function openRenbanForm() {
