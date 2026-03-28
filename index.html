@@ -858,8 +858,8 @@
 
   <!-- トップページ -->
   <div id="sec-top" class="section active">
-    <div class="card top-boshu-card" onclick="showSection('boshu')">
-      <div class="card-title">各種募集一覧</div>
+    <div style="margin-bottom:16px;">
+      <button class="rsv-btn primary" style="padding:10px 28px;font-size:14px;" onclick="showSection('boshu')">各種募集一覧</button>
     </div>
     <div class="top-grid">
       <div class="card top-next-card" onclick="goToNextDay()">
@@ -2143,6 +2143,8 @@ function initFirebase() {
     const dateStr = initHash.slice(10);
     showSection('schedule');
     renderCalendar().then(() => openDayDetail(dateStr));
+  } else if (initHash === '#boshu') {
+    showSection('boshu');
   }
 }
 
