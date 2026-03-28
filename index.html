@@ -1346,8 +1346,8 @@ function goToNextDay() {
 }
 
 async function renderTopSchedule() {
-  const today = new Date();
-  const todayStr = dateStr(today);
+  // 日本時間（JST/UTC+9）で今日の日付を取得
+  const todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Tokyo'});
   const MARK_CSS = { '◎':'mark-open', '〇':'mark-half', '△':'mark-short', '×':'mark-closed' };
   const DOW = ['日','月','火','水','木','金','土'];
 
@@ -1362,8 +1362,13 @@ async function renderTopSchedule() {
       const entry = SCHEDULE_DATA[nd];
       const parts = nd.split('-');
       const label = `${parseInt(parts[1])}月${parseInt(parts[2])}日`;
-      const dow = DOW[new Date(nd).getDay()];
-      const diffDays = Math.round((new Date(nd) - today) / 86400000);
+      // 曜日：UTCDay を使うことで YYYY-MM-DD の暦日と一致させる
+      const [y, mo, d] = parts.map(Number);
+      const dow = DOW[new Date(Date.UTC(y, mo-1, d)).getUTCDay()];
+      // 差分：JST午前0時同士で比較し、時刻のずれを排除
+      const todayJST = new Date(todayStr + 'T00:00:00+09:00');
+      const ndJST = new Date(nd + 'T00:00:00+09:00');
+      const diffDays = Math.round((ndJST - todayJST) / 86400000);
       const untilStr = diffDays <= 0 ? '今日！' : diffDays === 1 ? '明日！' : `あと${diffDays}日`;
       nextEl.innerHTML = `
         <div class="top-next-mark"><span class="cal-mark ${MARK_CSS[entry.mark]||''}">${entry.mark}</span></div>
