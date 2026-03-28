@@ -1210,7 +1210,13 @@ async function loadData() {
   initPeriod();
   initGraphControls();
   refresh();
-  if (currentSection === 'top') initTopPage();
+  // data.json 読み込み完了後にハッシュルーティングが未適用なら再適用
+  // （キャッシュ済みデータが DOMContentLoaded より先に返った場合の保険）
+  if (location.hash === '#boshu' && currentSection !== 'boshu') {
+    showSection('boshu');
+  } else if (currentSection === 'top') {
+    initTopPage();
+  }
 }
 
 // ── 期間 ──
@@ -2146,6 +2152,24 @@ function initFirebase() {
   } else if (initHash === '#boshu') {
     showSection('boshu');
   }
+
+  // 同一ページ内でハッシュが変わったときも対応（共有リンクをクリックした場合など）
+  window.addEventListener('hashchange', () => {
+    const h = location.hash;
+    if (h.startsWith('#renban/')) {
+      showSection('renban');
+      initRenban().then(() => openRenbanDetail(h.slice(8)));
+    } else if (h.startsWith('#jare/')) {
+      showSection('jare');
+      initJare();
+      showJareDetail(h.slice(6));
+    } else if (h.startsWith('#schedule/')) {
+      showSection('schedule');
+      renderCalendar().then(() => openDayDetail(h.slice(10)));
+    } else if (h === '#boshu') {
+      showSection('boshu');
+    }
+  });
 }
 
 // ── 認証UI更新 ──
