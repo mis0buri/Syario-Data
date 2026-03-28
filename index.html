@@ -858,6 +858,9 @@
 
   <!-- トップページ -->
   <div id="sec-top" class="section active">
+    <div class="card top-boshu-card" onclick="showSection('boshu')">
+      <div class="card-title">各種募集一覧</div>
+    </div>
     <div class="top-grid">
       <div class="card top-next-card" onclick="goToNextDay()">
         <div class="card-title">次の営業日</div>
@@ -877,11 +880,6 @@
       <div class="top-updates-list" id="top-updates-list">
         <div class="empty">読み込み中...</div>
       </div>
-    </div>
-    <div class="card top-boshu-card" onclick="showSection('boshu')">
-      <div class="card-title">募集一覧</div>
-      <div style="font-size:13px;color:var(--dim);margin-top:6px;">連番募集・予約の受付状況を確認できます</div>
-      <div style="margin-top:12px;text-align:right;font-size:12px;color:var(--accent);letter-spacing:.05em;">一覧を見る →</div>
     </div>
   </div>
 
@@ -1072,7 +1070,10 @@
       </div>
       <!-- 選択モード確認バー -->
       <div id="boshu-confirm-bar" class="boshu-confirm-bar" style="display:none;">
-        <span id="boshu-select-count" class="boshu-select-count">0件選択中</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="boshu-select-count" class="boshu-select-count">0件選択中</span>
+          <button id="boshu-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleBoshuSelectAll()">全選択</button>
+        </div>
         <div style="display:flex;gap:8px;">
           <button class="rsv-btn secondary" style="padding:8px 16px;flex:none;" onclick="exitBoshuSelectMode()">キャンセル</button>
           <button id="boshu-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareBoshuSelected()" disabled>共有する</button>
@@ -3932,10 +3933,30 @@ function toggleBoshuItem(key) {
 }
 
 function _boshuUpdateCount() {
-  const el  = document.getElementById('boshu-select-count');
-  const btn = document.getElementById('boshu-share-exec-btn');
-  if (el)  el.textContent  = `${_boshuSelected.size}件選択中`;
-  if (btn) btn.disabled    = _boshuSelected.size === 0;
+  const el     = document.getElementById('boshu-select-count');
+  const btn    = document.getElementById('boshu-share-exec-btn');
+  const allBtn = document.getElementById('boshu-select-all-btn');
+  if (el)  el.textContent = `${_boshuSelected.size}件選択中`;
+  if (btn) btn.disabled   = _boshuSelected.size === 0;
+  if (allBtn && _boshuCache) {
+    const total = _boshuCache.renbanEvents.length + _boshuCache.rsvGroups.length;
+    allBtn.textContent = (total > 0 && _boshuSelected.size === total) ? '全解除' : '全選択';
+  }
+}
+
+function toggleBoshuSelectAll() {
+  if (!_boshuCache) return;
+  const allKeys = [
+    ..._boshuCache.renbanEvents.map(ev => `renban:${ev.id}`),
+    ..._boshuCache.rsvGroups.map(g  => `rsv:${g.date}`),
+  ];
+  const allSelected = allKeys.length > 0 && allKeys.every(k => _boshuSelected.has(k));
+  if (allSelected) {
+    _boshuSelected.clear();
+  } else {
+    allKeys.forEach(k => _boshuSelected.add(k));
+  }
+  _boshuRender();
 }
 
 // ── まとめて共有：canvas 合成 ──
@@ -4168,17 +4189,21 @@ async function shareBoshuSelected() {
     }
   }
 
+  const shareUrl  = location.origin + location.pathname + '#boshu';
+  const shareText = `各種募集一覧\n${shareUrl}`;
+
   canvas.toBlob(async blob => {
     const file = new File([blob], 'boshu-matome.png', { type:'image/png' });
     if (navigator.canShare && navigator.canShare({ files:[file] })) {
-      try { await navigator.share({ files:[file] }); return; }
+      try { await navigator.share({ files:[file], text: shareText }); return; }
       catch(e) { if (e.name === 'AbortError') return; }
     }
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href = url; a.download = 'boshu-matome.png'; a.click();
     URL.revokeObjectURL(url);
-    _boshuToast('画像をダウンロードしました');
+    try { await navigator.clipboard.writeText(shareText); } catch {}
+    _boshuToast('画像をダウンロード・URLをコピーしました');
   }, 'image/png');
 }
 
