@@ -4392,6 +4392,13 @@ async function pressStamp() {
         }
         await ref.set({ stamps: cur + 1, lastStampDate: todayStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
         _renderStampCard(document.getElementById('stamp-content'), cur + 1, todayStr);
+        // Discord通知
+        const displayName = _currentUser.displayName || _currentUser.email || _currentUser.uid;
+        fetch('https://discord.com/api/webhooks/1487706507079454844/QcYv1K8LuTzqUjXlXZrGSCFC_89OHozAxbjOwnntbtyV9KO8kq4XzBZsz30NRxoq4PXG', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: `🎫 **${displayName}** さんがスタンプを押しました！（通算 ${cur + 1} 個目）` })
+        }).catch(() => {});  // 通知失敗は無視
       } catch(e) {
         if (msg) msg.textContent = '保存に失敗しました: ' + e.message;
         if (btn) btn.disabled = false;
