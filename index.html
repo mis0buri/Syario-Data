@@ -1524,7 +1524,7 @@ async function renderTopJare() {
     const snap = await _db.collection('jare_stories').get();
     const docs = snap.docs.filter(d => d.data().title);
     if (!docs.length) { el.innerHTML = '<div class="empty">まだ作品がありません</div>'; return; }
-    const dayNum = Math.floor(Date.now() / 86400000);
+    const dayNum = Math.floor((Date.now() + 4 * 3600000) / 86400000);
     const pick = docs[dayNum % docs.length];
     const data = pick.data();
     _topJareDocId = pick.id;
@@ -3206,7 +3206,10 @@ function showJareDetail(docId) {
     document.getElementById('jare-detail-meta').textContent = '';
     document.getElementById('jare-detail-title').textContent = '';
     document.getElementById('jare-detail-body').innerHTML =
-      '<div style="color:var(--dim);padding:48px 0;text-align:center;font-size:14px;line-height:2">本文を閲覧するには<br>ログインが必要です</div>';
+      '<div style="padding:48px 0;text-align:center;font-size:14px;line-height:2">' +
+      '<div style="color:var(--dim)">本文を閲覧するには<br>ログインが必要です</div>' +
+      '<button class="rsv-btn primary" style="margin-top:16px;padding:10px 28px;" onclick="openLoginModal()">ログイン</button>' +
+      '</div>';
     return;
   }
 
