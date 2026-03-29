@@ -4355,11 +4355,46 @@ function _renderStampCard(el, stamps, lastStampDate) {
     </div>`;
 }
 
+async function _doStamp(btn, msg) {
+  const todayStr = _stampTodayStr();
+  try {
+    const ref = _db.collection('stamp_cards').doc(_currentUser.uid);
+    const doc = await ref.get();
+    const cur  = doc.exists ? (doc.data().stamps || 0) : 0;
+    const last = doc.exists ? (doc.data().lastStampDate || '') : '';
+    if (last === todayStr) {
+      if (msg) msg.textContent = '本日はすでにスタンプ済みです';
+      if (btn) btn.disabled = false;
+      return;
+    }
+    await ref.set({ stamps: cur + 1, lastStampDate: todayStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    _renderStampCard(document.getElementById('stamp-content'), cur + 1, todayStr);
+    // Discord通知
+    const displayName = _currentUser.displayName || _currentUser.email || _currentUser.uid;
+    fetch('https://discord.com/api/webhooks/1487706507079454844/QcYv1K8LuTzqUjXlXZrGSCFC_89OHozAxbjOwnntbtyV9KO8kq4XzBZsz30NRxoq4PXG', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: `🎫 **${displayName}** さんがスタンプを押しました！（通算 ${cur + 1} 個目）` })
+    }).catch(() => {});
+  } catch(e) {
+    if (msg) msg.textContent = '保存に失敗しました: ' + e.message;
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function pressStamp() {
   if (!_currentUser || !_db) return;
   const btn = document.getElementById('stamp-press-btn');
   const msg = document.getElementById('stamp-status-msg');
   if (btn) btn.disabled = true;
+
+  // 管理者はGPSスキップ
+  if (_isAdmin) {
+    if (msg) msg.textContent = '（管理者モード：GPS省略）';
+    await _doStamp(btn, msg);
+    return;
+  }
+
   if (msg) msg.textContent = '位置情報を取得中...';
 
   if (!navigator.geolocation) {
@@ -4372,37 +4407,12 @@ async function pressStamp() {
     async pos => {
       const dist = _haversineM(
         pos.coords.latitude, pos.coords.longitude, KOENJI_LAT, KOENJI_LON);
-
       if (dist > STAMP_RANGE) {
         if (msg) msg.textContent = `高円寺駅から約${Math.round(dist)}m離れています（200m以内が必要です）`;
         if (btn) btn.disabled = false;
         return;
       }
-
-      // 範囲内 → Firestore に書き込み
-      const todayStr = _stampTodayStr();
-      try {
-        const ref = _db.collection('stamp_cards').doc(_currentUser.uid);
-        const doc = await ref.get();
-        const cur = doc.exists ? (doc.data().stamps || 0) : 0;
-        const last = doc.exists ? (doc.data().lastStampDate || '') : '';
-        if (last === todayStr) {
-          if (msg) msg.textContent = '本日はすでにスタンプ済みです';
-          return;
-        }
-        await ref.set({ stamps: cur + 1, lastStampDate: todayStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        _renderStampCard(document.getElementById('stamp-content'), cur + 1, todayStr);
-        // Discord通知
-        const displayName = _currentUser.displayName || _currentUser.email || _currentUser.uid;
-        fetch('https://discord.com/api/webhooks/1487706507079454844/QcYv1K8LuTzqUjXlXZrGSCFC_89OHozAxbjOwnntbtyV9KO8kq4XzBZsz30NRxoq4PXG', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: `🎫 **${displayName}** さんがスタンプを押しました！（通算 ${cur + 1} 個目）` })
-        }).catch(() => {});  // 通知失敗は無視
-      } catch(e) {
-        if (msg) msg.textContent = '保存に失敗しました: ' + e.message;
-        if (btn) btn.disabled = false;
-      }
+      await _doStamp(btn, msg);
     },
     err => {
       const errMsg = err.code === 1 ? 'GPS使用が許可されていません' :
