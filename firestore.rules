@@ -54,6 +54,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /stamp_cards/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /{document=**} {
       allow read: if true;
     }
