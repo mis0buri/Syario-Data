@@ -645,6 +645,11 @@
   .rb-count-join { color:#4caf82; font-weight:700; }
   .rb-count-interest { color:#61afef; font-weight:700; }
   .rb-no-participants { text-align:center; padding:20px; color:var(--dim); font-size:13px; }
+  .rb-participant-entry { display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+  .rb-participant-entry:first-of-type { margin-top:4px; }
+  .rb-type-join { font-size:11px; font-weight:700; color:#4caf82; background:rgba(76,175,130,.12); border-radius:4px; padding:2px 6px; white-space:nowrap; }
+  .rb-type-interest { font-size:11px; font-weight:700; color:#61afef; background:rgba(97,175,239,.12); border-radius:4px; padding:2px 6px; white-space:nowrap; }
+  .rb-entry-date { font-size:11px; color:var(--dim); margin-right:4px; }
   .rb-expired { font-size:11px; color:var(--red); background:rgba(230,57,70,.1); border-radius:4px; padding:2px 8px; }
   .rb-status-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 
@@ -3684,14 +3689,15 @@ function closeRbModal() {
 async function shareRenbanEvent() {
   const eventId = _rbCurrentEventId;
   if (!eventId || !_rbCurrentEvent) return;
-  const { ev, joinCount, interestCount, joins = [], interests = [] } = _rbCurrentEvent;
+  const { ev, joinCount, interestCount, joins = [], interests = [], dates: evDates = [] } = _rbCurrentEvent;
   const url = location.origin + location.pathname + '#renban/' + eventId;
 
   // ── canvas画像生成 ──
   const dpr = window.devicePixelRatio || 1;
   const W = 720, pad = 36, rowH = 32, pRowH = 28;
+  const dateDisplay = (evDates.length ? evDates : (ev.date ? [ev.date] : [])).join(', ');
   const rows = [
-    ['日付', ev.date || ''],
+    ['日付', dateDisplay || ''],
     ['募集人数', ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'],
     ['募集期限', ev.deadline || '期限なし'],
     ...(ev.note ? [['備考', ev.note]] : []),
@@ -3862,7 +3868,7 @@ function renderRenbanList(events) {
       <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
       <div class="renban-item-meta">
         ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
-        <span>📅 ${ev.date}</span>
+        <span>📅 ${escHtml((ev.dates && ev.dates.length ? ev.dates : [ev.date]).join(', '))}</span>
         <span>👥 ${maxStr}</span>
         <span>⏰ ${deadlineStr}</span>
         <span style="color:#4caf82">✅ 参加 ${ev._joinCount}人</span>
@@ -3986,7 +3992,7 @@ function _boshuRender() {
           <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
           <div class="renban-item-meta">
             ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
-            <span>📅 ${ev.date}</span>
+            <span>📅 ${escHtml((ev.dates && ev.dates.length ? ev.dates : [ev.date]).join(', '))}</span>
             <span>👥 ${maxStr}</span>
             <span>⏰ ${deadlineStr}</span>
             <span style="color:#4caf82">✅ 参加 ${ev._joinCount}人</span>
@@ -4147,8 +4153,9 @@ async function shareBoshuSelected() {
     if (it.type === 'renban') {
       // ── 連番募集カード ──
       const { ev, joins, interests } = it;
+      const evDateDisplay = (ev.dates && ev.dates.length ? ev.dates : (ev.date ? [ev.date] : [])).join(', ');
       const rows = [
-        ['日付',    ev.date || ''],
+        ['日付',    evDateDisplay || ''],
         ['募集人数', ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'],
         ['募集期限', ev.deadline || '期限なし'],
         ...(ev.note ? [['備考', ev.note]] : []),
@@ -4568,7 +4575,7 @@ function openRenbanForm() {
   const fpOpts = { locale: 'ja', dateFormat: 'Y-m-d', disableMobile: true };
   if (_rbDatePicker) _rbDatePicker.destroy();
   if (_rbDeadlinePicker) _rbDeadlinePicker.destroy();
-  _rbDatePicker = flatpickr('#rb-event-date', { ...fpOpts, defaultDate: null });
+  _rbDatePicker = flatpickr('#rb-event-date', { ...fpOpts, mode: 'multiple', conjunction: ', ', defaultDate: null });
   _rbDeadlinePicker = flatpickr('#rb-event-deadline', { ...fpOpts, defaultDate: null });
 
   const btn = document.getElementById('rb-form-submit-btn');
@@ -4585,24 +4592,33 @@ async function submitRenbanEvent(e) {
   document.getElementById('rb-form-status').textContent = '';
   const owner = document.getElementById('rb-event-owner').value.trim();
   const title = document.getElementById('rb-event-title').value.trim();
-  const date = document.getElementById('rb-event-date').value;
+  const datesArr = _rbDatePicker ? _rbDatePicker.selectedDates.map(d => {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dy = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dy}`;
+  }).sort() : [];
+  if (!datesArr.length) {
+    document.getElementById('rb-form-status').textContent = '日付を選択してください';
+    btn.disabled = false; btn.textContent = '登録する'; return;
+  }
+  const date = datesArr[0]; // 最早日付をソート用に保存
   const maxRaw = document.getElementById('rb-event-max').value.trim();
   const deadline = document.getElementById('rb-event-deadline').value || null;
   const note = document.getElementById('rb-event-note').value.trim();
   const maxPeople = maxRaw ? parseInt(maxRaw) : null;
   try {
     const rbPayload = {
-      owner, title, date, maxPeople, deadline, note,
+      owner, title, date, dates: datesArr, maxPeople, deadline, note,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     if (_currentUser) rbPayload.uid = _currentUser.uid;
     await _db.collection('renban_events').add(rbPayload);
     try {
+      const dateDisplay = datesArr.join(', ');
       const lines = [
         `📢 **連番募集が登録されました**`,
         `👤 **登録者**: ${owner}`,
         `🎫 **イベント名**: ${title}`,
-        `📅 **日付**: ${date}`,
+        `📅 **日付**: ${dateDisplay}`,
         `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
         `⏰ **期限**: ${deadline || '期限なし'}`,
         note ? `📝 **備考**: ${note}` : null,
@@ -4631,10 +4647,15 @@ async function openRenbanDetail(eventId) {
     const today = new Date(); today.setHours(0,0,0,0);
     const expired = ev.deadline ? new Date(ev.deadline) < today : false;
 
+    // 複数日付対応：dates配列があればそちらを優先、なければdateを配列化
+    const dates = (ev.dates && ev.dates.length) ? ev.dates : (ev.date ? [ev.date] : []);
+    const isMultiDate = dates.length > 1;
+    const dateDisplay = dates.join(', ');
+
     document.getElementById('rb-detail-title').textContent = ev.title;
     document.getElementById('rb-detail-info').innerHTML = `
       ${ev.owner ? '<div class="rb-detail-row"><span class="rb-detail-key">登録者</span><span class="rb-detail-val">' + escHtml(ev.owner) + '</span></div>' : ''}
-      <div class="rb-detail-row"><span class="rb-detail-key">日付</span><span class="rb-detail-val">${ev.date}</span></div>
+      <div class="rb-detail-row"><span class="rb-detail-key">日付</span><span class="rb-detail-val">${escHtml(dateDisplay)}</span></div>
       <div class="rb-detail-row"><span class="rb-detail-key">募集人数</span><span class="rb-detail-val">${ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'}</span></div>
       <div class="rb-detail-row"><span class="rb-detail-key">募集期限</span><span class="rb-detail-val">${ev.deadline ? ev.deadline + (expired ? ' <span class="rb-expired">期限切れ</span>' : '') : '期限なし'}</span></div>
       ${ev.note ? '<div class="rb-detail-row"><span class="rb-detail-key">備考</span><span class="rb-detail-val">' + escHtml(ev.note) + '</span></div>' : ''}
@@ -4646,29 +4667,48 @@ async function openRenbanDetail(eventId) {
     const joins = participants.filter(p => p.type === 'join');
     const interests = participants.filter(p => p.type === 'interest');
 
-    const renderPList = (list) => {
+    // 参加者をuid（またはname）でグルーピングして表示
+    const renderGrouped = (list) => {
       if (!list.length) return '<div class="rb-no-participants">まだいません</div>';
-      return list.map(p => {
-        const canDeleteP = (_currentUser && p.uid && p.uid === _currentUser.uid) || _isAdmin;
-        const switchLabel = p.type === 'join' ? '→興味あり' : '→参加する';
-        const switchType = p.type === 'join' ? 'interest' : 'join';
-        return `<div class="rb-participant-card">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-            <div>
-              <div class="rb-participant-name">${escHtml(p.name)}</div>
-              ${p.note ? '<div class="rb-participant-note">' + escHtml(p.note) + '</div>' : ''}
+      const groups = {};
+      list.forEach(p => {
+        const key = p.uid ? ('uid:' + p.uid) : ('name:' + p.name);
+        if (!groups[key]) groups[key] = { name: p.name, uid: p.uid || null, entries: [] };
+        groups[key].entries.push(p);
+      });
+      return Object.values(groups).map(g => {
+        const canDelete = (_currentUser && g.uid && g.uid === _currentUser.uid) || _isAdmin;
+        const entriesHtml = g.entries.map(e => {
+          const typeLabel = e.type === 'join'
+            ? '<span class="rb-type-join">参加</span>'
+            : '<span class="rb-type-interest">興味あり</span>';
+          const switchLabel = e.type === 'join' ? '→興味あり' : '→参加する';
+          const switchType  = e.type === 'join' ? 'interest' : 'join';
+          const dateStr = isMultiDate && e.date ? `<span class="rb-entry-date">${escHtml(e.date)}</span>` : '';
+          return `<div class="rb-participant-entry">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              ${dateStr}${typeLabel}
+              ${e.note ? '<span class="rb-participant-note">' + escHtml(e.note) + '</span>' : ''}
             </div>
-            ${canDeleteP ? `<div style="display:flex;gap:6px;flex-shrink:0;">
-              <button class="rb-btn secondary" style="padding:3px 8px;font-size:11px;" onclick="switchRbParticipantType('${eventId}','${p.id}','${switchType}')">${switchLabel}</button>
-              <button class="rb-btn secondary" style="padding:3px 10px;font-size:11px;" onclick="deleteRbParticipant('${eventId}','${p.id}')">削除</button>
+            ${canDelete ? `<div style="display:flex;gap:4px;flex-shrink:0;">
+              <button class="rb-btn secondary" style="padding:2px 7px;font-size:10px;" onclick="switchRbParticipantType('${eventId}','${e.id}','${switchType}')">${switchLabel}</button>
+              <button class="rb-btn secondary" style="padding:2px 8px;font-size:10px;" onclick="deleteRbParticipant('${eventId}','${e.id}')">削除</button>
             </div>` : ''}
-          </div>
+          </div>`;
+        }).join('');
+        return `<div class="rb-participant-card">
+          <div class="rb-participant-name">${escHtml(g.name)}</div>
+          ${entriesHtml}
         </div>`;
       }).join('');
     };
-    document.getElementById('rb-join-list').innerHTML = renderPList(joins);
-    document.getElementById('rb-interest-list').innerHTML = renderPList(interests);
-    _rbCurrentEvent = { ev, joinCount: joins.length, interestCount: interests.length, joins, interests };
+
+    document.getElementById('rb-all-participants').innerHTML = renderGrouped(participants);
+    const countSummary = document.getElementById('rb-count-summary');
+    if (countSummary) {
+      countSummary.innerHTML = `<span style="color:#4caf82">✅ 参加 ${joins.length}人</span>　<span style="color:#61afef">👀 興味あり ${interests.length}人</span>`;
+    }
+    _rbCurrentEvent = { ev, dates, isMultiDate, joinCount: joins.length, interestCount: interests.length, joins, interests, participants };
 
     // イベント削除ボタン（本人/管理者のみ）
     const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
@@ -4679,7 +4719,16 @@ async function openRenbanDetail(eventId) {
 
     // 参加ボタンの制御
     const isCreator = _currentUser && ev.uid && ev.uid === _currentUser.uid;
-    const alreadyIn = _currentUser && participants.some(p => p.uid && p.uid === _currentUser.uid);
+    let alreadyIn = false;
+    if (_currentUser) {
+      const userP = participants.filter(p => p.uid && p.uid === _currentUser.uid);
+      if (isMultiDate) {
+        const coveredDates = new Set(userP.map(p => p.date || dates[0]));
+        alreadyIn = dates.every(d => coveredDates.has(d));
+      } else {
+        alreadyIn = userP.length > 0;
+      }
+    }
     const joinBtn = document.querySelector('#rb-detail-screen .rb-btn.join');
     const interestBtn = document.querySelector('#rb-detail-screen .rb-btn.interest');
     joinBtn.disabled = expired || isCreator || alreadyIn;
@@ -4706,6 +4755,24 @@ function openRbJoinModal(type) {
   document.getElementById('rb-join-status').textContent = '';
   const btn = document.getElementById('rb-join-submit-btn');
   btn.disabled = false; btn.textContent = '確定する';
+
+  // 複数日付がある場合は日付セレクタを表示
+  const dateGroup = document.getElementById('rb-join-date-group');
+  const dateSel   = document.getElementById('rb-join-date-select');
+  const { dates = [], isMultiDate = false, participants = [] } = _rbCurrentEvent || {};
+  if (isMultiDate && dates.length > 1) {
+    // ログイン済みの場合はすでに参加済みの日付を除外
+    const coveredDates = _currentUser
+      ? new Set(participants.filter(p => p.uid && p.uid === _currentUser.uid).map(p => p.date || dates[0]))
+      : new Set();
+    const remaining = dates.filter(d => !coveredDates.has(d));
+    dateSel.innerHTML = remaining.map(d => `<option value="${d}">${d}</option>`).join('');
+    dateGroup.style.display = '';
+  } else {
+    dateGroup.style.display = 'none';
+    dateSel.innerHTML = '';
+  }
+
   rbShowScreen('rb-join-screen');
 }
 
@@ -4715,6 +4782,19 @@ async function submitRbParticipation() {
   const name = document.getElementById('rb-join-name').value.trim();
   const note = document.getElementById('rb-join-note').value.trim();
   if (!name) { document.getElementById('rb-join-status').textContent = '名前を入力してください'; return; }
+
+  // 複数日付の場合は選択された日付を取得
+  const { isMultiDate = false, dates = [] } = _rbCurrentEvent || {};
+  const dateGroup = document.getElementById('rb-join-date-group');
+  let selectedDate = null;
+  if (isMultiDate && dateGroup && dateGroup.style.display !== 'none') {
+    selectedDate = document.getElementById('rb-join-date-select').value;
+    if (!selectedDate) {
+      document.getElementById('rb-join-status').textContent = '日付を選択してください';
+      return;
+    }
+  }
+
   btn.disabled = true; btn.textContent = '送信中...';
   document.getElementById('rb-join-status').textContent = '';
   try {
@@ -4724,15 +4804,23 @@ async function submitRbParticipation() {
         document.getElementById('rb-join-status').textContent = '自分が作成したイベントには参加できません';
         btn.disabled = false; btn.textContent = '確定する'; return;
       }
-      const dupSnap = await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants')
-        .where('uid', '==', _currentUser.uid).get();
+      // 重複チェック：複数日付の場合は同じ日付での重複のみ禁止
+      let dupQuery = _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants')
+        .where('uid', '==', _currentUser.uid);
+      if (isMultiDate && selectedDate) {
+        dupQuery = dupQuery.where('date', '==', selectedDate);
+      }
+      const dupSnap = await dupQuery.get();
       if (!dupSnap.empty) {
-        document.getElementById('rb-join-status').textContent = '既に参加登録済みです';
+        document.getElementById('rb-join-status').textContent = isMultiDate
+          ? 'この日付はすでに参加登録済みです'
+          : '既に参加登録済みです';
         btn.disabled = false; btn.textContent = '確定する'; return;
       }
     }
     const pData = { name, note, type: _rbJoinType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
     if (_currentUser) pData.uid = _currentUser.uid;
+    if (isMultiDate && selectedDate) pData.date = selectedDate;
     await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add(pData);
     // 詳細画面に戻って更新
     await openRenbanDetail(_rbCurrentEventId);
@@ -4857,6 +4945,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
             <label class="rsv-checkbox-item"><input type="checkbox" value="じゃれ本"><span>じゃれ本</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" value="ボドゲ"><span>ボドゲ</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" value="飲み会"><span>飲み会</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="球蹴り"><span>球蹴り</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" id="rsv-other-check" value="その他" onchange="toggleOtherInput()"><span>その他</span></label>
           </div>
           <div class="rsv-other-wrap" id="rsv-other-wrap">
@@ -4927,8 +5016,8 @@ document.addEventListener('DOMContentLoaded', initFirebase);
           <input type="text" id="rb-event-title" class="rb-input" placeholder="例：○○ライブ 東京公演" required>
         </div>
         <div class="rb-form-group">
-          <label class="rb-label">日付 <span style="color:var(--red)">*</span></label>
-          <input type="text" id="rb-event-date" class="rb-input" placeholder="日付を選択" readonly required>
+          <label class="rb-label">日付（複数選択可） <span style="color:var(--red)">*</span></label>
+          <input type="text" id="rb-event-date" class="rb-input" placeholder="日付を選択（複数可）" readonly>
         </div>
         <div class="rb-form-group">
           <label class="rb-label">募集人数（空欄で上限なし）</label>
@@ -4962,10 +5051,11 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rb-btn interest" onclick="openRbJoinModal('interest')">興味あり</button>
       </div>
       <div id="rb-detail-btn-hint" style="font-size:11px;color:var(--dim);text-align:center;min-height:16px;margin-bottom:4px;"></div>
-      <div class="rb-section-label">参加者</div>
-      <div id="rb-join-list" class="rb-participants"></div>
-      <div class="rb-section-label">興味あり</div>
-      <div id="rb-interest-list" class="rb-participants"></div>
+      <div class="rb-section-label" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>参加者一覧</span>
+        <span id="rb-count-summary" style="font-size:11px;font-weight:normal;color:var(--dim);"></span>
+      </div>
+      <div id="rb-all-participants" class="rb-participants"></div>
       <div class="rb-btn-row" style="margin-top:16px;">
         <button class="rb-btn secondary" style="flex:none;padding:11px 18px;" onclick="shareRenbanEvent()">共有</button>
         <button class="rb-btn secondary" onclick="closeRbModal()">閉じる</button>
@@ -4980,6 +5070,10 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       <div class="rb-header">
         <span class="rb-title" id="rb-join-modal-title"></span>
         <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+      <div class="rb-form-group" id="rb-join-date-group" style="display:none">
+        <label class="rb-label">日付 <span style="color:var(--red)">*</span></label>
+        <select id="rb-join-date-select" class="rb-input"></select>
       </div>
       <div class="rb-form-group">
         <label class="rb-label">名前 <span style="color:var(--red)">*</span></label>
