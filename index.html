@@ -813,8 +813,10 @@
     /* 掲示板：iOS zoom防止 */
     .board-form textarea { font-size: 16px; }
 
-    /* じゃれ本モーダル */
-    .jare-modal-box { padding: 16px 14px; }
+    /* じゃれ本モーダル：横幅を最大限に使う */
+    #jare-modal { padding: 12px 6px; }
+    .jare-modal-box { padding: 16px 12px; }
+    .jare-form-row input[type="date"] { min-width: 0; width: 100%; }
     .jare-form-row input,
     .jare-form-row textarea { font-size: 16px; /* iOSズーム防止 */ }
     .jare-modal-actions { flex-wrap: wrap; }
@@ -3413,6 +3415,8 @@ function openJareModal(docId) {
       // ドロップダウンを編集中のcomboに合わせる
       const k = `${d.date || ''}\t${d.theme || ''}`;
       if ([...comboSel.options].some(o => o.value === k)) comboSel.value = k;
+      // データ取得後にテキストエリアをリサイズ
+      _jareResizeAll();
     });
   } else {
     document.getElementById('jare-date').value = '';
