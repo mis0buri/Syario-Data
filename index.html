@@ -753,26 +753,35 @@
 
   /* ── MOBILE ── */
   @media(max-width:640px){
-    header { padding: 0 12px; height: 60px; }
+    /* ヘッダー：セーフエリア対応 */
+    header { padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); height: 60px; }
     .logo { font-size: 19px; }
     .logo span { margin-left: 6px; font-size: 11px; }
-    nav button { font-size: 12px; padding: 5px 9px; }
+    /* ナビ：タッチターゲット改善 */
+    nav button { font-size: 12px; padding: 8px 10px; }
     #auth-display-name { display:none; }
-    .subnav { padding: 0 12px; height: 36px; }
-    .subnav button { font-size: 11px; padding: 4px 10px; }
+    .subnav { padding: 0 12px; height: 40px; }
+    .subnav button { font-size: 11px; padding: 7px 10px; }
 
-    .period-bar { padding: 8px 12px; gap: 6px; }
-    .period-bar input[type=date] { font-size: 12px; padding: 4px 6px; }
-    .period-btns { margin-left: 0; gap: 4px; }
+    /* 期間バー：折り返し対応 */
+    .period-bar { padding: 8px 12px; gap: 6px; flex-wrap: wrap; }
+    .period-bar input[type=date] { font-size: 12px; padding: 4px 6px; flex: 1; min-width: 120px; }
+    .period-btns { margin-left: 0; gap: 4px; flex-wrap: wrap; }
     .period-preset { font-size: 10px; padding: 4px 8px; }
 
-    main { padding: 14px 10px; }
+    /* メイン：ボトムセーフエリア */
+    main { padding: 14px 10px max(14px, env(safe-area-inset-bottom)) 10px; }
     .card { padding: 14px; }
     .card-title { font-size: 12px; margin-bottom: 14px; }
 
+    /* トップページ：各種募集一覧ボタン全幅化 */
+    .top-boshu-btn { width: 100%; padding: 12px 16px !important; }
+
+    /* ランキング表 */
     .rank-table { font-size: 12px; }
     .rank-table th, .rank-table td { padding: 8px 7px; }
 
+    /* メンバー */
     .member-sort-wrap { margin-bottom: 10px; }
     .member-grid { grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 8px; margin-bottom: 16px; }
     .member-btn { padding: 10px 12px; border-radius: 8px; }
@@ -792,6 +801,7 @@
     .hist-table { font-size: 11px; }
     .hist-table th, .hist-table td { padding: 6px 6px; }
 
+    /* ご意見フォーム */
     .feedback-form { gap: 12px; }
     .feedback-form input[type=text],
     .feedback-form select,
@@ -801,23 +811,45 @@
     .fb-preview-img { width: 60px; height: 60px; }
     .feedback-submit { width: 100%; text-align: center; padding: 12px; }
 
+    /* 掲示板：iOS zoom防止 */
+    .board-form textarea { font-size: 16px; }
+
     /* じゃれ本モーダル */
     .jare-modal-box { padding: 16px 14px; }
     .jare-form-row input,
     .jare-form-row textarea { font-size: 16px; /* iOSズーム防止 */ }
     .jare-modal-actions { flex-wrap: wrap; }
     .jare-cancel-btn, .jare-submit-btn { flex: 1; text-align: center; }
-    /* じゃれ本リスト 管理者ボタン縮小 */
     .jare-order-btn { padding: 2px 5px; font-size: 10px; }
     .jare-edit-btn, .jare-del-btn { padding: 2px 7px; font-size: 10px; }
     .jare-admin-btns { gap: 4px; }
     .jare-combo-select { font-size: 16px; /* iOSズーム防止 */ }
-    /* 予約フォーム */
+
+    /* ギャラリーハブ */
+    .gallery-hub-btn { font-size: 16px; padding: 16px 20px; }
+
+    /* 予約モーダル */
+    .rsv-modal { padding: 16px; max-height: 90vh; max-height: 90dvh; }
     .rsv-input, .rsv-textarea { font-size: 16px; /* iOSズーム防止 */ }
     .rsv-checkbox-item { padding: 8px 10px; }
     .rsv-checkbox-item span { font-size: 12px; }
+
     /* 連番募集フォーム */
     .rb-textarea { font-size: 16px; /* iOSズーム防止 */ }
+
+    /* 募集一覧 選択確認バー：縦並び */
+    .boshu-confirm-bar { flex-direction: column; align-items: stretch; }
+    .boshu-confirm-bar > div { justify-content: space-between; }
+
+    /* スタンプカード：グリッド余白を詰める */
+    .stamp-grid { gap: 6px; }
+
+    /* ログインモーダル */
+    .login-box { padding: 24px 20px; }
+
+    /* マイページ */
+    .mypage-box { max-height: 90vh; max-height: 90dvh; }
+
     /* ローディングバー */
     #loading .ld-bar { width: min(200px, 80vw); }
   }
@@ -883,7 +915,7 @@
   <!-- トップページ -->
   <div id="sec-top" class="section active">
     <div style="margin-bottom:16px;">
-      <button class="rsv-btn primary" style="padding:10px 28px;font-size:14px;" onclick="showSection('boshu')">各種募集一覧</button>
+      <button class="rsv-btn primary top-boshu-btn" style="padding:10px 28px;font-size:14px;" onclick="showSection('boshu')">各種募集一覧</button>
     </div>
     <div class="top-grid">
       <div class="card top-next-card" onclick="goToNextDay()">
