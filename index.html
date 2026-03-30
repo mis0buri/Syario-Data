@@ -4418,7 +4418,7 @@ async function _doStamp(btn, msg) {
     const last      = doc.exists ? (doc.data().lastStampDate || '')  : '';
     const rotations = doc.exists ? (doc.data().rotations     || [])  : [];
     const usedCards = doc.exists ? (doc.data().usedCards      || [])  : [];
-    if (last === todayStr) {
+    if (last === todayStr && !_isAdmin) {
       if (msg) msg.textContent = '本日はすでにスタンプ済みです';
       if (btn) btn.disabled = false;
       return;
