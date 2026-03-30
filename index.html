@@ -650,6 +650,10 @@
   .rb-type-join { font-size:11px; font-weight:700; color:#4caf82; background:rgba(76,175,130,.12); border-radius:4px; padding:2px 6px; white-space:nowrap; }
   .rb-type-interest { font-size:11px; font-weight:700; color:#61afef; background:rgba(97,175,239,.12); border-radius:4px; padding:2px 6px; white-space:nowrap; }
   .rb-entry-date { font-size:11px; color:var(--dim); margin-right:4px; }
+  .rb-date-checks { display:flex; flex-direction:column; gap:8px; }
+  .rb-date-check-item { display:flex; align-items:center; gap:8px; background:var(--surface2); border-radius:8px; padding:10px 12px; cursor:pointer; border:1px solid transparent; transition:all .2s; }
+  .rb-date-check-item:hover { border-color:var(--border); }
+  .rb-date-check-item input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; }
   .rb-expired { font-size:11px; color:var(--red); background:rgba(230,57,70,.1); border-radius:4px; padding:2px 8px; }
   .rb-status-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 
@@ -3838,6 +3842,13 @@ function rbShowScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
+// 同一ユーザ（uid優先、なければname）を1人として数えるユニーク参加者数
+function _countUniqueParticipants(list) {
+  const seen = new Set();
+  list.forEach(p => seen.add(p.uid ? p.uid : ('name:' + p.name)));
+  return seen.size;
+}
+
 async function initRenban() {
   if (!_db) {
     document.getElementById('renban-list').innerHTML = '<div class="renban-empty">データベース未接続</div>';
@@ -3848,8 +3859,9 @@ async function initRenban() {
     const events = await Promise.all(snap.docs.map(async d => {
       const ev = { id: d.id, ...d.data() };
       const pSnap = await _db.collection('renban_events').doc(d.id).collection('participants').get();
-      ev._joinCount = pSnap.docs.filter(p => p.data().type === 'join').length;
-      ev._interestCount = pSnap.docs.filter(p => p.data().type === 'interest').length;
+      const pData = pSnap.docs.map(p => p.data());
+      ev._joinCount = _countUniqueParticipants(pData.filter(p => p.type === 'join'));
+      ev._interestCount = _countUniqueParticipants(pData.filter(p => p.type === 'interest'));
       return ev;
     }));
     renderRenbanList(events);
@@ -3920,8 +3932,8 @@ async function initBoshu() {
       const parts = pSnap.docs.map(p => ({ id: p.id, ...p.data() }));
       ev._joins     = parts.filter(p => p.type === 'join');
       ev._interests = parts.filter(p => p.type === 'interest');
-      ev._joinCount     = ev._joins.length;
-      ev._interestCount = ev._interests.length;
+      ev._joinCount     = _countUniqueParticipants(ev._joins);
+      ev._interestCount = _countUniqueParticipants(ev._interests);
       renbanEvents.push(ev);
     }));
   } catch(e) {
@@ -4709,11 +4721,13 @@ async function openRenbanDetail(eventId) {
     };
 
     document.getElementById('rb-all-participants').innerHTML = renderGrouped(participants);
+    const uniqueJoins    = _countUniqueParticipants(joins);
+    const uniqueInterests = _countUniqueParticipants(interests);
     const countSummary = document.getElementById('rb-count-summary');
     if (countSummary) {
-      countSummary.innerHTML = `<span style="color:#4caf82">✅ 参加 ${joins.length}人</span>　<span style="color:#61afef">👀 興味あり ${interests.length}人</span>`;
+      countSummary.innerHTML = `<span style="color:#4caf82">✅ 参加 ${uniqueJoins}人</span>　<span style="color:#61afef">👀 興味あり ${uniqueInterests}人</span>`;
     }
-    _rbCurrentEvent = { ev, dates, isMultiDate, joinCount: joins.length, interestCount: interests.length, joins, interests, participants };
+    _rbCurrentEvent = { ev, dates, isMultiDate, joinCount: uniqueJoins, interestCount: uniqueInterests, joins, interests, participants };
 
     // イベント削除ボタン（本人/管理者のみ）
     const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
@@ -4761,9 +4775,9 @@ function openRbJoinModal(type) {
   const btn = document.getElementById('rb-join-submit-btn');
   btn.disabled = false; btn.textContent = '確定する';
 
-  // 複数日付がある場合は日付セレクタを表示
-  const dateGroup = document.getElementById('rb-join-date-group');
-  const dateSel   = document.getElementById('rb-join-date-select');
+  // 複数日付がある場合は日付チェックボックスを表示
+  const dateGroup  = document.getElementById('rb-join-date-group');
+  const checksEl   = document.getElementById('rb-join-date-checks');
   const { dates = [], isMultiDate = false, participants = [] } = _rbCurrentEvent || {};
   if (isMultiDate && dates.length > 1) {
     // ログイン済みの場合はすでに参加済みの日付を除外
@@ -4771,11 +4785,16 @@ function openRbJoinModal(type) {
       ? new Set(participants.filter(p => p.uid && p.uid === _currentUser.uid).map(p => p.date || dates[0]))
       : new Set();
     const remaining = dates.filter(d => !coveredDates.has(d));
-    dateSel.innerHTML = remaining.map(d => `<option value="${d}">${d}</option>`).join('');
-    dateGroup.style.display = '';
+    checksEl.innerHTML = remaining.map(d =>
+      `<label class="rb-date-check-item">
+        <input type="checkbox" value="${escHtml(d)}" checked>
+        <span>${escHtml(d)}</span>
+      </label>`
+    ).join('');
+    dateGroup.style.display = remaining.length ? '' : 'none';
   } else {
     dateGroup.style.display = 'none';
-    dateSel.innerHTML = '';
+    checksEl.innerHTML = '';
   }
 
   rbShowScreen('rb-join-screen');
@@ -4788,14 +4807,15 @@ async function submitRbParticipation() {
   const note = document.getElementById('rb-join-note').value.trim();
   if (!name) { document.getElementById('rb-join-status').textContent = '名前を入力してください'; return; }
 
-  // 複数日付の場合は選択された日付を取得
-  const { isMultiDate = false, dates = [] } = _rbCurrentEvent || {};
+  // 複数日付の場合はチェックされた日付を収集
+  const { isMultiDate = false, dates = [], ev: currentEv, participants: currentParts = [] } = _rbCurrentEvent || {};
   const dateGroup = document.getElementById('rb-join-date-group');
-  let selectedDate = null;
+  let selectedDates = [];
   if (isMultiDate && dateGroup && dateGroup.style.display !== 'none') {
-    selectedDate = document.getElementById('rb-join-date-select').value;
-    if (!selectedDate) {
-      document.getElementById('rb-join-status').textContent = '日付を選択してください';
+    selectedDates = [...document.querySelectorAll('#rb-join-date-checks input[type=checkbox]:checked')]
+      .map(c => c.value);
+    if (!selectedDates.length) {
+      document.getElementById('rb-join-status').textContent = '日付を1つ以上選択してください';
       return;
     }
   }
@@ -4804,29 +4824,34 @@ async function submitRbParticipation() {
   document.getElementById('rb-join-status').textContent = '';
   try {
     if (_currentUser) {
-      const evDoc = await _db.collection('renban_events').doc(_rbCurrentEventId).get();
-      if (evDoc.exists && evDoc.data().uid === _currentUser.uid) {
+      if (currentEv && currentEv.uid === _currentUser.uid) {
         document.getElementById('rb-join-status').textContent = '自分が作成したイベントには参加できません';
         btn.disabled = false; btn.textContent = '確定する'; return;
       }
-      // 重複チェック：複数日付の場合は同じ日付での重複のみ禁止
-      let dupQuery = _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants')
-        .where('uid', '==', _currentUser.uid);
-      if (isMultiDate && selectedDate) {
-        dupQuery = dupQuery.where('date', '==', selectedDate);
-      }
-      const dupSnap = await dupQuery.get();
-      if (!dupSnap.empty) {
-        document.getElementById('rb-join-status').textContent = isMultiDate
-          ? 'この日付はすでに参加登録済みです'
-          : '既に参加登録済みです';
-        btn.disabled = false; btn.textContent = '確定する'; return;
+      if (!isMultiDate) {
+        // 単一日付：同イベントへの重複登録を禁止
+        const alreadyIn = currentParts.some(p => p.uid && p.uid === _currentUser.uid);
+        if (alreadyIn) {
+          document.getElementById('rb-join-status').textContent = '既に参加登録済みです';
+          btn.disabled = false; btn.textContent = '確定する'; return;
+        }
       }
     }
-    const pData = { name, note, type: _rbJoinType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
-    if (_currentUser) pData.uid = _currentUser.uid;
-    if (isMultiDate && selectedDate) pData.date = selectedDate;
-    await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add(pData);
+    if (isMultiDate && selectedDates.length) {
+      // 複数日付：日付ごとにドキュメントを追加
+      const batch = _db.batch();
+      for (const d of selectedDates) {
+        const ref = _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').doc();
+        const pData = { name, note, type: _rbJoinType, date: d, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (_currentUser) pData.uid = _currentUser.uid;
+        batch.set(ref, pData);
+      }
+      await batch.commit();
+    } else {
+      const pData = { name, note, type: _rbJoinType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+      if (_currentUser) pData.uid = _currentUser.uid;
+      await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add(pData);
+    }
     // 詳細画面に戻って更新
     await openRenbanDetail(_rbCurrentEventId);
   } catch(err) {
@@ -5077,8 +5102,8 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rb-close" onclick="closeRbModal()">✕</button>
       </div>
       <div class="rb-form-group" id="rb-join-date-group" style="display:none">
-        <label class="rb-label">日付 <span style="color:var(--red)">*</span></label>
-        <select id="rb-join-date-select" class="rb-input"></select>
+        <label class="rb-label">日付（複数選択可） <span style="color:var(--red)">*</span></label>
+        <div id="rb-join-date-checks" class="rb-date-checks"></div>
       </div>
       <div class="rb-form-group">
         <label class="rb-label">名前 <span style="color:var(--red)">*</span></label>
