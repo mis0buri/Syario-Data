@@ -2348,6 +2348,10 @@ async function saveMyPageName() {
   }
   try {
     await _db.collection('users').doc(_currentUser.uid).set({ displayName: name }, { merge: true });
+    _registeredName = name;
+    // 開きっぱなしのフィードバックフォームにも反映
+    const fbName = document.getElementById('fb-name');
+    if (fbName && fbName.value !== name) fbName.value = name;
     msg.style.color = 'var(--green)';
     msg.textContent = '保存しました';
     setTimeout(() => { msg.textContent = ''; }, 2000);
