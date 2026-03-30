@@ -4450,6 +4450,7 @@ async function _doStamp(btn, msg) {
 
 async function markCardUsed(cardIdx) {
   if (!_currentUser || !_db) return;
+  if (!confirm(`カード ${cardIdx + 1} 枚目を使用済みにしますか？\nこの操作は取り消せません。`)) return;
   try {
     await _db.collection('stamp_cards').doc(_currentUser.uid).update({
       usedCards: firebase.firestore.FieldValue.arrayUnion(cardIdx)
