@@ -2498,8 +2498,10 @@ async function openDayDetail(dateStr) {
   document.getElementById('rsv-interest-hint').textContent = '';
   const joinBtn = document.getElementById('rsv-join-btn');
   const interestBtn = document.getElementById('rsv-interest-btn');
-  if (joinBtn) joinBtn.disabled = false;
-  if (interestBtn) interestBtn.disabled = false;
+  if (joinBtn) { joinBtn.disabled = false; joinBtn.style.display = 'none'; }
+  if (interestBtn) { interestBtn.disabled = false; interestBtn.style.display = 'none'; }
+  const hintEl = document.getElementById('rsv-interest-hint');
+  if (hintEl) hintEl.style.display = 'none';
 
   if (!_db) {
     listEl.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">Firebase未設定（FIREBASE_CONFIGを入力してください）</div>';
@@ -2518,6 +2520,9 @@ async function openDayDetail(dateStr) {
     if (snap.empty) {
       listEl.innerHTML = '<div class="rsv-empty">まだ予約はありません</div>';
     } else {
+      if (joinBtn) joinBtn.style.display = '';
+      if (interestBtn) interestBtn.style.display = '';
+      if (hintEl) hintEl.style.display = '';
       listEl.innerHTML = snap.docs.map(doc => {
         const dta = doc.data();
         const name = dta.name || '匿名';
