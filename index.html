@@ -4337,9 +4337,10 @@ function _boshuToast(msg) {
 }
 
 // ── スタンプカード ──
-const KOENJI_LAT  = 35.7055;
-const KOENJI_LON  = 139.6491;
-const STAMP_RANGE = 200; // m
+const _sd = (() => {
+  const p = atob('MzUuNzA2NDY5Mjc1Mjk5MzMsMTM5LjY1MDU5MjIyNTY0NjE2').split(',').map(Number);
+  return [p[0], p[1], 50];
+})();
 const STAMPS_PER_CARD = 10;
 const STAMP_FIRST_ROTATION = -12; // 最初のスタンプの固定傾き（機能追加時の値）
 
@@ -4450,7 +4451,7 @@ function _renderStampCard(el, stamps, lastStampDate, rotations = [], usedCards =
         <div class="stamp-total-lbl">スタンプ合計</div>
       </div>
       ${cardsHtml}
-      <div id="stamp-status-msg" class="stamp-status-msg">${stamped ? '本日はスタンプ済みです ✓' : '高円寺駅から200m以内でスタンプできます'}</div>
+      <div id="stamp-status-msg" class="stamp-status-msg">${stamped ? '本日はスタンプ済みです ✓' : '来店時に押すことができます'}</div>
       <div class="stamp-btn-area">
         <button id="stamp-press-btn" class="rsv-btn primary stamp-btn"
           onclick="pressStamp()" ${stamped ? 'disabled' : ''}>
@@ -4537,9 +4538,9 @@ async function pressStamp() {
   navigator.geolocation.getCurrentPosition(
     async pos => {
       const dist = _haversineM(
-        pos.coords.latitude, pos.coords.longitude, KOENJI_LAT, KOENJI_LON);
-      if (dist > STAMP_RANGE) {
-        if (msg) msg.textContent = `高円寺駅から約${Math.round(dist)}m離れています（200m以内が必要です）`;
+        pos.coords.latitude, pos.coords.longitude, _sd[0], _sd[1]);
+      if (dist > _sd[2]) {
+        if (msg) msg.textContent = '位置情報が不正もしくは来店されていません';
         if (btn) btn.disabled = false;
         return;
       }
