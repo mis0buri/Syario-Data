@@ -164,7 +164,7 @@
   .jare-form-row input, .jare-form-row textarea {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
     color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px;
-    padding: 8px 12px; width: 100%; resize: vertical; box-sizing: border-box;
+    padding: 8px 12px; width: 100%; resize: none; box-sizing: border-box; overflow-y: hidden;
   }
   .jare-form-row input:focus, .jare-form-row textarea:focus { outline: none; border-color: var(--accent); }
   .jare-para-label { font-size: 12px; color: var(--dim); margin: 14px 0 6px; font-weight: 700; }
@@ -2348,6 +2348,10 @@ async function saveMyPageName() {
   }
   try {
     await _db.collection('users').doc(_currentUser.uid).set({ displayName: name }, { merge: true });
+    _registeredName = name;
+    // 開きっぱなしのフィードバックフォームにも反映
+    const fbName = document.getElementById('fb-name');
+    if (fbName && fbName.value !== name) fbName.value = name;
     msg.style.color = 'var(--green)';
     msg.textContent = '保存しました';
     setTimeout(() => { msg.textContent = ''; }, 2000);
@@ -3394,6 +3398,8 @@ function openJareModal(docId) {
   if (jsonPaste) jsonPaste.value = '';
 
   document.getElementById('jare-modal').classList.add('open');
+  // テキストエリアをコンテンツに合わせてリサイズ（レイアウト確定後）
+  requestAnimationFrame(_jareResizeAll);
 }
 
 function onJareComboChange() {
@@ -3406,6 +3412,16 @@ function onJareComboChange() {
 
 function closeJareModal() {
   document.getElementById('jare-modal').classList.remove('open');
+}
+function _jareResizeTA(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function _jareResizeAll() {
+  for (let i = 1; i <= 8; i++) {
+    const el = document.getElementById('jare-p' + i);
+    if (el) _jareResizeTA(el);
+  }
 }
 
 async function submitJareStory() {
@@ -4450,6 +4466,7 @@ async function _doStamp(btn, msg) {
 
 async function markCardUsed(cardIdx) {
   if (!_currentUser || !_db) return;
+  if (!confirm(`カード ${cardIdx + 1} 枚目を使用済みにしますか？\nこの操作は取り消せません。`)) return;
   try {
     await _db.collection('stamp_cards').doc(_currentUser.uid).update({
       usedCards: firebase.firestore.FieldValue.arrayUnion(cardIdx)
@@ -5050,14 +5067,14 @@ document.addEventListener('DOMContentLoaded', initFirebase);
     </div>
 
     <div class="jare-para-label">段落（全8段落）</div>
-    <div class="jare-form-row"><label>段落 1</label><textarea id="jare-p1" rows="3" placeholder="段落1"></textarea></div>
-    <div class="jare-form-row"><label>段落 2</label><textarea id="jare-p2" rows="3" placeholder="段落2"></textarea></div>
-    <div class="jare-form-row"><label>段落 3</label><textarea id="jare-p3" rows="3" placeholder="段落3"></textarea></div>
-    <div class="jare-form-row"><label>段落 4</label><textarea id="jare-p4" rows="3" placeholder="段落4"></textarea></div>
-    <div class="jare-form-row"><label>段落 5</label><textarea id="jare-p5" rows="3" placeholder="段落5"></textarea></div>
-    <div class="jare-form-row"><label>段落 6</label><textarea id="jare-p6" rows="3" placeholder="段落6"></textarea></div>
-    <div class="jare-form-row"><label>段落 7</label><textarea id="jare-p7" rows="3" placeholder="段落7"></textarea></div>
-    <div class="jare-form-row"><label>段落 8</label><textarea id="jare-p8" rows="3" placeholder="段落8"></textarea></div>
+    <div class="jare-form-row"><label>段落 1</label><textarea id="jare-p1" rows="3" placeholder="段落1" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 2</label><textarea id="jare-p2" rows="3" placeholder="段落2" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 3</label><textarea id="jare-p3" rows="3" placeholder="段落3" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 4</label><textarea id="jare-p4" rows="3" placeholder="段落4" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 5</label><textarea id="jare-p5" rows="3" placeholder="段落5" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 6</label><textarea id="jare-p6" rows="3" placeholder="段落6" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 7</label><textarea id="jare-p7" rows="3" placeholder="段落7" oninput="_jareResizeTA(this)"></textarea></div>
+    <div class="jare-form-row"><label>段落 8</label><textarea id="jare-p8" rows="3" placeholder="段落8" oninput="_jareResizeTA(this)"></textarea></div>
     <div class="jare-modal-actions">
       <button class="jare-cancel-btn" onclick="closeJareModal()">キャンセル</button>
       <button class="jare-submit-btn" id="jare-submit-btn" onclick="submitJareStory()">保存</button>
@@ -5071,6 +5088,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
   <div class="login-box">
     <h3>ログイン</h3>
     <p>編集・削除・連番募集の登録には<br>ログインが必要です</p>
+    <p style="font-size:12px;color:var(--dim);margin-top:-8px;">TwitterまたはGoogleアカウントでログインできます</p>
     <button class="login-provider-btn" onclick="loginWithGoogle()">
       <!-- Google アイコン -->
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -5088,7 +5106,7 @@ document.addEventListener('DOMContentLoaded', initFirebase);
       </svg>
       X でログイン
     </button>
-    <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です</p>
+    <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です<br>（じゃれ本の閲覧にはログインが必要です）</p>
     <button class="login-close-btn" onclick="closeLoginModal()">閉じる</button>
   </div>
 </div>
