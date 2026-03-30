@@ -3415,6 +3415,8 @@ function openJareModal(docId) {
       // ドロップダウンを編集中のcomboに合わせる
       const k = `${d.date || ''}\t${d.theme || ''}`;
       if ([...comboSel.options].some(o => o.value === k)) comboSel.value = k;
+      // データ取得後にテキストエリアをリサイズ
+      _jareResizeAll();
     });
   } else {
     document.getElementById('jare-date').value = '';
