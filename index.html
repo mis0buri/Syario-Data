@@ -651,9 +651,15 @@
   .rb-type-interest { font-size:11px; font-weight:700; color:#61afef; background:rgba(97,175,239,.12); border-radius:4px; padding:2px 6px; white-space:nowrap; }
   .rb-entry-date { font-size:11px; color:var(--dim); margin-right:4px; }
   .rb-date-checks { display:flex; flex-direction:column; gap:8px; }
-  .rb-date-check-item { display:flex; align-items:center; gap:8px; background:var(--surface2); border-radius:8px; padding:10px 12px; cursor:pointer; border:1px solid transparent; transition:all .2s; }
-  .rb-date-check-item:hover { border-color:var(--border); }
-  .rb-date-check-item input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; }
+  .rb-date-row { display:flex; align-items:center; gap:10px; background:var(--surface2); border-radius:8px; padding:10px 12px; }
+  .rb-date-row-label { flex:1; font-size:13px; font-weight:700; }
+  .rb-date-type-group { display:flex; gap:5px; }
+  .rb-type-opt { cursor:pointer; }
+  .rb-type-opt input[type=radio] { display:none; }
+  .rb-type-opt span { display:block; font-size:11px; font-weight:700; padding:5px 9px; border-radius:6px; border:1px solid var(--border); color:var(--dim); transition:all .15s; white-space:nowrap; }
+  .rb-type-opt input[type=radio]:checked + .type-join { background:rgba(76,175,130,.2); color:#4caf82; border-color:#4caf82; }
+  .rb-type-opt input[type=radio]:checked + .type-interest { background:rgba(97,175,239,.2); color:#61afef; border-color:#61afef; }
+  .rb-type-opt input[type=radio]:checked + .type-none { background:var(--surface2); color:var(--dim); border-color:var(--border); }
   .rb-expired { font-size:11px; color:var(--red); background:rgba(230,57,70,.1); border-radius:4px; padding:2px 8px; }
   .rb-status-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 
@@ -4768,36 +4774,52 @@ async function openRenbanDetail(eventId) {
 
 function openRbJoinModal(type) {
   _rbJoinType = type;
-  document.getElementById('rb-join-modal-title').textContent = type === 'join' ? '参加する' : '興味あり';
   document.getElementById('rb-join-name').value = _registeredName || '';
   document.getElementById('rb-join-note').value = '';
   document.getElementById('rb-join-status').textContent = '';
   const btn = document.getElementById('rb-join-submit-btn');
   btn.disabled = false; btn.textContent = '確定する';
 
-  // 複数日付がある場合は日付チェックボックスを表示
-  const dateGroup  = document.getElementById('rb-join-date-group');
-  const checksEl   = document.getElementById('rb-join-date-checks');
+  const dateGroup = document.getElementById('rb-join-date-group');
+  const checksEl  = document.getElementById('rb-join-date-checks');
   const { dates = [], isMultiDate = false, participants = [] } = _rbCurrentEvent || {};
+
   if (isMultiDate && dates.length > 1) {
+    document.getElementById('rb-join-modal-title').textContent = '参加 / 興味あり を登録';
     // ログイン済みの場合はすでに参加済みの日付を除外
     const coveredDates = _currentUser
       ? new Set(participants.filter(p => p.uid && p.uid === _currentUser.uid).map(p => p.date || dates[0]))
       : new Set();
     const remaining = dates.filter(d => !coveredDates.has(d));
-    checksEl.innerHTML = remaining.map(d =>
-      `<label class="rb-date-check-item">
-        <input type="checkbox" value="${escHtml(d)}" checked>
-        <span>${escHtml(d)}</span>
-      </label>`
-    ).join('');
+    checksEl.innerHTML = remaining.map(d => {
+      const rname = 'rbdt_' + d.replace(/-/g, '');
+      const chkJoin     = type === 'join'     ? 'checked' : '';
+      const chkInterest = type === 'interest' ? 'checked' : '';
+      const chkNone     = !type               ? 'checked' : '';
+      return `<div class="rb-date-row" data-date="${escHtml(d)}">
+        <span class="rb-date-row-label">${escHtml(d)}</span>
+        <div class="rb-date-type-group">
+          <label class="rb-type-opt"><input type="radio" name="${rname}" value="join" ${chkJoin}><span class="type-join">参加</span></label>
+          <label class="rb-type-opt"><input type="radio" name="${rname}" value="interest" ${chkInterest}><span class="type-interest">興味あり</span></label>
+          <label class="rb-type-opt"><input type="radio" name="${rname}" value="" ${chkNone}><span class="type-none">なし</span></label>
+        </div>
+      </div>`;
+    }).join('');
     dateGroup.style.display = remaining.length ? '' : 'none';
   } else {
+    document.getElementById('rb-join-modal-title').textContent = type === 'join' ? '参加する' : '興味あり';
     dateGroup.style.display = 'none';
     checksEl.innerHTML = '';
   }
 
   rbShowScreen('rb-join-screen');
+}
+
+function rbSetAllDates(type) {
+  document.querySelectorAll('#rb-join-date-checks .rb-date-row').forEach(row => {
+    const radio = row.querySelector(`input[type=radio][value="${type}"]`);
+    if (radio) radio.checked = true;
+  });
 }
 
 async function submitRbParticipation() {
@@ -4807,15 +4829,18 @@ async function submitRbParticipation() {
   const note = document.getElementById('rb-join-note').value.trim();
   if (!name) { document.getElementById('rb-join-status').textContent = '名前を入力してください'; return; }
 
-  // 複数日付の場合はチェックされた日付を収集
-  const { isMultiDate = false, dates = [], ev: currentEv, participants: currentParts = [] } = _rbCurrentEvent || {};
+  const { isMultiDate = false, ev: currentEv, participants: currentParts = [] } = _rbCurrentEvent || {};
   const dateGroup = document.getElementById('rb-join-date-group');
-  let selectedDates = [];
+
+  // 複数日付：各行のラジオから日付＋タイプを収集（「なし」はスキップ）
+  let selections = [];
   if (isMultiDate && dateGroup && dateGroup.style.display !== 'none') {
-    selectedDates = [...document.querySelectorAll('#rb-join-date-checks input[type=checkbox]:checked')]
-      .map(c => c.value);
-    if (!selectedDates.length) {
-      document.getElementById('rb-join-status').textContent = '日付を1つ以上選択してください';
+    selections = [...document.querySelectorAll('#rb-join-date-checks .rb-date-row')].map(row => {
+      const checked = row.querySelector('input[type=radio]:checked');
+      return { date: row.dataset.date, type: checked ? checked.value : '' };
+    }).filter(s => s.type);
+    if (!selections.length) {
+      document.getElementById('rb-join-status').textContent = '少なくとも1つ選択してください';
       return;
     }
   }
@@ -4829,7 +4854,6 @@ async function submitRbParticipation() {
         btn.disabled = false; btn.textContent = '確定する'; return;
       }
       if (!isMultiDate) {
-        // 単一日付：同イベントへの重複登録を禁止
         const alreadyIn = currentParts.some(p => p.uid && p.uid === _currentUser.uid);
         if (alreadyIn) {
           document.getElementById('rb-join-status').textContent = '既に参加登録済みです';
@@ -4837,22 +4861,22 @@ async function submitRbParticipation() {
         }
       }
     }
-    if (isMultiDate && selectedDates.length) {
-      // 複数日付：日付ごとにドキュメントを追加
+    if (isMultiDate && selections.length) {
+      // 日付ごとにドキュメントを一括登録
       const batch = _db.batch();
-      for (const d of selectedDates) {
+      for (const { date, type } of selections) {
         const ref = _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').doc();
-        const pData = { name, note, type: _rbJoinType, date: d, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        const pData = { name, note, type, date, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
         if (_currentUser) pData.uid = _currentUser.uid;
         batch.set(ref, pData);
       }
       await batch.commit();
     } else {
+      if (!_rbJoinType) return;
       const pData = { name, note, type: _rbJoinType, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
       if (_currentUser) pData.uid = _currentUser.uid;
       await _db.collection('renban_events').doc(_rbCurrentEventId).collection('participants').add(pData);
     }
-    // 詳細画面に戻って更新
     await openRenbanDetail(_rbCurrentEventId);
   } catch(err) {
     document.getElementById('rb-join-status').textContent = 'エラー: ' + err.message;
@@ -5102,7 +5126,11 @@ document.addEventListener('DOMContentLoaded', initFirebase);
         <button class="rb-close" onclick="closeRbModal()">✕</button>
       </div>
       <div class="rb-form-group" id="rb-join-date-group" style="display:none">
-        <label class="rb-label">日付（複数選択可） <span style="color:var(--red)">*</span></label>
+        <label class="rb-label">日付ごとに選択</label>
+        <div class="rb-btn-row" style="margin-bottom:8px;">
+          <button type="button" class="rb-btn join" style="padding:7px 12px;font-size:12px;" onclick="rbSetAllDates('join')">全部参加</button>
+          <button type="button" class="rb-btn interest" style="padding:7px 12px;font-size:12px;" onclick="rbSetAllDates('interest')">全部興味あり</button>
+        </div>
         <div id="rb-join-date-checks" class="rb-date-checks"></div>
       </div>
       <div class="rb-form-group">
