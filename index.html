@@ -4482,11 +4482,15 @@ function _renderStampCard(el, stamps, lastStampDate, rotations = [], usedCards =
         <div class="stamp-total-lbl">スタンプ合計</div>
       </div>
       ${cardsHtml}
-      <div id="stamp-status-msg" class="stamp-status-msg">${stamped ? '本日はスタンプ済みです ✓' : '来店時に押すことができます'}</div>
+      <div id="stamp-status-msg" class="stamp-status-msg">${
+        stamped
+          ? (_isAdmin ? '本日スタンプ済み（管理者は再度押すことができます）' : '本日はスタンプ済みです ✓')
+          : '来店時に押すことができます'
+      }</div>
       <div class="stamp-btn-area">
         <button id="stamp-press-btn" class="rsv-btn primary stamp-btn"
-          onclick="pressStamp()" ${stamped ? 'disabled' : ''}>
-          ${stamped ? 'スタンプ済み' : 'スタンプを押す 🎫'}
+          onclick="pressStamp()" ${stamped && !_isAdmin ? 'disabled' : ''}>
+          ${stamped && !_isAdmin ? 'スタンプ済み' : 'スタンプを押す 🎫'}
         </button>
       </div>
       ${lastStampDate ? `<div class="stamp-last">最終スタンプ：${lastStampDate.replace(/-/g,'/')}</div>` : ''}
@@ -4550,13 +4554,6 @@ async function pressStamp() {
   const btn = document.getElementById('stamp-press-btn');
   const msg = document.getElementById('stamp-status-msg');
   if (btn) btn.disabled = true;
-
-  // 管理者はGPSスキップ
-  if (_isAdmin) {
-    if (msg) msg.textContent = '（管理者モード：GPS省略）';
-    await _doStamp(btn, msg);
-    return;
-  }
 
   if (msg) msg.textContent = '位置情報を取得中...';
 
