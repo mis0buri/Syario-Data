@@ -2900,12 +2900,14 @@ async function openReservationList() {
     return;
   }
   try {
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' });
     const snap = await _db.collection('reservations')
+      .where('date', '>=', todayStr)
       .orderBy('date', 'asc')
       .orderBy('createdAt', 'asc')
       .get();
     if (snap.empty) {
-      content.innerHTML = '<div class="rsv-empty">予約はまだありません</div>';
+      content.innerHTML = '<div class="rsv-empty">今後の予約はありません</div>';
       return;
     }
     const grouped = {};
