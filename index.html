@@ -358,10 +358,12 @@
   .cal-legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
   .cal-legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim); }
   @media(max-width:640px){
-    .cal-cell { min-height:52px; padding:6px 4px 8px; gap:3px; }
+    .cal-cell { min-height:52px; padding:6px 4px 8px; gap:3px; overflow:hidden; }
     .cal-mark { font-size:15px; }
-    .cal-note { font-size:9px; }
+    .cal-note { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .cal-holiday-name { -webkit-line-clamp:1; }
     .cal-daynum { font-size:10px; }
+    .cal-rsv-badge { font-size:9px; }
     .cal-legend { gap:10px; margin-top:12px; }
     .cal-legend-item { font-size:11px; }
   }
