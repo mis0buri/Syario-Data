@@ -3716,6 +3716,7 @@ async function shareRenbanEvent() {
   const W = 720, pad = 36, rowH = 32, pRowH = 28;
   const dateDisplay = (evDates.length ? evDates : (ev.date ? [ev.date] : [])).join(', ');
   const rows = [
+    ...(ev.owner ? [['募集者', ev.owner]] : []),
     ['日付', dateDisplay || ''],
     ['募集人数', ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'],
     ['募集期限', ev.deadline || '期限なし'],
@@ -4140,7 +4141,7 @@ async function shareBoshuSelected() {
 
   // 各カード高さ計算
   const calcRenbanH = (ev, joins, interests) => {
-    const rowsN = 4 + (ev.note ? 1 : 0);
+    const rowsN = 4 + (ev.owner ? 1 : 0) + (ev.note ? 1 : 0);
     const allP  = [...joins, ...interests].slice(0, 5);
     const hasMore = (joins.length + interests.length) > 5;
     const pTotal  = allP.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0);
@@ -4182,6 +4183,7 @@ async function shareBoshuSelected() {
       const { ev, joins, interests } = it;
       const evDateDisplay = (ev.dates && ev.dates.length ? ev.dates : (ev.date ? [ev.date] : [])).join(', ');
       const rows = [
+        ...(ev.owner ? [['募集者', ev.owner]] : []),
         ['日付',    evDateDisplay || ''],
         ['募集人数', ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし'],
         ['募集期限', ev.deadline || '期限なし'],
