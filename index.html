@@ -1132,14 +1132,14 @@
         <button class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="enterBoshuSelectMode()">まとめて共有</button>
       </div>
       <div class="boshu-section">
-        <div class="boshu-section-heading">連番募集</div>
-        <div class="renban-list" id="boshu-renban-list">
+        <div class="boshu-section-heading">予約</div>
+        <div class="renban-list" id="boshu-rsv-list">
           <div class="renban-empty">読み込み中...</div>
         </div>
       </div>
       <div class="boshu-section">
-        <div class="boshu-section-heading">予約</div>
-        <div class="renban-list" id="boshu-rsv-list">
+        <div class="boshu-section-heading">連番募集</div>
+        <div class="renban-list" id="boshu-renban-list">
           <div class="renban-empty">読み込み中...</div>
         </div>
       </div>
@@ -4119,19 +4119,21 @@ async function shareBoshuSelected() {
   const MARK_LABELS = { '◎':'終日営業', '〇':'半日以上', '△':'短時間のみ', '×':'お休み' };
   const MARK_COLORS = { '◎':'#98c379', '〇':'#61afef', '△':'#e5c07b', '×':'#e06c75' };
 
-  // 選択アイテムをデータに変換（連番→予約の順）
+  // 選択アイテムをデータに変換（予約→連番の順）
   const items = [];
   for (const key of _boshuSelected) {
-    if (key.startsWith('renban:')) {
-      const ev = renbanEvents.find(e => e.id === key.slice(7));
-      if (ev) items.push({ type:'renban', ev, joins: ev._joins||[], interests: ev._interests||[] });
-    } else if (key.startsWith('rsv:')) {
+    if (key.startsWith('rsv:')) {
       const g = rsvGroups.find(g => g.date === key.slice(4));
       if (g)  items.push({ type:'rsv', date: g.date, rsvs: g.rsvs||[], joins: g.joins||[], interests: g.interests||[] });
+    } else if (key.startsWith('renban:')) {
+      const ev = renbanEvents.find(e => e.id === key.slice(7));
+      if (ev) items.push({ type:'renban', ev, joins: ev._joins||[], interests: ev._interests||[] });
     }
   }
   if (!items.length) return;
+  // 予約を先、その中で日付順。連番を後、その中で日付順
   items.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'rsv' ? -1 : 1;
     const da = a.type === 'renban' ? a.ev.date : a.date;
     const db2 = b.type === 'renban' ? b.ev.date : b.date;
     return da < db2 ? -1 : da > db2 ? 1 : 0;
