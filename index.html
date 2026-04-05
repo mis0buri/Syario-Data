@@ -4037,7 +4037,7 @@ function _boshuRender() {
   if (!rsvGroups.length) {
     rsvEl.innerHTML = '<div class="renban-empty">今後の予約はありません</div>';
   } else {
-    rsvEl.innerHTML = rsvGroups.map(({ date, rsvs }) => {
+    rsvEl.innerHTML = rsvGroups.map(({ date, rsvs, joins = [], interests = [] }) => {
       const [y, mo, d] = date.split('-').map(Number);
       const dow        = DOW[new Date(Date.UTC(y, mo-1, d)).getUTCDay()];
       const label      = `${mo}月${d}日（${dow}）`;
@@ -4046,6 +4046,11 @@ function _boshuRender() {
       const selCls     = sm && isSelected ? ' boshu-selected' : '';
       const onclick    = sm ? `toggleBoshuItem('${key}')` : `openDayDetail('${date}')`;
       const chk        = sm ? `<span class="boshu-check-icon">${isSelected ? '☑' : '☐'}</span>` : '';
+      const jCnt = _countUniqueParticipants(joins);
+      const iCnt = _countUniqueParticipants(interests);
+      const countHtml = (jCnt || iCnt)
+        ? `<span style="color:#4caf82;margin-left:8px;">✅ ${jCnt}</span><span style="color:#61afef;margin-left:6px;">👀 ${iCnt}</span>`
+        : '';
       const entries    = rsvs.map(r => {
         const cats = r.cats.filter(c => !/^その他/.test(c)).join('・') || '';
         return `<div class="boshu-rsv-entry">
@@ -4055,7 +4060,7 @@ function _boshuRender() {
       }).join('');
       return `<div class="boshu-rsv-item${selCls}" onclick="${onclick}" style="${sm ? 'display:flex;align-items:flex-start;gap:10px;' : ''}">
         ${chk}<div style="${sm ? 'flex:1;min-width:0' : ''}">
-          <div class="boshu-rsv-date">📅 ${label}</div>
+          <div class="boshu-rsv-date">📅 ${label}${countHtml}</div>
           <div class="boshu-rsv-entries">${entries}</div>
         </div>
       </div>`;
