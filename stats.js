@@ -209,6 +209,20 @@ function fmtTooltipDate(ts) {
   return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 }
 
+// 月初め・四半期など、カレンダー境界に揃えたtick値を生成する
+function _calendarTicks(startMs, endMs, daySpan) {
+  const step = daySpan <= 90 ? 1 : daySpan <= 365 ? 2 : daySpan <= 730 ? 3 : 6; // 月単位の間隔
+  const ticks = [];
+  const s = new Date(startMs);
+  let d = new Date(s.getFullYear(), s.getMonth(), 1); // 月初めにスナップ
+  const end = new Date(endMs);
+  while (d <= end) {
+    ticks.push({ value: d.getTime() });
+    d = new Date(d.getFullYear(), d.getMonth() + step, 1);
+  }
+  return ticks;
+}
+
 function renderMemberCharts(memberName) {
   memberChartInstances.forEach(c => c.destroy());
   memberChartInstances = [];
@@ -231,7 +245,7 @@ function renderMemberCharts(memberName) {
           tooltip:{callbacks:{title:i=>fmtTooltipDate(i[0].parsed.x),label:c=>`${c.parsed.y}`}}
         },
         scales:{
-          x:{type:'linear',ticks:{color:'#7a7060',maxRotation:0,autoSkip:true,maxTicksLimit:6,callback:v=>fmtTick(v,daySpan)},grid:{color:'#2a2a2a'}},
+          x:{type:'linear',afterBuildTicks(ax){if(allDates.length>=2)ax.ticks=_calendarTicks(allDates[0].getTime(),allDates[allDates.length-1].getTime(),daySpan);},ticks:{color:'#7a7060',maxRotation:0,callback:v=>fmtTick(v,daySpan)},grid:{color:'#2a2a2a'}},
           y:{ticks:{color:'#7a7060'},grid:{color:c=>c.tick.value===0?'#888':'#2a2a2a',lineWidth:c=>c.tick.value===0?2:1}}
         }
       }
@@ -340,7 +354,8 @@ function renderChart(gathers) {
       scales:{
         x:{
           type:'linear',
-          ticks:{ color:'#7a7060', maxRotation:0, autoSkip:true, maxTicksLimit:8, callback:v=>fmtTick(v,daySpan) },
+          afterBuildTicks(ax){ if(allDates.length>=2) ax.ticks=_calendarTicks(allDates[0].getTime(),allDates[allDates.length-1].getTime(),daySpan); },
+          ticks:{ color:'#7a7060', maxRotation:0, callback:v=>fmtTick(v,daySpan) },
           grid:{ color:'#2a2a2a' },
         },
         y:{ ticks:{color:'#7a7060'}, grid:{color:c=>c.tick.value===0?'#888':'#2a2a2a', lineWidth:c=>c.tick.value===0?2:1} }
