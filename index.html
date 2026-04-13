@@ -872,6 +872,57 @@
     /* ローディングバー */
     #loading .ld-bar { width: min(200px, 80vw); }
   }
+
+  /* ── 管理者セクション ── */
+  .admin-sub-screen { display: none; }
+  .admin-sub-screen.active { display: block; }
+  .admin-section-title { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .admin-form-group { margin-bottom: 14px; }
+  .admin-form-group label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  .admin-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; padding: 8px 12px; border-radius: 6px; }
+  .admin-input:focus { outline: none; border-color: var(--accent); }
+  .admin-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+  .admin-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 8px 20px; border-radius: 6px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+  .admin-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  .admin-btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  .admin-btn.primary:hover { opacity: 0.85; }
+  .admin-btn.danger { border-color: var(--red); color: var(--red); }
+  .admin-btn.danger:hover { background: rgba(230,57,70,.1); }
+  .admin-btn.sm { padding: 5px 12px; font-size: 12px; }
+  .admin-status { font-size: 12px; min-height: 18px; margin: 4px 0; }
+  .admin-status.error { color: var(--red); }
+  .admin-status.ok { color: var(--green); }
+  .admin-add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .admin-add-row .admin-input { flex: 1; }
+  .admin-member-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .admin-member-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--surface2); border-radius: 6px; }
+  .admin-member-name { font-size: 14px; }
+  .admin-checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; margin-bottom: 8px; }
+  .admin-member-check { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--surface2); border-radius: 6px; cursor: pointer; font-size: 13px; user-select: none; }
+  .admin-member-check input { cursor: pointer; accent-color: var(--accent); }
+  .admin-gather-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .admin-gather-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; cursor: pointer; transition: border-color .2s; }
+  .admin-gather-card:hover { border-color: var(--accent); }
+  .admin-gather-date { font-weight: 700; font-size: 14px; color: var(--accent); }
+  .admin-gather-meta { font-size: 12px; color: var(--dim); margin-top: 4px; }
+  .admin-match-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+  .admin-match-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .admin-match-label { font-size: 13px; font-weight: 700; }
+  .admin-score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .admin-score-item { display: flex; flex-direction: column; gap: 4px; }
+  .admin-score-item label { font-size: 11px; color: var(--dim); display: flex; align-items: center; gap: 4px; }
+  .admin-score-input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 14px; padding: 6px 8px; border-radius: 4px; width: 100%; text-align: right; font-family: 'Noto Sans JP', sans-serif; }
+  .admin-score-input:focus { outline: none; border-color: var(--accent); }
+  .admin-rank-badge { display: inline-block; width: 20px; height: 20px; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: 700; }
+  .admin-rank-1 { background: #c8a96e; color: #000; }
+  .admin-rank-2 { background: #9e9e9e; color: #000; }
+  .admin-rank-3 { background: #a5673f; color: #fff; }
+  .admin-rank-4 { background: var(--surface2); color: var(--dim); border: 1px solid var(--border); }
+  .admin-match-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .admin-row-split { display: flex; gap: 8px; }
+  .admin-row-split > * { flex: 1; }
+  .admin-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .admin-empty { color: var(--dim); font-size: 13px; text-align: center; padding: 24px; }
 </style>
 </head>
 <body>
@@ -890,6 +941,7 @@
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
+    <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
   </nav>
   <div id="auth-area">
     <!-- 未ログイン時 -->
@@ -912,6 +964,13 @@
 <!-- ギャラリーサブナビ -->
 <div id="subnav-gallery" class="subnav" style="display:none">
   <button class="active" onclick="showSection('jare')">じゃれ本</button>
+</div>
+
+<!-- 管理者サブナビ -->
+<div id="subnav-admin" class="subnav" style="display:none">
+  <button onclick="showSection('admin-members')">メンバー管理</button>
+  <button onclick="showSection('admin-gather')">対局登録</button>
+  <button onclick="showSection('admin-score')">スコア入力</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -1241,6 +1300,81 @@
       <div id="jare-detail-body"></div>
     </div>
   </div>
+
+  <!-- ── 管理者：メンバー管理 ── -->
+  <div id="sec-admin-members" class="section">
+    <div class="card">
+      <div class="admin-section-title">メンバー管理</div>
+      <div class="admin-add-row">
+        <input type="text" id="admin-new-member-input" class="admin-input" placeholder="新しいメンバー名">
+        <button class="admin-btn primary" onclick="addAdminMember()">追加</button>
+      </div>
+      <div id="admin-status-members" class="admin-status"></div>
+      <div id="admin-member-list" class="admin-member-list">
+        <div class="admin-empty">読み込み中...</div>
+      </div>
+      <button class="admin-btn primary" style="width:100%" onclick="saveAdminMembers()">保存する</button>
+    </div>
+  </div>
+
+  <!-- ── 管理者：対局登録 ── -->
+  <div id="sec-admin-gather" class="section">
+    <div class="card">
+      <div class="admin-section-title">対局登録</div>
+      <div class="admin-form-group">
+        <label>日付 <span style="color:var(--red)">*</span></label>
+        <input type="date" id="admin-gather-date" class="admin-input">
+      </div>
+      <div class="admin-row-split">
+        <div class="admin-form-group">
+          <label>開始時刻</label>
+          <input type="time" id="admin-gather-start" class="admin-input">
+        </div>
+        <div class="admin-form-group">
+          <label>終了時刻</label>
+          <input type="time" id="admin-gather-end" class="admin-input">
+        </div>
+      </div>
+      <div class="admin-form-group">
+        <label>レート（点/千点）</label>
+        <input type="number" id="admin-gather-rate" class="admin-input" placeholder="例: 50" min="0">
+      </div>
+      <div class="admin-form-group">
+        <label>参加メンバー <span style="color:var(--red)">*</span></label>
+        <div id="admin-gather-member-checks" class="admin-checkbox-grid">
+          <div class="admin-empty">メンバー読み込み中...</div>
+        </div>
+      </div>
+      <div id="admin-status-gather" class="admin-status"></div>
+      <button class="admin-btn primary" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <hr class="admin-divider">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">登録済みの対局</div>
+      <div id="admin-gather-list" class="admin-gather-list">
+        <div class="admin-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 管理者：スコア入力 ── -->
+  <div id="sec-admin-score" class="section">
+    <div class="card">
+      <div class="admin-section-title">スコア入力</div>
+      <div class="admin-form-group">
+        <label>対局を選択</label>
+        <select id="admin-score-gather-select" class="admin-select" onchange="loadAdminScoreGather()">
+          <option value="">-- 対局を選択してください --</option>
+        </select>
+      </div>
+      <div id="admin-score-content" style="display:none">
+        <div id="admin-score-gather-info" style="font-size:13px;color:var(--dim);margin-bottom:12px;"></div>
+        <div id="admin-match-list"></div>
+        <button class="admin-btn" style="width:100%;margin-bottom:8px;" onclick="addAdminMatch()">+ 半荘を追加</button>
+        <div id="admin-status-score" class="admin-status"></div>
+        <button class="admin-btn primary" style="width:100%;" onclick="saveAdminScore()">スコアを保存</button>
+      </div>
+      <div id="admin-score-empty" class="admin-empty">対局を選択するとスコアを入力できます</div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -1445,6 +1579,7 @@ function refresh() {
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
 const _GALLERY = ['gallery','jare','jare-detail'];
+const _ADMIN = ['admin-members','admin-gather','admin-score'];
 function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -1452,18 +1587,21 @@ function showSection(id) {
 
   const isStats = _STATS.includes(id);
   const isGallery = _GALLERY.includes(id);
+  const isAdmin = _ADMIN.includes(id);
 
   // メインナビのアクティブ状態
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  const navKey = isStats ? 'sensei' : isGallery ? 'gallery' : id;
+  const navKey = isStats ? 'sensei' : isGallery ? 'gallery' : isAdmin ? 'admin' : id;
   const activeNavBtn = document.querySelector(`nav button[data-nav="${navKey}"]`);
   if (activeNavBtn) activeNavBtn.classList.add('active');
 
   // サブナビの表示・アクティブ状態
   const subnav = document.getElementById('subnav');
   const subnavGallery = document.getElementById('subnav-gallery');
+  const subnavAdmin = document.getElementById('subnav-admin');
   subnav.style.display = isStats ? '' : 'none';
   subnavGallery.style.display = isGallery ? '' : 'none';
+  subnavAdmin.style.display = isAdmin ? '' : 'none';
   if (isStats) {
     const subLabels = {ranking:'総合',member:'個人',graph:'グラフ',history:'履歴'};
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
@@ -1472,9 +1610,13 @@ function showSection(id) {
     const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本'};
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
+  if (isAdmin) {
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力'};
+    document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
+  }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='renban'||id==='boshu'||id==='stamp'||isGallery) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='renban'||id==='boshu'||id==='stamp'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -1489,6 +1631,9 @@ function showSection(id) {
     const fbName = document.getElementById('fb-name');
     if (fbName && !fbName.value) fbName.value = _registeredName;
   }
+  if (id==='admin-members') initAdminMembers();
+  if (id==='admin-gather') initAdminGather();
+  if (id==='admin-score') initAdminScore();
 }
 
 // ── トップページ ──
@@ -2278,6 +2423,8 @@ function updateAuthUI(user) {
     userInfo.style.display = 'none';
     _registeredName = null;
     _isAdmin = false;
+    const _navAdminBtn = document.getElementById('nav-admin-btn');
+    if (_navAdminBtn) _navAdminBtn.style.display = 'none';
     _refreshBoardIfActive();
     _refreshJareIfActive();
   }
@@ -2433,6 +2580,9 @@ async function _loadUserData(user) {
     _registeredName = user.displayName || '';
     _isAdmin = false;
   }
+  // 管理者ナビボタンの表示制御
+  const navAdminBtn = document.getElementById('nav-admin-btn');
+  if (navAdminBtn) navAdminBtn.style.display = _isAdmin ? '' : 'none';
   // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
   const fbName = document.getElementById('fb-name');
   if (fbName && !fbName.value) fbName.value = _registeredName;
@@ -4931,6 +5081,352 @@ async function deleteRbParticipant(eventId, participantId) {
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── 管理者機能 ──
+let _adminMembers = null;
+let _adminGathersCache = [];
+let _adminCurrentGatherId = null;
+
+async function _loadAdminMembers() {
+  if (!_db) return (DATA && DATA.members) ? DATA.members.map(m=>m.name) : [];
+  try {
+    const doc = await _db.collection('admin_config').doc('main').get();
+    if (doc.exists && doc.data().members) return [...doc.data().members];
+  } catch(e) {}
+  return (DATA && DATA.members) ? DATA.members.map(m=>m.name) : [];
+}
+
+// ─ メンバー管理 ─
+async function initAdminMembers() {
+  if (!_isAdmin) return;
+  const listEl = document.getElementById('admin-member-list');
+  listEl.innerHTML = '<div class="admin-empty">読み込み中...</div>';
+  _adminMembers = await _loadAdminMembers();
+  _renderAdminMemberList();
+}
+
+function _renderAdminMemberList() {
+  const listEl = document.getElementById('admin-member-list');
+  if (!_adminMembers || !_adminMembers.length) {
+    listEl.innerHTML = '<div class="admin-empty">メンバーがいません</div>';
+    return;
+  }
+  listEl.innerHTML = _adminMembers.map(name => `
+    <div class="admin-member-item">
+      <span class="admin-member-name">${_esc(name)}</span>
+      <button class="admin-btn sm danger" onclick="removeAdminMember('${_esc(name)}')">削除</button>
+    </div>
+  `).join('');
+}
+
+function addAdminMember() {
+  const input = document.getElementById('admin-new-member-input');
+  const name = input.value.trim();
+  const statusEl = document.getElementById('admin-status-members');
+  if (!name) return;
+  if (_adminMembers && _adminMembers.includes(name)) {
+    statusEl.textContent = '既に登録されています';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  if (!_adminMembers) _adminMembers = [];
+  _adminMembers.push(name);
+  input.value = '';
+  statusEl.textContent = '';
+  _renderAdminMemberList();
+}
+
+function removeAdminMember(name) {
+  if (!_adminMembers) return;
+  _adminMembers = _adminMembers.filter(m => m !== name);
+  _renderAdminMemberList();
+}
+
+async function saveAdminMembers() {
+  if (!_isAdmin || !_db) return;
+  const statusEl = document.getElementById('admin-status-members');
+  statusEl.textContent = '保存中...';
+  statusEl.className = 'admin-status';
+  try {
+    await _db.collection('admin_config').doc('main').set({ members: _adminMembers || [] }, { merge: true });
+    statusEl.textContent = '保存しました ✓';
+    statusEl.className = 'admin-status ok';
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    statusEl.className = 'admin-status error';
+  }
+}
+
+// ─ 対局登録 ─
+async function initAdminGather() {
+  if (!_isAdmin) return;
+  const members = await _loadAdminMembers();
+  _adminMembers = members;
+  const checksEl = document.getElementById('admin-gather-member-checks');
+  checksEl.innerHTML = members.length
+    ? members.map(name => `
+        <label class="admin-member-check">
+          <input type="checkbox" value="${_esc(name)}" class="admin-gather-member-cb">
+          ${_esc(name)}
+        </label>`).join('')
+    : '<div class="admin-empty">メンバーがいません（先にメンバー管理で追加してください）</div>';
+  await _reloadAdminGatherList();
+}
+
+async function _reloadAdminGatherList() {
+  const listEl = document.getElementById('admin-gather-list');
+  listEl.innerHTML = '<div class="admin-empty">読み込み中...</div>';
+  if (!_db) { listEl.innerHTML = '<div class="admin-empty">DBに接続されていません</div>'; return; }
+  try {
+    const snap = await _db.collection('admin_gathers').orderBy('date','desc').get();
+    _adminGathersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _renderAdminGatherList();
+  } catch(e) {
+    listEl.innerHTML = `<div class="admin-empty" style="color:var(--red)">エラー: ${_esc(e.message)}</div>`;
+  }
+}
+
+function _renderAdminGatherList() {
+  const listEl = document.getElementById('admin-gather-list');
+  if (!_adminGathersCache.length) {
+    listEl.innerHTML = '<div class="admin-empty">登録された対局がありません</div>';
+    return;
+  }
+  listEl.innerHTML = _adminGathersCache.map(g => {
+    const timeStr = g.start ? (g.start + (g.end ? '〜'+g.end : '')) : '';
+    const memberStr = (g.members || []).join('、');
+    const matchCnt = (g.matches || []).length;
+    return `<div class="admin-gather-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="min-width:0">
+          <div class="admin-gather-date">${_esc(g.date)}</div>
+          <div class="admin-gather-meta">${timeStr ? _esc(timeStr)+' &nbsp;' : ''}レート${g.rate||'?'}点</div>
+          <div class="admin-gather-meta">${_esc(memberStr)}</div>
+          <div class="admin-gather-meta">${matchCnt}半荘</div>
+        </div>
+        <button class="admin-btn sm danger" style="flex-shrink:0;" onclick="deleteAdminGather('${g.id}')">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function submitAdminGather() {
+  if (!_isAdmin || !_db) return;
+  const statusEl = document.getElementById('admin-status-gather');
+  const date = document.getElementById('admin-gather-date').value;
+  if (!date) {
+    statusEl.textContent = '日付を入力してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  const members = [...document.querySelectorAll('.admin-gather-member-cb:checked')].map(cb => cb.value);
+  if (members.length < 2) {
+    statusEl.textContent = '参加メンバーを2人以上選択してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  const start = document.getElementById('admin-gather-start').value;
+  const end   = document.getElementById('admin-gather-end').value;
+  const rate  = parseInt(document.getElementById('admin-gather-rate').value) || 0;
+  statusEl.textContent = '登録中...';
+  statusEl.className = 'admin-status';
+  try {
+    await _db.collection('admin_gathers').add({
+      date, start, end, rate, members, matches: [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    statusEl.textContent = '登録しました ✓';
+    statusEl.className = 'admin-status ok';
+    document.getElementById('admin-gather-date').value = '';
+    document.getElementById('admin-gather-start').value = '';
+    document.getElementById('admin-gather-end').value = '';
+    document.getElementById('admin-gather-rate').value = '';
+    document.querySelectorAll('.admin-gather-member-cb').forEach(cb => cb.checked = false);
+    await _reloadAdminGatherList();
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    statusEl.className = 'admin-status error';
+  }
+}
+
+async function deleteAdminGather(id) {
+  if (!_isAdmin || !_db) return;
+  if (!confirm('この対局を削除しますか？')) return;
+  try {
+    await _db.collection('admin_gathers').doc(id).delete();
+    _adminGathersCache = _adminGathersCache.filter(g => g.id !== id);
+    _renderAdminGatherList();
+    if (currentSection === 'admin-score') initAdminScore();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+}
+
+// ─ スコア入力 ─
+async function initAdminScore() {
+  if (!_isAdmin) return;
+  if (!_adminGathersCache.length && _db) {
+    try {
+      const snap = await _db.collection('admin_gathers').orderBy('date','desc').get();
+      _adminGathersCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {}
+  }
+  const sel = document.getElementById('admin-score-gather-select');
+  sel.innerHTML = '<option value="">-- 対局を選択してください --</option>'
+    + _adminGathersCache.map(g => {
+        const memberStr = (g.members||[]).join(',');
+        return `<option value="${g.id}">${_esc(g.date)} (${_esc(memberStr)})</option>`;
+      }).join('');
+  document.getElementById('admin-score-content').style.display = 'none';
+  document.getElementById('admin-score-empty').style.display = '';
+  _adminCurrentGatherId = null;
+}
+
+async function loadAdminScoreGather() {
+  const sel = document.getElementById('admin-score-gather-select');
+  const id = sel.value;
+  if (!id) {
+    document.getElementById('admin-score-content').style.display = 'none';
+    document.getElementById('admin-score-empty').style.display = '';
+    _adminCurrentGatherId = null;
+    return;
+  }
+  _adminCurrentGatherId = id;
+  let gather = null;
+  try {
+    const doc = await _db.collection('admin_gathers').doc(id).get();
+    if (doc.exists) gather = { id: doc.id, ...doc.data() };
+  } catch(e) {}
+  if (!gather) gather = _adminGathersCache.find(g => g.id === id);
+  if (!gather) return;
+  const cIdx = _adminGathersCache.findIndex(g => g.id === id);
+  if (cIdx >= 0) _adminGathersCache[cIdx] = gather;
+
+  const timeStr = gather.start ? gather.start + (gather.end ? '〜'+gather.end : '') : '';
+  document.getElementById('admin-score-gather-info').innerHTML =
+    `<strong>${_esc(gather.date)}</strong> ${timeStr ? _esc(timeStr)+' ' : ''}レート${gather.rate||'?'}点 &nbsp;${_esc((gather.members||[]).join('、'))}`;
+
+  _renderAdminMatchList(gather);
+  document.getElementById('admin-score-content').style.display = '';
+  document.getElementById('admin-score-empty').style.display = 'none';
+  document.getElementById('admin-status-score').textContent = '';
+}
+
+function _renderAdminMatchList(gather) {
+  const members = gather.members || [];
+  const matches = gather.matches || [];
+  const listEl = document.getElementById('admin-match-list');
+  if (!matches.length) {
+    listEl.innerHTML = '<div class="admin-empty" style="margin-bottom:8px;">半荘がありません。「+ 半荘を追加」で追加してください。</div>';
+    return;
+  }
+  listEl.innerHTML = matches.map((m, idx) => _buildMatchRowHtml(m, idx, members)).join('');
+}
+
+function _buildMatchRowHtml(m, idx, members) {
+  const scores = m.scores || members.map(() => null);
+  const ranks  = m.ranks  || members.map(() => null);
+  const isChip = !!m.isChip;
+  const scoreInputs = members.map((name, mi) => {
+    const sc = (scores[mi] !== null && scores[mi] !== undefined) ? scores[mi] : '';
+    const rk = ranks[mi];
+    const badge = rk ? `<span class="admin-rank-badge admin-rank-${rk}">${rk}</span>` : '';
+    return `<div class="admin-score-item">
+      <label id="admin-score-label-${idx}-${mi}">${_esc(name)}${badge}</label>
+      <input type="number" class="admin-score-input" data-mi="${mi}" data-match-idx="${idx}"
+        value="${sc}" placeholder="点数" oninput="adminAutoRank(${idx})">
+    </div>`;
+  }).join('');
+  return `<div class="admin-match-row" id="admin-match-row-${idx}">
+    <div class="admin-match-header">
+      <span class="admin-match-label">第${idx+1}局${isChip ? '（チップ）' : ''}</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" class="admin-match-chip" data-match-idx="${idx}" ${isChip?'checked':''}> チップ
+        </label>
+        <button class="admin-btn sm danger" onclick="removeAdminMatch(${idx})">削除</button>
+      </div>
+    </div>
+    <div class="admin-score-grid">${scoreInputs}</div>
+  </div>`;
+}
+
+function adminAutoRank(idx) {
+  const gather = _adminGathersCache.find(g => g.id === _adminCurrentGatherId);
+  if (!gather) return;
+  const members = gather.members || [];
+  const row = document.getElementById('admin-match-row-'+idx);
+  if (!row) return;
+  const inputs = [...row.querySelectorAll('.admin-score-input')];
+  const scores = inputs.map(inp => inp.value.trim() !== '' ? parseFloat(inp.value) : null);
+  const ranks  = _calcRanks(scores);
+  members.forEach((name, mi) => {
+    const labelEl = document.getElementById(`admin-score-label-${idx}-${mi}`);
+    if (!labelEl) return;
+    const existing = labelEl.querySelector('.admin-rank-badge');
+    if (existing) existing.remove();
+    const rk = ranks[mi];
+    if (rk) {
+      const badge = document.createElement('span');
+      badge.className = `admin-rank-badge admin-rank-${rk}`;
+      badge.textContent = rk;
+      labelEl.appendChild(badge);
+    }
+  });
+}
+
+function _calcRanks(scores) {
+  const indexed = scores.map((s,i) => ({s,i})).filter(({s}) => s !== null && s !== undefined && !isNaN(s));
+  indexed.sort((a,b) => b.s - a.s);
+  const ranks = scores.map(() => null);
+  indexed.forEach(({i}, rank) => { ranks[i] = rank + 1; });
+  return ranks;
+}
+
+function addAdminMatch() {
+  const gather = _adminGathersCache.find(g => g.id === _adminCurrentGatherId);
+  if (!gather) return;
+  const members = gather.members || [];
+  gather.matches = [...(gather.matches||[]), { mNo:0, isChip:false, scores:members.map(()=>null), ranks:members.map(()=>null) }];
+  _renderAdminMatchList(gather);
+}
+
+function removeAdminMatch(idx) {
+  const gather = _adminGathersCache.find(g => g.id === _adminCurrentGatherId);
+  if (!gather) return;
+  gather.matches = (gather.matches||[]).filter((_,i) => i !== idx);
+  _renderAdminMatchList(gather);
+}
+
+async function saveAdminScore() {
+  if (!_isAdmin || !_db || !_adminCurrentGatherId) return;
+  const statusEl = document.getElementById('admin-status-score');
+  const gather = _adminGathersCache.find(g => g.id === _adminCurrentGatherId);
+  if (!gather) return;
+  const members = gather.members || [];
+
+  const matchRows = [...document.querySelectorAll('.admin-match-row')];
+  const matches = matchRows.map(row => {
+    const inputs = [...row.querySelectorAll('.admin-score-input')];
+    const scores = inputs.map(inp => inp.value.trim() !== '' ? parseFloat(inp.value) : null);
+    const ranks  = _calcRanks(scores);
+    const isChip = !!row.querySelector('.admin-match-chip:checked');
+    return { mNo:0, isChip, scores, ranks };
+  });
+
+  statusEl.textContent = '保存中...';
+  statusEl.className = 'admin-status';
+  try {
+    await _db.collection('admin_gathers').doc(_adminCurrentGatherId).update({ matches });
+    gather.matches = matches;
+    statusEl.textContent = '保存しました ✓';
+    statusEl.className = 'admin-status ok';
+    _renderAdminMatchList(gather);
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    statusEl.className = 'admin-status error';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initFirebase);
