@@ -2349,7 +2349,8 @@ let _auth = null;
 let _currentUser = null; // ログイン中ユーザー (null = 未ログイン)
 let _authResolved = false; // onAuthStateChanged が1度でも発火したか
 let _registeredName = null; // マイページで設定した登録名
-let _isAdmin = false; // 管理者フラグ
+let _isAdmin = false;   // 管理者フラグ
+let _isManager = false; // マネージャーフラグ
 
 function initFirebase() {
   try {
@@ -2422,7 +2423,8 @@ function updateAuthUI(user) {
     loginBtn.style.display = 'block';
     userInfo.style.display = 'none';
     _registeredName = null;
-    _isAdmin = false;
+    _isAdmin   = false;
+    _isManager = false;
     const _navAdminBtn = document.getElementById('nav-admin-btn');
     if (_navAdminBtn) _navAdminBtn.style.display = 'none';
     _refreshBoardIfActive();
@@ -2494,6 +2496,8 @@ function openMyPage() {
   document.getElementById('mypage-save-msg').textContent = '';
   const badge = document.getElementById('mypage-admin-badge');
   if (badge) badge.style.display = _isAdmin ? '' : 'none';
+  const managerBadge = document.getElementById('mypage-manager-badge');
+  if (managerBadge) managerBadge.style.display = _isManager ? '' : 'none';
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
@@ -2568,17 +2572,20 @@ async function myPageSignOut() {
 async function _loadUserData(user) {
   if (!user || !_db) return;
   try {
-    const [userDoc, adminDoc] = await Promise.all([
+    const [userDoc, adminDoc, managerDoc] = await Promise.all([
       _db.collection('users').doc(user.uid).get(),
-      _db.collection('admins').doc(user.uid).get()
+      _db.collection('admins').doc(user.uid).get(),
+      _db.collection('managers').doc(user.uid).get()
     ]);
     _registeredName = (userDoc.exists && userDoc.data().displayName)
       ? userDoc.data().displayName
       : (user.displayName || '');
-    _isAdmin = adminDoc.exists;
+    _isAdmin   = adminDoc.exists;
+    _isManager = managerDoc.exists;
   } catch(e) {
     _registeredName = user.displayName || '';
-    _isAdmin = false;
+    _isAdmin   = false;
+    _isManager = false;
   }
   // 管理者ナビボタンの表示制御
   const navAdminBtn = document.getElementById('nav-admin-btn');
@@ -5661,8 +5668,13 @@ document.addEventListener('DOMContentLoaded', initFirebase);
 <div id="mypage-modal" onclick="if(event.target===this)closeMyPage()">
   <div class="mypage-box">
     <h3>マイページ</h3>
-    <div id="mypage-admin-badge" style="display:none;text-align:center;">
-      <span style="display:inline-block;background:rgba(200,169,110,.15);border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;padding:4px 16px;border-radius:20px;letter-spacing:.1em;">管理者</span>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <div id="mypage-admin-badge" style="display:none;">
+        <span style="display:inline-block;background:rgba(200,169,110,.15);border:1px solid var(--accent);color:var(--accent);font-size:12px;font-weight:700;padding:4px 16px;border-radius:20px;letter-spacing:.1em;">管理者</span>
+      </div>
+      <div id="mypage-manager-badge" style="display:none;">
+        <span style="display:inline-block;background:rgba(97,175,239,.12);border:1px solid #61afef;color:#61afef;font-size:12px;font-weight:700;padding:4px 16px;border-radius:20px;letter-spacing:.1em;">マネージャー</span>
+      </div>
     </div>
     <div class="mypage-section">
       <span class="mypage-label">登録名</span>
