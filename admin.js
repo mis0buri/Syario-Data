@@ -343,3 +343,97 @@ async function saveAdminScore() {
     statusEl.className = 'admin-status error';
   }
 }
+
+// ─ スケジュール管理 ─
+async function initAdminSchedule() {
+  if (!_isAdmin) return;
+  _renderAdminScheduleList();
+}
+
+function _renderAdminScheduleList() {
+  const listEl = document.getElementById('admin-schedule-list');
+  if (!listEl) return;
+  const entries = Object.entries(_firestoreSchedule).sort(([a],[b]) => a.localeCompare(b));
+  if (!entries.length) {
+    listEl.innerHTML = '<div class="admin-empty">Firestoreに登録された日程はありません</div>';
+    return;
+  }
+  const MARK_CSS = { '◎':'mark-open','〇':'mark-half','△':'mark-short','×':'mark-closed' };
+  listEl.innerHTML = entries.map(([date, data]) => `
+    <div class="admin-gather-card" style="cursor:default;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div>
+          <span class="admin-gather-date">${_esc(date)}</span>
+          <span class="cal-mark ${MARK_CSS[data.mark]||''}" style="margin-left:8px;font-size:15px;">${_esc(data.mark)}</span>
+          ${data.note ? `<span style="font-size:12px;color:var(--dim);margin-left:6px;">${_esc(data.note)}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="admin-btn sm" onclick="editAdminScheduleEntry('${_esc(date)}')">編集</button>
+          <button class="admin-btn sm danger" onclick="deleteAdminScheduleEntry('${_esc(date)}')">削除</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function editAdminScheduleEntry(date) {
+  document.getElementById('admin-sch-date').value = date;
+  const data = _firestoreSchedule[date] || {};
+  const radio = document.querySelector(`input[name="admin-sch-mark"][value="${data.mark || '×'}"]`);
+  if (radio) radio.checked = true;
+  document.getElementById('admin-sch-note').value = data.note || '';
+  document.getElementById('admin-sch-date').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+async function saveAdminScheduleEntry() {
+  if (!_isAdmin || !_db) return;
+  const statusEl = document.getElementById('admin-status-schedule');
+  const date = document.getElementById('admin-sch-date').value;
+  const mark = document.querySelector('input[name="admin-sch-mark"]:checked')?.value;
+  const note = document.getElementById('admin-sch-note').value.trim();
+
+  if (!date) { statusEl.textContent = '日付を選択してください'; statusEl.className = 'admin-status error'; return; }
+  if (!mark) { statusEl.textContent = '記号を選択してください'; statusEl.className = 'admin-status error'; return; }
+  if ((mark === '〇' || mark === '△') && !note) {
+    statusEl.textContent = '〇/△ の場合は備考が必要です'; statusEl.className = 'admin-status error'; return;
+  }
+
+  statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
+  const entry = { mark, ...(note ? { note } : {}) };
+  _firestoreSchedule[date] = entry;
+  SCHEDULE_DATA[date] = entry; // ライブ反映
+
+  try {
+    await _db.collection('admin_config').doc('schedule').set({ dates: _firestoreSchedule });
+    statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
+    // フォームリセット
+    document.getElementById('admin-sch-date').value = '';
+    document.getElementById('admin-sch-note').value = '';
+    document.querySelector('input[name="admin-sch-mark"][value="×"]').checked = true;
+    _renderAdminScheduleList();
+    if (currentSection === 'schedule') renderCalendar();
+    if (currentSection === 'top') renderTopSchedule();
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
+    // ロールバック
+    delete _firestoreSchedule[date];
+    if (_SCHEDULE_ORIG[date]) { SCHEDULE_DATA[date] = _SCHEDULE_ORIG[date]; } else { delete SCHEDULE_DATA[date]; }
+  }
+}
+
+async function deleteAdminScheduleEntry(date) {
+  if (!_isAdmin || !_db) return;
+  if (!confirm(`${date} の設定を削除しますか？\nschedule.jsの設定に戻ります。`)) return;
+
+  delete _firestoreSchedule[date];
+  // 元のschedule.jsに値があれば復元、なければ削除
+  if (_SCHEDULE_ORIG[date]) { SCHEDULE_DATA[date] = _SCHEDULE_ORIG[date]; } else { delete SCHEDULE_DATA[date]; }
+
+  try {
+    await _db.collection('admin_config').doc('schedule').set({ dates: _firestoreSchedule });
+    _renderAdminScheduleList();
+    if (currentSection === 'schedule') renderCalendar();
+    if (currentSection === 'top') renderTopSchedule();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+}

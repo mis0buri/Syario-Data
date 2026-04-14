@@ -60,6 +60,7 @@
   <button onclick="showSection('admin-members')">メンバー管理</button>
   <button onclick="showSection('admin-gather')">対局登録</button>
   <button onclick="showSection('admin-score')">スコア入力</button>
+  <button onclick="showSection('admin-schedule')">スケジュール</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -462,6 +463,37 @@
         <button class="admin-btn primary" style="width:100%;" onclick="saveAdminScore()">スコアを保存</button>
       </div>
       <div id="admin-score-empty" class="admin-empty">対局を選択するとスコアを入力できます</div>
+    </div>
+  </div>
+
+  <!-- ── 管理者：スケジュール管理 ── -->
+  <div id="sec-admin-schedule" class="section">
+    <div class="card">
+      <div class="admin-section-title">スケジュール管理</div>
+      <div class="admin-form-group">
+        <label>日付 <span style="color:var(--red)">*</span></label>
+        <input type="date" id="admin-sch-date" class="admin-input">
+      </div>
+      <div class="admin-form-group">
+        <label>記号 <span style="color:var(--red)">*</span></label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="◎"> <span style="color:#4caf82;font-size:16px;">◎</span> 終日</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="〇"> <span style="color:#c8a96e;font-size:16px;">〇</span> 半日以上</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="△"> <span style="color:#e69a30;font-size:16px;">△</span> 短時間</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="×" checked> <span style="color:#7a7060;font-size:16px;">×</span> 休み</label>
+        </div>
+      </div>
+      <div class="admin-form-group">
+        <label>備考（〇/△ の場合は必須）</label>
+        <input type="text" id="admin-sch-note" class="admin-input" placeholder="例：15時以降">
+      </div>
+      <div id="admin-status-schedule" class="admin-status"></div>
+      <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleEntry()">保存する</button>
+      <hr class="admin-divider">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
+      <div id="admin-schedule-list" class="admin-gather-list">
+        <div class="admin-empty">読み込み中...</div>
+      </div>
     </div>
   </div>
 </main>

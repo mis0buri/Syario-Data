@@ -124,7 +124,11 @@ function filteredGathers() {
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
 const _GALLERY = ['gallery','jare','jare-detail'];
-const _ADMIN = ['admin-members','admin-gather','admin-score'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule'];
+// schedule.js の元データのスナップショット（Firestore上書き前）
+const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
+// Firestore から読み込んだスケジュール上書きデータ
+let _firestoreSchedule = {};
 function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -156,7 +160,7 @@ function showSection(id) {
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
@@ -179,6 +183,7 @@ function showSection(id) {
   if (id==='admin-members') initAdminMembers();
   if (id==='admin-gather') initAdminGather();
   if (id==='admin-score') initAdminScore();
+  if (id==='admin-schedule') initAdminSchedule();
 }
 
 // ── トップページ ──
@@ -500,6 +505,7 @@ function initFirebase() {
         _currentUser = user;
         updateAuthUI(user);
       });
+      _loadFirestoreSchedule(); // スケジュール上書きデータを非同期で取得
     }
   } catch(e) {
     console.warn('Firebase init error:', e);
@@ -540,6 +546,21 @@ function initFirebase() {
       showSection('boshu');
     }
   });
+}
+
+// ── Firestoreスケジュール上書きデータ読み込み ──
+async function _loadFirestoreSchedule() {
+  if (!_db) return;
+  try {
+    const doc = await _db.collection('admin_config').doc('schedule').get();
+    if (doc.exists && doc.data().dates) {
+      _firestoreSchedule = doc.data().dates;
+      Object.assign(SCHEDULE_DATA, _firestoreSchedule); // SCHEDULE_DATAに上書きマージ
+      // すでにカレンダーが表示中なら再描画
+      if (currentSection === 'schedule') renderCalendar();
+      if (currentSection === 'top') renderTopSchedule();
+    }
+  } catch(e) { /* 読み込み失敗時はschedule.jsのデータをそのまま使用 */ }
 }
 
 // ── 認証UI更新 ──
