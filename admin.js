@@ -403,31 +403,43 @@ async function initAdminSchedule() {
 function _renderAdminScheduleList() {
   const listEl = document.getElementById('admin-schedule-list');
   if (!listEl) return;
-  const entries = Object.entries(_firestoreSchedule).sort(([a],[b]) => a.localeCompare(b));
+  // Show all dates from SCHEDULE_DATA (schedule.js base + Firestore overrides merged)
+  const entries = Object.entries(SCHEDULE_DATA).sort(([a],[b]) => a.localeCompare(b));
   if (!entries.length) {
-    listEl.innerHTML = '<div class="admin-empty">Firestoreに登録された日程はありません</div>';
+    listEl.innerHTML = '<div class="admin-empty">スケジュールデータがありません</div>';
     return;
   }
   const MARK_CSS = { '◎':'mark-open','〇':'mark-half','△':'mark-short','×':'mark-closed' };
-  listEl.innerHTML = entries.map(([date, data]) => `
+  listEl.innerHTML = entries.map(([date, data]) => {
+    const isOverride = Object.prototype.hasOwnProperty.call(_firestoreSchedule, date);
+    const overrideBadge = isOverride
+      ? '<span style="font-size:10px;background:var(--accent);color:#000;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle;">上書き</span>'
+      : '';
+    const deleteBtn = isOverride
+      ? `<button class="admin-btn sm danger" onclick="deleteAdminScheduleEntry('${_esc(date)}')">削除</button>`
+      : '';
+    return `
     <div class="admin-gather-card" style="cursor:default;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div style="min-width:0;">
           <span class="admin-gather-date">${_esc(date)}</span>
           <span class="cal-mark ${MARK_CSS[data.mark]||''}" style="margin-left:8px;font-size:15px;">${_esc(data.mark)}</span>
+          ${overrideBadge}
           ${data.note ? `<span style="font-size:12px;color:var(--dim);margin-left:6px;">${_esc(data.note)}</span>` : ''}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <button class="admin-btn sm" onclick="editAdminScheduleEntry('${_esc(date)}')">編集</button>
-          <button class="admin-btn sm danger" onclick="deleteAdminScheduleEntry('${_esc(date)}')">削除</button>
+          ${deleteBtn}
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function editAdminScheduleEntry(date) {
   document.getElementById('admin-sch-date').value = date;
-  const data = _firestoreSchedule[date] || {};
+  // Use current SCHEDULE_DATA value (Firestore override if exists, else schedule.js base)
+  const data = SCHEDULE_DATA[date] || {};
   const radio = document.querySelector(`input[name="admin-sch-mark"][value="${data.mark || '×'}"]`);
   if (radio) radio.checked = true;
   document.getElementById('admin-sch-note').value = data.note || '';
