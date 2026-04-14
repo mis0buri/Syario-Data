@@ -13,11 +13,14 @@ async function _loadAdminMembers() {
 }
 
 // ─ メンバー管理 ─
+let _editingMember = null; // 編集中のメンバー名
+
 async function initAdminMembers() {
   if (!_isAdmin) return;
   const listEl = document.getElementById('admin-member-list');
   listEl.innerHTML = '<div class="admin-empty">読み込み中...</div>';
   _adminMembers = await _loadAdminMembers();
+  _editingMember = null;
   _renderAdminMemberList();
 }
 
@@ -27,12 +30,28 @@ function _renderAdminMemberList() {
     listEl.innerHTML = '<div class="admin-empty">メンバーがいません</div>';
     return;
   }
-  listEl.innerHTML = _adminMembers.map(name => `
-    <div class="admin-member-item">
+  listEl.innerHTML = _adminMembers.map(name => {
+    if (name === _editingMember) {
+      return `<div class="admin-member-item">
+        <input type="text" id="admin-member-edit-input" class="admin-input"
+          value="${_esc(name)}" style="flex:1;min-width:0;margin-right:8px;"
+          onkeydown="if(event.key==='Enter')saveAdminMemberRename('${_esc(name)}');if(event.key==='Escape')cancelEditAdminMember();">
+        <button class="admin-btn sm primary" onclick="saveAdminMemberRename('${_esc(name)}')">保存</button>
+        <button class="admin-btn sm" onclick="cancelEditAdminMember()">キャンセル</button>
+      </div>`;
+    }
+    return `<div class="admin-member-item">
       <span class="admin-member-name">${_esc(name)}</span>
-      <button class="admin-btn sm danger" onclick="removeAdminMember('${_esc(name)}')">削除</button>
-    </div>
-  `).join('');
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="admin-btn sm" onclick="startEditAdminMember('${_esc(name)}')">編集</button>
+        <button class="admin-btn sm danger" onclick="removeAdminMember('${_esc(name)}')">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+  if (_editingMember) {
+    const inp = document.getElementById('admin-member-edit-input');
+    if (inp) { inp.focus(); inp.select(); }
+  }
 }
 
 function addAdminMember() {
@@ -48,6 +67,37 @@ function addAdminMember() {
   if (!_adminMembers) _adminMembers = [];
   _adminMembers.push(name);
   input.value = '';
+  statusEl.textContent = '';
+  _renderAdminMemberList();
+}
+
+function startEditAdminMember(name) {
+  _editingMember = name;
+  _renderAdminMemberList();
+}
+
+function cancelEditAdminMember() {
+  _editingMember = null;
+  _renderAdminMemberList();
+}
+
+function saveAdminMemberRename(oldName) {
+  const inp = document.getElementById('admin-member-edit-input');
+  const newName = inp ? inp.value.trim() : '';
+  const statusEl = document.getElementById('admin-status-members');
+  if (!newName) {
+    statusEl.textContent = '名前を入力してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  if (newName !== oldName && _adminMembers.includes(newName)) {
+    statusEl.textContent = '同じ名前が既に登録されています';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  const idx = _adminMembers.indexOf(oldName);
+  if (idx >= 0) _adminMembers[idx] = newName;
+  _editingMember = null;
   statusEl.textContent = '';
   _renderAdminMemberList();
 }
