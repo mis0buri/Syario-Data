@@ -229,7 +229,7 @@
   .section.active { display: block; }
 
   /* CARD */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; overflow: hidden; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
   .card-title {
     font-family: 'Noto Serif JP', serif; font-size: 13px; color: var(--accent);
     letter-spacing: .2em; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
@@ -864,7 +864,7 @@
   .admin-section-title { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
   .admin-form-group { margin-bottom: 14px; }
   .admin-form-group label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
-  .admin-input { display: block; width: auto; min-width: 0; box-sizing: border-box; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; padding: 8px 12px; border-radius: 6px; }
+  .admin-input { display: block; width: 100%; min-width: 0; box-sizing: border-box; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; padding: 8px 12px; border-radius: 6px; }
   .admin-input:focus { outline: none; border-color: var(--accent); }
   .admin-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
   .admin-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px; padding: 8px 20px; border-radius: 6px; cursor: pointer; transition: all .2s; white-space: nowrap; }
