@@ -745,10 +745,14 @@
   /* ── SAKURA DECORATION ── */
   #sec-top { position: relative; isolation: isolate; }
   .sakura-deco { position: absolute; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
-  .sakura-tree { position: absolute; bottom: 0; width: 260px; opacity: .18; }
+  .sakura-tree { position: absolute; bottom: 0; width: 260px; opacity: .24; }
   .sakura-tree.s-left  { left: -50px; transform: scaleX(-1); }
   .sakura-tree.s-right { right: -50px; }
-  @media(max-width:640px) { .sakura-tree { width: 150px; } }
+  .nature-birds { position: absolute; top: 6%; left: 0; width: 100%; opacity: .3; }
+  .nature-grass { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; opacity: .28; }
+  @keyframes leaf-sway { 0%,100%{transform:translateY(0) rotate(0deg)} 40%{transform:translateY(-14px) rotate(12deg)} 70%{transform:translateY(-7px) rotate(-8deg)} }
+  .deco-leaf { position: absolute; opacity: .22; animation: leaf-sway 5.5s ease-in-out infinite; }
+  @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── TOP PAGE ── */
   .top-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
