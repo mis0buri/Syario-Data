@@ -1,15 +1,15 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap');
 
   :root {
-    --bg:       #0d0d0d;
-    --surface:  #161616;
-    --surface2: #1f1f1f;
-    --border:   #2a2a2a;
-    --accent:   #c8a96e;
+    --bg:       #0a0d0a;
+    --surface:  #131613;
+    --surface2: #1c201c;
+    --border:   #273027;
+    --accent:   #7aba6e;
     --red:      #e63946;
     --green:    #4caf82;
-    --text:     #e8e0d0;
-    --dim:      #7a7060;
+    --text:     #dce8d8;
+    --dim:      #6a7860;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; overflow-x: hidden; }
