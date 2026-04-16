@@ -227,7 +227,12 @@ function renderMemberDetail(m) {
     </div>` : '';
   const h2hHtml = h2hData.length ? `
     <div class="member-h2h">
-      <div class="stat-block-title">対戦成績（3局以上）</div>
+      <div class="stat-block-title">同卓成績（3局以上）</div>
+      <div class="h2h-header">
+        <span class="h2h-name"></span>
+        <span class="h2h-header-label">同卓時に相手より上の着順だった割合</span>
+        <span class="h2h-games">局数</span>
+      </div>
       <div class="h2h-grid">
         ${h2hData.map(h=>`
           <div class="h2h-row">
