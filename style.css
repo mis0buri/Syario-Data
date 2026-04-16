@@ -764,6 +764,10 @@
   .mypage-close-btn:hover { color:var(--text); }
   .mypage-stamp-btn { background:none; border:1px solid var(--accent); color:var(--accent); font-family:'Noto Sans JP',sans-serif; font-size:13px; padding:10px; border-radius:8px; cursor:pointer; transition:all .2s; text-align:center; font-weight:700; }
   .mypage-stamp-btn:hover { background:rgba(200,169,110,.12); }
+  .mypage-theme-btns { display:flex; flex-wrap:wrap; gap:6px; }
+  .mypage-theme-btn { background:var(--bg); border:1px solid var(--border); color:var(--dim); font-family:'Noto Sans JP',sans-serif; font-size:12px; padding:5px 12px; border-radius:20px; cursor:pointer; transition:all .2s; }
+  .mypage-theme-btn:hover { border-color:var(--accent); color:var(--text); }
+  .mypage-theme-btn.active { background:var(--accent); border-color:var(--accent); color:#111; font-weight:700; }
   /* スタンプカード */
   .stamp-wrap { max-width:380px; margin:0 auto; }
   .stamp-total { text-align:center; margin-bottom:20px; }

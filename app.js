@@ -657,6 +657,11 @@ function openMyPage() {
   if (badge) badge.style.display = _isAdmin ? '' : 'none';
   const managerBadge = document.getElementById('mypage-manager-badge');
   if (managerBadge) managerBadge.style.display = _isManager ? '' : 'none';
+  const themeSection = document.getElementById('mypage-theme-section');
+  if (themeSection) themeSection.style.display = _isAdmin ? '' : 'none';
+  document.querySelectorAll('.mypage-theme-btn').forEach(btn => {
+    btn.classList.toggle('active', _seasonOverride === null ? btn.dataset.season === '' : btn.dataset.season === _seasonOverride);
+  });
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
@@ -790,6 +795,16 @@ function setSeasonTheme() {
   else if (m >= 9 && m <= 11)                              season = 'koyo';
   else                                                     season = 'fuyu';
   document.body.dataset.season = season;
+}
+
+let _seasonOverride = null;
+function setSeasonOverride(season) {
+  _seasonOverride = season;
+  if (season === null) setSeasonTheme();
+  else document.body.dataset.season = season;
+  document.querySelectorAll('.mypage-theme-btn').forEach(btn => {
+    btn.classList.toggle('active', _seasonOverride === null ? btn.dataset.season === '' : btn.dataset.season === season);
+  });
 }
 setSeasonTheme();
 

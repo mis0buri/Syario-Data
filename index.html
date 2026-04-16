@@ -790,6 +790,18 @@
       <span class="mypage-label">連携アカウント</span>
       <div id="mypage-providers"></div>
     </div>
+    <div id="mypage-theme-section" class="mypage-section" style="display:none;">
+      <span class="mypage-label">テーマプレビュー（管理者）</span>
+      <div class="mypage-theme-btns">
+        <button class="mypage-theme-btn" data-season="" onclick="setSeasonOverride(null)">自動</button>
+        <button class="mypage-theme-btn" data-season="sakura" onclick="setSeasonOverride('sakura')">🌸 桜</button>
+        <button class="mypage-theme-btn" data-season="midori" onclick="setSeasonOverride('midori')">🌿 新緑</button>
+        <button class="mypage-theme-btn" data-season="tsuyu"  onclick="setSeasonOverride('tsuyu')">🌧 梅雨</button>
+        <button class="mypage-theme-btn" data-season="natsu"  onclick="setSeasonOverride('natsu')">🌻 夏</button>
+        <button class="mypage-theme-btn" data-season="koyo"   onclick="setSeasonOverride('koyo')">🍁 紅葉</button>
+        <button class="mypage-theme-btn" data-season="fuyu"   onclick="setSeasonOverride('fuyu')">❄️ 冬</button>
+      </div>
+    </div>
     <button class="mypage-stamp-btn" onclick="closeMyPage();showSection('stamp')">スタンプカード 🎫</button>
     <button class="mypage-logout-btn" onclick="myPageSignOut()">ログアウト</button>
     <button class="mypage-close-btn" onclick="closeMyPage()">閉じる</button>
