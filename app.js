@@ -779,4 +779,18 @@ function _esc(s) {
 // alias used by renban.js and boshu.js
 const escHtml = _esc;
 
+function setSeasonTheme() {
+  const m = new Date().getMonth() + 1;
+  const d = new Date().getDate();
+  let season;
+  if      ((m === 3 && d >= 15) || (m === 4 && d <= 14)) season = 'sakura';
+  else if ((m === 4 && d >= 15) || m === 5)               season = 'midori';
+  else if (m === 6)                                        season = 'tsuyu';
+  else if (m === 7 || m === 8)                             season = 'natsu';
+  else if (m >= 9 && m <= 11)                              season = 'koyo';
+  else                                                     season = 'fuyu';
+  document.body.dataset.season = season;
+}
+setSeasonTheme();
+
 document.addEventListener('DOMContentLoaded', initFirebase);
