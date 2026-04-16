@@ -84,8 +84,9 @@ function calcH2H(memberName, gathers) {
         if(oi===idx)return;
         const oppScore=m.scores[oi];
         if(oppScore===null||oppScore===undefined)return;
-        if(!h2h[opp])h2h[opp]={games:0,better:0};
+        if(!h2h[opp])h2h[opp]={games:0,better:0,score:0};
         h2h[opp].games++;
+        h2h[opp].score+=m.scores[idx];
         if(myRank<m.ranks[oi])h2h[opp].better++;
       });
     });
@@ -93,7 +94,7 @@ function calcH2H(memberName, gathers) {
   return Object.entries(h2h)
     .filter(([,v])=>v.games>=3)
     .sort((a,b)=>b[1].games-a[1].games)
-    .map(([name,v])=>({name,games:v.games,rate:v.better/v.games}));
+    .map(([name,v])=>({name,games:v.games,rate:v.better/v.games,score:v.score}));
 }
 
 function calcDataPoints(memberName, gathers) {
@@ -231,6 +232,7 @@ function renderMemberDetail(m) {
       <div class="h2h-header">
         <span class="h2h-name"></span>
         <span class="h2h-header-label">同卓時に相手より上の着順だった割合</span>
+        <span class="h2h-score-head">成績</span>
         <span class="h2h-games">局数</span>
       </div>
       <div class="h2h-grid">
@@ -239,6 +241,7 @@ function renderMemberDetail(m) {
             <span class="h2h-name">${_esc(h.name)}</span>
             <div class="h2h-bar-wrap"><div class="h2h-bar-fill" style="width:${(h.rate*100).toFixed(0)}%"></div></div>
             <span class="h2h-pct ${h.rate>=0.5?'pos':'neg'}">${(h.rate*100).toFixed(0)}%</span>
+            <span class="h2h-score ${sc(h.score)}">${fmt(h.score)}</span>
             <span class="h2h-games">${h.games}局</span>
           </div>`).join('')}
       </div>
