@@ -750,8 +750,14 @@
   .sakura-tree.s-right { right: -50px; }
   .nature-birds { position: absolute; top: 6%; left: 0; width: 100%; opacity: .3; }
   .nature-grass { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; opacity: .28; }
-  @keyframes leaf-sway { 0%,100%{transform:translateY(0) rotate(0deg)} 40%{transform:translateY(-14px) rotate(12deg)} 70%{transform:translateY(-7px) rotate(-8deg)} }
-  .deco-leaf { position: absolute; opacity: .22; animation: leaf-sway 5.5s ease-in-out infinite; }
+  @keyframes leaf-fall {
+    0%   { transform: translateY(-20px) rotate(0deg)   translateX(0); }
+    25%  { transform: translateY(25vh)  rotate(45deg)  translateX(10px); }
+    50%  { transform: translateY(50vh)  rotate(90deg)  translateX(0px); }
+    75%  { transform: translateY(75vh)  rotate(135deg) translateX(-10px); }
+    100% { transform: translateY(108vh) rotate(180deg) translateX(0); }
+  }
+  .deco-leaf { position: absolute; top: 0; opacity: .22; animation: leaf-fall linear infinite; }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── TOP PAGE ── */
