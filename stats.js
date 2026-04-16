@@ -271,7 +271,6 @@ function renderMemberDetail(m) {
           <div class="stat-row"><span class="stat-label">総成績</span><span class="stat-value ${sc(m.allTotal)}">${fmt(m.allTotal)}</span></div>
           <div class="stat-row"><span class="stat-label">半荘数</span><span class="stat-value">${m.matchCount4+m.matchCount3}</span></div>
           <div class="stat-row"><span class="stat-label">総チップ</span><span class="stat-value ${sc(m.totalChip)}">${fmt(m.totalChip)}</span></div>
-          <div class="stat-row"><span class="stat-label">収支</span><span class="stat-value ${sc(m.totalM)}">${m.totalM>=0?'+':''}${m.totalM.toLocaleString()}円</span></div>
           <div class="stat-row"><span class="stat-label">来店</span><span class="stat-value">${m.comeCount}回</span></div>
           <div class="stat-row"><span class="stat-label">プレイ時間</span><span class="stat-value">${fmtTime(m.playTime)}</span></div>
         </div>
