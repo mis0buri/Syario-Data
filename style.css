@@ -16,45 +16,43 @@
     --bg: #0d0d0d; --surface: #161616; --surface2: #1f1f1f; --border: #2a2a2a;
     --accent: #c8a96e; --text: #e8e0d0; --dim: #7a7060;
   }
-  body[data-season="sakura"] .sakura-tree circle:nth-of-type(odd)  { fill: #ffb7c5; }
-  body[data-season="sakura"] .sakura-tree circle:nth-of-type(even) { fill: #ffc0cb; }
-  body[data-season="sakura"] .deco-leaf path { fill: #ffb7c5; }
+  body[data-season="sakura"] .sakura-tree circle { fill: #ffb7c5 !important; }
+  body[data-season="sakura"] .nature-grass path  { fill: #5a9050 !important; }
 
   body[data-season="tsuyu"] {
     --bg: #0a0a14; --surface: #121220; --surface2: #1a1a2c; --border: #242438;
     --accent: #7890c8; --text: #d0d4e8; --dim: #606878;
   }
-  body[data-season="tsuyu"] .sakura-tree circle:nth-of-type(odd)  { fill: #c8b8e0; }
-  body[data-season="tsuyu"] .sakura-tree circle:nth-of-type(even) { fill: #b0a0d0; }
-  body[data-season="tsuyu"] .deco-leaf path { fill: #9090c8; }
-  body[data-season="tsuyu"] .nature-grass path { fill: #4a5870; }
+  body[data-season="tsuyu"] .sakura-tree circle { fill: #c8b8e0 !important; }
+  body[data-season="tsuyu"] .sakura-tree line   { stroke: #6a608a !important; }
+  body[data-season="tsuyu"] .nature-grass path  { fill: #4a5870 !important; }
+  body[data-season="tsuyu"] .nature-birds path  { stroke: #7070a0 !important; }
 
   body[data-season="natsu"] {
     --bg: #080c10; --surface: #101820; --surface2: #18222c; --border: #202e3c;
     --accent: #e8c040; --text: #e0dcc8; --dim: #706848;
   }
-  body[data-season="natsu"] .sakura-tree circle:nth-of-type(odd)  { fill: #4aaa38; }
-  body[data-season="natsu"] .sakura-tree circle:nth-of-type(even) { fill: #60c050; }
-  body[data-season="natsu"] .deco-leaf path { fill: #e8c840; }
-  body[data-season="natsu"] .nature-grass path { fill: #3a8030; }
+  body[data-season="natsu"] .sakura-tree circle { fill: #4aaa38 !important; }
+  body[data-season="natsu"] .nature-grass path  { fill: #3a8030 !important; }
+  body[data-season="natsu"] .nature-birds path  { stroke: #708050 !important; }
 
   body[data-season="koyo"] {
     --bg: #100804; --surface: #1c1008; --surface2: #261808; --border: #342010;
     --accent: #e07840; --text: #e8d8c0; --dim: #806050;
   }
-  body[data-season="koyo"] .sakura-tree circle:nth-of-type(odd)  { fill: #d05820; }
-  body[data-season="koyo"] .sakura-tree circle:nth-of-type(even) { fill: #e08030; }
-  body[data-season="koyo"] .deco-leaf path { fill: #e07030; }
-  body[data-season="koyo"] .nature-grass path { fill: #806040; }
+  body[data-season="koyo"] .sakura-tree circle { fill: #d05820 !important; }
+  body[data-season="koyo"] .sakura-tree line   { stroke: #6a3810 !important; }
+  body[data-season="koyo"] .nature-grass path  { fill: #806040 !important; }
+  body[data-season="koyo"] .nature-birds path  { stroke: #906040 !important; }
 
   body[data-season="fuyu"] {
     --bg: #080a12; --surface: #101520; --surface2: #181e2c; --border: #222838;
     --accent: #a8c8e8; --text: #d8e4f0; --dim: #607080;
   }
-  body[data-season="fuyu"] .sakura-tree circle:nth-of-type(odd)  { fill: #d0e8f8; }
-  body[data-season="fuyu"] .sakura-tree circle:nth-of-type(even) { fill: #e8f4fc; }
-  body[data-season="fuyu"] .deco-leaf path { fill: #c0d8f0; }
-  body[data-season="fuyu"] .nature-grass path { fill: #404858; }
+  body[data-season="fuyu"] .sakura-tree circle { fill: #d0e8f8 !important; }
+  body[data-season="fuyu"] .sakura-tree line   { stroke: #708090 !important; }
+  body[data-season="fuyu"] .nature-grass path  { fill: #404858 !important; }
+  body[data-season="fuyu"] .nature-birds path  { stroke: #6080a0 !important; }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; overflow-x: hidden; }

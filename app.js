@@ -784,6 +784,20 @@ function _esc(s) {
 // alias used by renban.js and boshu.js
 const escHtml = _esc;
 
+const _SEASON_PARTICLES = {
+  sakura: `<ellipse cx="7" cy="10" rx="5" ry="7" fill="#ffb7c5"/>`,
+  midori: `<path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/>`,
+  tsuyu:  `<path d="M7 2C7 2 2 10 2 13a5 5 0 0 0 10 0C12 10 7 2 7 2Z" fill="#8090c8"/>`,
+  natsu:  `<path d="M7 1L8.5 6H14L9.5 9L11 14.5L7 11L3 14.5L4.5 9L0 6H5.5Z" fill="#e8c040"/>`,
+  koyo:   `<path d="M7 0L8 4L11.5 2L10 6H14L11 8.5L13 13L9.5 10.5L7 15L4.5 10.5L1 13L3 8.5L0 6H4L2.5 2L6 4Z" fill="#d06030"/>`,
+  fuyu:   `<g stroke="#b8d4f0" stroke-width="1.5" stroke-linecap="round"><line x1="7" y1="1" x2="7" y2="17"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="2" y1="3" x2="12" y2="15"/><line x1="12" y1="3" x2="2" y2="15"/></g>`,
+};
+
+function _updateDecoParticles(season) {
+  const shape = _SEASON_PARTICLES[season] || _SEASON_PARTICLES.midori;
+  document.querySelectorAll('.deco-leaf').forEach(el => { el.innerHTML = shape; });
+}
+
 function setSeasonTheme() {
   const m = new Date().getMonth() + 1;
   const d = new Date().getDate();
@@ -795,13 +809,14 @@ function setSeasonTheme() {
   else if (m >= 9 && m <= 11)                              season = 'koyo';
   else                                                     season = 'fuyu';
   document.body.dataset.season = season;
+  _updateDecoParticles(season);
 }
 
 let _seasonOverride = null;
 function setSeasonOverride(season) {
   _seasonOverride = season;
   if (season === null) setSeasonTheme();
-  else document.body.dataset.season = season;
+  else { document.body.dataset.season = season; _updateDecoParticles(season); }
   document.querySelectorAll('.mypage-theme-btn').forEach(btn => {
     btn.classList.toggle('active', _seasonOverride === null ? btn.dataset.season === '' : btn.dataset.season === season);
   });
