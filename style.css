@@ -303,6 +303,28 @@
   .member-chart-block { background:var(--surface2); border-radius:10px; padding:16px; }
   .chart-wrap-sm { position:relative; height:200px; }
 
+  /* 直近N局 */
+  .member-recent { margin-top: 20px; }
+  .recent-games { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .recent-game { background: var(--surface2); border-radius: 6px; padding: 6px 8px; text-align: center; min-width: 50px; border-bottom: 2px solid transparent; }
+  .recent-game.rank1 { border-bottom-color: #4caf82; }
+  .recent-game.rank2 { border-bottom-color: #c8a96e; }
+  .recent-game.rank3 { border-bottom-color: #e69a30; }
+  .recent-game.rank4 { border-bottom-color: #e63946; }
+  .rg-rank { font-size: 10px; color: var(--dim); }
+  .rg-score { font-size: 13px; font-weight: 700; }
+  .rg-type { font-size: 10px; color: var(--dim); margin-top: 1px; }
+
+  /* 対戦成績 */
+  .member-h2h { margin-top: 20px; }
+  .h2h-grid { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .h2h-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .h2h-name { width: 64px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h2h-bar-wrap { flex: 1; background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+  .h2h-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .5s ease; }
+  .h2h-pct { width: 36px; text-align: right; font-size: 12px; flex-shrink: 0; }
+  .h2h-games { width: 30px; font-size: 11px; color: var(--dim); flex-shrink: 0; text-align: right; }
+
   /* HISTORY TABLE */
   .hist-table { width:100%; border-collapse:collapse; font-size:12px; }
   .hist-table th { padding:7px 10px; text-align:center; color:var(--dim); font-weight:400; font-size:11px; border-bottom:1px solid var(--border); }

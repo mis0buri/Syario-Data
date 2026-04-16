@@ -4,11 +4,18 @@ function calcStats(memberName, gathers) {
   let tobi4=0,tobi3=0,comeCount=0,totalM=0;
   let count12_4=0,count1_3=0;
   let c1_4=0,c2_4=0,c3_4=0,c4_4=0,c1_3=0,c2_3=0,c3_3=0;
+  let bestScore4=null,worstScore4=null,bestScore3=null,worstScore3=null,playTime=0;
 
   gathers.forEach(g => {
     const idx = g.members.indexOf(memberName);
     if (idx===-1) return;
     comeCount++;
+    if (g.start && g.end) {
+      const [sh,sm]=g.start.split(':').map(Number);
+      const [eh,em]=g.end.split(':').map(Number);
+      const mins=(eh*60+em)-(sh*60+sm);
+      if (mins>0) playTime+=mins;
+    }
     g.matches.forEach(m => {
       const sc = m.scores[idx]; const rk = m.ranks[idx];
       if (sc===null||sc===undefined) return;
@@ -16,11 +23,17 @@ function calcStats(memberName, gathers) {
       allTotal+=sc; totalM+=sc*(g.rate||10); matchCountAll++;
       if (cnt===3) {
         total3+=sc;
-        if (!m.isChip) { matchCount3++; if(rk===1)c1_3++;else if(rk===2)c2_3++;else if(rk===3)c3_3++; if(sc<=-70)tobi3++; if(rk===1)count1_3++; }
+        if (!m.isChip) {
+          matchCount3++; if(rk===1)c1_3++;else if(rk===2)c2_3++;else if(rk===3)c3_3++; if(sc<=-70)tobi3++; if(rk===1)count1_3++;
+          if(bestScore3===null||sc>bestScore3)bestScore3=sc; if(worstScore3===null||sc<worstScore3)worstScore3=sc;
+        }
         if (m.isChip) totalChip3+=Math.floor(sc/2);
       } else {
         total4+=sc;
-        if (!m.isChip) { matchCount4++; if(rk===1)c1_4++;else if(rk===2)c2_4++;else if(rk===3)c3_4++;else if(rk===4)c4_4++; if(sc<=-60)tobi4++; if(rk<=2)count12_4++; }
+        if (!m.isChip) {
+          matchCount4++; if(rk===1)c1_4++;else if(rk===2)c2_4++;else if(rk===3)c3_4++;else if(rk===4)c4_4++; if(sc<=-60)tobi4++; if(rk<=2)count12_4++;
+          if(bestScore4===null||sc>bestScore4)bestScore4=sc; if(worstScore4===null||sc<worstScore4)worstScore4=sc;
+        }
         if (m.isChip) totalChip4+=Math.floor(sc/2);
       }
       if (m.isChip) totalChip+=Math.floor(sc/2);
@@ -36,7 +49,51 @@ function calcStats(memberName, gathers) {
     rentairitsu3: matchCount3>0?count1_3/matchCount3:0,
     res4:{count1:c1_4,count2:c2_4,count3:c3_4,count4:c4_4,percent1:p(c1_4,t4),percent2:p(c2_4,t4),percent3:p(c3_4,t4),percent4:p(c4_4,t4)},
     res3:{count1:c1_3,count2:c2_3,count3:c3_3,percent1:p(c1_3,t3),percent2:p(c2_3,t3),percent3:p(c3_3,t3)},
+    bestScore4,worstScore4,bestScore3,worstScore3,playTime,
+    avgScore4:matchCount4>0?total4/matchCount4:null,
+    avgScore3:matchCount3>0?total3/matchCount3:null,
   };
+}
+
+function calcRecentGames(memberName, gathers, n=10) {
+  const games=[];
+  [...gathers].sort((a,b)=>a.date.localeCompare(b.date)).forEach(g=>{
+    const idx=g.members.indexOf(memberName);
+    if(idx===-1)return;
+    g.matches.forEach(m=>{
+      if(m.isChip)return;
+      const sc=m.scores[idx],rk=m.ranks[idx];
+      if(sc===null||sc===undefined)return;
+      const cnt=m.scores.filter(s=>s!==null&&s!==undefined).length;
+      games.push({date:g.date,score:sc,rank:rk,type:cnt===3?'3':'4'});
+    });
+  });
+  return games.slice(-n);
+}
+
+function calcH2H(memberName, gathers) {
+  const h2h={};
+  gathers.forEach(g=>{
+    const idx=g.members.indexOf(memberName);
+    if(idx===-1)return;
+    g.matches.forEach(m=>{
+      if(m.isChip)return;
+      const myRank=m.ranks[idx];
+      if(myRank===null||myRank===undefined)return;
+      g.members.forEach((opp,oi)=>{
+        if(oi===idx)return;
+        const oppScore=m.scores[oi];
+        if(oppScore===null||oppScore===undefined)return;
+        if(!h2h[opp])h2h[opp]={games:0,better:0};
+        h2h[opp].games++;
+        if(myRank<m.ranks[oi])h2h[opp].better++;
+      });
+    });
+  });
+  return Object.entries(h2h)
+    .filter(([,v])=>v.games>=3)
+    .sort((a,b)=>b[1].games-a[1].games)
+    .map(([name,v])=>({name,games:v.games,rate:v.better/v.games}));
 }
 
 function calcDataPoints(memberName, gathers) {
@@ -142,6 +199,9 @@ function selectMember(name) {
 
 function renderMemberDetail(m) {
   activeMemberName = m.name;
+  const gathers = filteredGathers();
+  const recentGames = calcRecentGames(m.name, gathers);
+  const h2hData = calcH2H(m.name, gathers);
   const bar = (items) => {
     const scale = p => Math.min(100, Math.max(0, (p-10)/30*100));
     return items.map(it=>`
@@ -151,6 +211,33 @@ function renderMemberDetail(m) {
       <span class="rank-bar-pct">${it.p.toFixed(1)}%<span class="rank-bar-cnt">${it.n}回</span></span>
     </div>`).join('');
   };
+  const fmtAvg = v => v===null ? '-' : (v>=0?'+':'')+v.toFixed(1);
+  const fmtTime = mins => mins>=60 ? `${Math.floor(mins/60)}時間${mins%60>0?mins%60+'分':''}` : `${mins}分`;
+  const recentHtml = recentGames.length ? `
+    <div class="member-recent">
+      <div class="stat-block-title">直近${recentGames.length}局</div>
+      <div class="recent-games">
+        ${recentGames.map(g=>`
+          <div class="recent-game rank${g.rank}">
+            <div class="rg-rank">${g.rank}着</div>
+            <div class="rg-score ${sc(g.score)}">${fmt(g.score)}</div>
+            <div class="rg-type">${g.type}麻</div>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+  const h2hHtml = h2hData.length ? `
+    <div class="member-h2h">
+      <div class="stat-block-title">対戦成績（3局以上）</div>
+      <div class="h2h-grid">
+        ${h2hData.map(h=>`
+          <div class="h2h-row">
+            <span class="h2h-name">${_esc(h.name)}</span>
+            <div class="h2h-bar-wrap"><div class="h2h-bar-fill" style="width:${(h.rate*100).toFixed(0)}%"></div></div>
+            <span class="h2h-pct ${h.rate>=0.5?'pos':'neg'}">${(h.rate*100).toFixed(0)}%</span>
+            <span class="h2h-games">${h.games}局</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
   document.getElementById('member-detail').innerHTML = `
     <div class="card">
       <div class="card-title">${m.name}</div>
@@ -159,18 +246,24 @@ function renderMemberDetail(m) {
           <div class="stat-block-title">4人麻雀</div>
           <div class="stat-row"><span class="stat-label">成績</span><span class="stat-value ${sc(m.total4)}">${fmt(m.total4)}</span></div>
           <div class="stat-row"><span class="stat-label">半荘数</span><span class="stat-value">${m.matchCount4}</span></div>
+          <div class="stat-row"><span class="stat-label">平均</span><span class="stat-value ${sc(m.avgScore4)}">${fmtAvg(m.avgScore4)}</span></div>
           <div class="stat-row"><span class="stat-label">連対率</span><span class="stat-value">${fmtPct(m.rentairitsu)}</span></div>
           <div class="stat-row"><span class="stat-label">チップ</span><span class="stat-value ${sc(m.totalChip4)}">${fmt(m.totalChip4)}</span></div>
           <div class="stat-row"><span class="stat-label">飛び</span><span class="stat-value">${m.tobi4}回</span></div>
+          <div class="stat-row"><span class="stat-label">最高</span><span class="stat-value pos">${m.bestScore4!==null?fmt(m.bestScore4):'-'}</span></div>
+          <div class="stat-row"><span class="stat-label">最低</span><span class="stat-value neg">${m.worstScore4!==null?fmt(m.worstScore4):'-'}</span></div>
           <div class="rank-bar-wrap">${bar([{l:'1着',p:m.res4.percent1,n:m.res4.count1,c:'#4caf82'},{l:'2着',p:m.res4.percent2,n:m.res4.count2,c:'#c8a96e'},{l:'3着',p:m.res4.percent3,n:m.res4.count3,c:'#e69a30'},{l:'4着',p:m.res4.percent4,n:m.res4.count4,c:'#e63946'}])}</div>
         </div>
         <div class="stat-block">
           <div class="stat-block-title">3人麻雀</div>
           <div class="stat-row"><span class="stat-label">成績</span><span class="stat-value ${sc(m.total3)}">${fmt(m.total3)}</span></div>
           <div class="stat-row"><span class="stat-label">半荘数</span><span class="stat-value">${m.matchCount3}</span></div>
+          <div class="stat-row"><span class="stat-label">平均</span><span class="stat-value ${sc(m.avgScore3)}">${fmtAvg(m.avgScore3)}</span></div>
           <div class="stat-row"><span class="stat-label">1着率</span><span class="stat-value">${fmtPct(m.rentairitsu3)}</span></div>
           <div class="stat-row"><span class="stat-label">チップ</span><span class="stat-value ${sc(m.totalChip3)}">${fmt(m.totalChip3)}</span></div>
           <div class="stat-row"><span class="stat-label">飛び</span><span class="stat-value">${m.tobi3}回</span></div>
+          <div class="stat-row"><span class="stat-label">最高</span><span class="stat-value pos">${m.bestScore3!==null?fmt(m.bestScore3):'-'}</span></div>
+          <div class="stat-row"><span class="stat-label">最低</span><span class="stat-value neg">${m.worstScore3!==null?fmt(m.worstScore3):'-'}</span></div>
           <div class="rank-bar-wrap">${bar([{l:'1着',p:m.res3.percent1,n:m.res3.count1,c:'#4caf82'},{l:'2着',p:m.res3.percent2,n:m.res3.count2,c:'#c8a96e'},{l:'3着',p:m.res3.percent3,n:m.res3.count3,c:'#e63946'}])}</div>
         </div>
         <div class="stat-block">
@@ -178,9 +271,12 @@ function renderMemberDetail(m) {
           <div class="stat-row"><span class="stat-label">総成績</span><span class="stat-value ${sc(m.allTotal)}">${fmt(m.allTotal)}</span></div>
           <div class="stat-row"><span class="stat-label">半荘数</span><span class="stat-value">${m.matchCount4+m.matchCount3}</span></div>
           <div class="stat-row"><span class="stat-label">総チップ</span><span class="stat-value ${sc(m.totalChip)}">${fmt(m.totalChip)}</span></div>
-          <div class="stat-row"><span class="stat-label">来店回数</span><span class="stat-value">${m.comeCount}回</span></div>
+          <div class="stat-row"><span class="stat-label">収支</span><span class="stat-value ${sc(m.totalM)}">${m.totalM>=0?'+':''}${m.totalM.toLocaleString()}円</span></div>
+          <div class="stat-row"><span class="stat-label">来店</span><span class="stat-value">${m.comeCount}回</span></div>
+          <div class="stat-row"><span class="stat-label">プレイ時間</span><span class="stat-value">${fmtTime(m.playTime)}</span></div>
         </div>
       </div>
+      ${recentHtml}
       <div class="member-charts-section">
         <div class="member-chart-block">
           <div class="stat-block-title">総成績推移</div>
@@ -195,6 +291,7 @@ function renderMemberDetail(m) {
           <div class="chart-wrap-sm"><canvas id="mc-3p"></canvas></div>
         </div>
       </div>
+      ${h2hHtml}
     </div>`;
   if (currentSection === 'member') renderMemberCharts(m.name);
 }
