@@ -814,14 +814,11 @@
   @media(max-width:640px) { .fuyu-tree { width: 180px; } .natsu-deco { width: 170px; } .tsuyu-deco { width: 180px; } }
   .nature-birds { position: absolute; top: 6%; left: 0; width: 100%; opacity: .55; }
   .nature-grass { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 85%; opacity: .5; }
-  .nature-shrub { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 280px; opacity: .4; }
+  .nature-shrub { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 160px; opacity: .42; }
   body[data-season="sakura"] .nature-shrub circle { fill: #ffb7c5 !important; }
-  body[data-season="sakura"] .nature-shrub ellipse:first-child { fill: #5a4040 !important; }
-  body[data-season="tsuyu"]  .nature-shrub circle { fill: #9090d0 !important; }
-  body[data-season="natsu"]  .nature-shrub circle { fill: #3a9028 !important; }
   body[data-season="koyo"]   .nature-shrub circle { fill: #c05820 !important; }
-  body[data-season="fuyu"]   .nature-shrub circle { fill: #d0e8f8 !important; }
-  @media(max-width:640px) { .nature-shrub { width: 180px; } }
+  body[data-season="tsuyu"]  .nature-shrub, body[data-season="natsu"] .nature-shrub, body[data-season="fuyu"] .nature-shrub { display: none; }
+  @media(max-width:640px) { .nature-shrub { width: 110px; } }
   @keyframes leaf-fall {
     0%   { transform: translateY(-20px) rotate(0deg)   translateX(0); }
     25%  { transform: translateY(25vh)  rotate(45deg)  translateX(10px); }
