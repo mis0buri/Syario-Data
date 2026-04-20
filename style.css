@@ -829,7 +829,12 @@
     75%  { transform: translateY(75vh)  rotate(135deg) translateX(-10px); }
     100% { transform: translateY(108vh) rotate(180deg) translateX(0); }
   }
+  @keyframes rain-fall {
+    0%   { transform: translateY(-20px) rotate(10deg); }
+    100% { transform: translateY(108vh) rotate(10deg); }
+  }
   .deco-leaf { position: absolute; top: 0; opacity: .45; animation: leaf-fall linear infinite; }
+  body[data-season="tsuyu"] .deco-leaf { animation-name: rain-fall; animation-duration: 1.4s !important; opacity: .55; }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── TOP PAGE ── */
