@@ -795,6 +795,23 @@
   .sakura-tree { position: absolute; bottom: 0; width: 260px; opacity: .24; }
   .sakura-tree.s-left  { left: -50px; transform: scaleX(-1); }
   .sakura-tree.s-right { right: -50px; }
+  .fuyu-tree, .natsu-deco, .tsuyu-deco { display: none; }
+  .fuyu-tree { position: absolute; bottom: 0; width: 260px; opacity: .28; }
+  .fuyu-tree.f-left  { left: -50px; transform: scaleX(-1); }
+  .fuyu-tree.f-right { right: -50px; }
+  .natsu-deco { position: absolute; bottom: 0; width: 220px; opacity: .26; }
+  .natsu-deco.n-left  { left: -40px; transform: scaleX(-1); }
+  .natsu-deco.n-right { right: -40px; }
+  .tsuyu-deco { position: absolute; bottom: 0; width: 260px; opacity: .26; }
+  .tsuyu-deco.t-left  { left: -30px; transform: scaleX(-1); }
+  .tsuyu-deco.t-right { right: -30px; }
+  body[data-season="fuyu"]  .sakura-tree { display: none; }
+  body[data-season="fuyu"]  .fuyu-tree   { display: block; }
+  body[data-season="natsu"] .sakura-tree { display: none; }
+  body[data-season="natsu"] .natsu-deco  { display: block; }
+  body[data-season="tsuyu"] .sakura-tree { display: none; }
+  body[data-season="tsuyu"] .tsuyu-deco  { display: block; }
+  @media(max-width:640px) { .fuyu-tree { width: 150px; } .natsu-deco { width: 140px; } .tsuyu-deco { width: 150px; } }
   .nature-birds { position: absolute; top: 6%; left: 0; width: 100%; opacity: .3; }
   .nature-grass { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 70%; opacity: .28; }
   @keyframes leaf-fall {
