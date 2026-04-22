@@ -13,6 +13,7 @@ let graphCol = '総成績';
 let chartInstance = null;
 let memberChartInstances = [];
 let currentSection = 'top';
+let _skipHashChange = false;
 
 // ── ユーティリティ ──
 const sc  = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
@@ -129,6 +130,16 @@ const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule'];
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
 let _firestoreSchedule = {};
+// セクションID → URLハッシュ のマッピング（異なる場合のみ記載）
+const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery' };
+// URLハッシュ → セクションID
+const _HASH_TO_SECTION = {
+  '': 'top', top: 'top',
+  ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
+  gallery: 'jare', schedule: 'schedule', board: 'board',
+  renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp',
+};
+
 function showSection(id) {
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -184,6 +195,14 @@ function showSection(id) {
   if (id==='admin-gather') initAdminGather();
   if (id==='admin-score') initAdminScore();
   if (id==='admin-schedule') initAdminSchedule();
+
+  // URL ハッシュを更新（管理者セクションは除く）
+  if (!_ADMIN.includes(id)) {
+    const frag = id in _SECTION_TO_HASH ? _SECTION_TO_HASH[id] : id;
+    _skipHashChange = true;
+    history.replaceState(null, '', frag ? '#' + frag : location.pathname + location.search);
+    _skipHashChange = false;
+  }
 }
 
 // ── トップページ ──
@@ -511,41 +530,32 @@ function initFirebase() {
     console.warn('Firebase init error:', e);
   }
   // ハッシュルーティング
-  const initHash = location.hash;
-  if (initHash.startsWith('#renban/')) {
-    const eventId = initHash.slice(8);
+  _routeHash(location.hash, true);
+
+  window.addEventListener('hashchange', () => {
+    if (_skipHashChange) return;
+    _routeHash(location.hash, false);
+  });
+}
+
+function _routeHash(hash, isInit) {
+  if (hash.startsWith('#renban/')) {
     showSection('renban');
-    initRenban().then(() => openRenbanDetail(eventId));
-  } else if (initHash.startsWith('#jare/')) {
-    const docId = initHash.slice(6);
+    initRenban().then(() => openRenbanDetail(hash.slice(8)));
+  } else if (hash.startsWith('#jare/')) {
     showSection('jare');
     initJare();
-    showJareDetail(docId);
-  } else if (initHash.startsWith('#schedule/')) {
-    const dateStr = initHash.slice(10);
+    showJareDetail(hash.slice(6));
+  } else if (hash.startsWith('#schedule/')) {
     showSection('schedule');
-    renderCalendar().then(() => openDayDetail(dateStr));
-  } else if (initHash === '#boshu') {
-    showSection('boshu');
-  }
-
-  // 同一ページ内でハッシュが変わったときも対応（共有リンクをクリックした場合など）
-  window.addEventListener('hashchange', () => {
-    const h = location.hash;
-    if (h.startsWith('#renban/')) {
-      showSection('renban');
-      initRenban().then(() => openRenbanDetail(h.slice(8)));
-    } else if (h.startsWith('#jare/')) {
-      showSection('jare');
-      initJare();
-      showJareDetail(h.slice(6));
-    } else if (h.startsWith('#schedule/')) {
-      showSection('schedule');
-      renderCalendar().then(() => openDayDetail(h.slice(10)));
-    } else if (h === '#boshu') {
-      showSection('boshu');
+    renderCalendar().then(() => openDayDetail(hash.slice(10)));
+  } else {
+    const key = hash.slice(1); // '#ranking' → 'ranking'
+    if (_HASH_TO_SECTION[key] !== undefined) {
+      showSection(_HASH_TO_SECTION[key]);
     }
-  });
+    // hash が空・未知の場合はトップ（初期表示のまま）
+  }
 }
 
 // ── Firestoreスケジュール上書きデータ読み込み ──
