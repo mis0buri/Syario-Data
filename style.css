@@ -926,7 +926,7 @@
   @media(max-width:640px){
     /* ヘッダー：セーフエリア対応 */
     header { padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); height: 60px; }
-    .logo { font-size: 19px; }
+    .logo { font-size: 19px; display: grid; grid-template-columns: 1fr 1fr; line-height: 1.15; flex-shrink: 0; }
     .logo span { margin-left: 6px; font-size: 11px; }
     /* ナビ：タッチターゲット改善 */
     nav button { font-size: 12px; padding: 8px 10px; }
