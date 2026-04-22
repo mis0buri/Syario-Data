@@ -148,9 +148,85 @@ There is no automated test setup. Changes should be tested by:
 - `.rank-badge` — Colored badges for 1st/2nd/3rd place
 - `.empty` — Placeholder text for empty states
 
+## Seasonal Theme System
+
+背景と配色が日付に応じて自動で切り替わる。`body[data-season="X"]` 属性で制御。
+
+### 季節と期間
+
+| 値 | 季節 | 期間 |
+|----|------|------|
+| `sakura` | 桜 | 3/15〜4/15 |
+| `midori` | 新緑 | 4/16〜6/14 |
+| `tsuyu` | 梅雨 | 6/15〜7/19 |
+| `natsu` | 夏 | 7/20〜9/14 |
+| `koyo` | 紅葉 | 9/15〜11/29 |
+| `fuyu` | 冬 | 11/30〜3/14 |
+| (default) | 通常 | — |
+
+### 主要関数 (app.js)
+
+- `setSeasonTheme()` — 今日の日付から季節を決定し `body.dataset.season` をセット、`_updateDecoParticles()` を呼ぶ
+- `_updateDecoParticles(season)` — `.deco-leaf` 要素のSVG `innerHTML` を季節の粒子形状に差し替える
+  - sakura: 楕円（花びら）/ tsuyu: 雨粒（rect）/ natsu: 星形 / koyo: もみじ / fuyu: 雪の結晶
+- `setSeasonOverride(season)` — 管理者マイページからのプレビュー用、強制的に季節を変更
+
+### 背景デコレーション (index.html + style.css)
+
+`.sakura-deco` div（`#sec-top` 内、`z-index: -1`）に以下の子要素が含まれる：
+
+| クラス | 内容 | 表示季節 |
+|--------|------|----------|
+| `.sakura-tree.s-left/right` | 桜の木（左右対称） | デフォルト・midori・koyo |
+| `.fuyu-tree.f-left/right` | 冬枯れ木（雪付き） | fuyu |
+| `.natsu-deco.n-left/right` | ヒマワリ群 | natsu |
+| `.tsuyu-deco.t-left/right` | アジサイ群 | tsuyu |
+| `.nature-birds` | 鳥（全幅SVG、上部） | 常時 |
+| `.nature-grass` | 草むら（中央下部） | 常時 |
+| `.nature-shrub` | 中央低木 | sakura・midori・koyo |
+| `.deco-leaf` ×10 | 落下パーティクル | natsu以外（natsuは非表示） |
+| `.firework` ×6 | 花火アニメーション | natsuのみ |
+
+**SVG fillの色変更**: CSS `body[data-season="X"] .class circle { fill: #xxx !important; }` で制御。`!important` は SVG presentation attribute を上書きするために必須。
+
+### アニメーション
+
+- `@keyframes leaf-fall` — 左右スウェイしながら落下（tsuyu以外の粒子）
+- `@keyframes rain-fall` — 真っ直ぐ高速落下（tsuyu用、1.4s固定）
+- `@keyframes fw-rocket` — 花火の打ち上げ（下→上へ translateY）
+- `@keyframes fw-explode` — 花火の爆発（`box-shadow` で8方向＋中間方向へ放射）
+
+花火の各要素は CSS カスタムプロパティ `--c`（主色）、`--c2`（副色）、`--delay`、`--d`（周期）、`--h`（打ち上げ高さ、負のvh値）をインラインスタイルで指定。
+
+### 管理者テーマ切り替え
+
+`openMyPage()` → `#mypage-theme-section` に7ボタン表示（管理者のみ）。
+各ボタンは `onclick="setSeasonOverride('X')"` を呼び、ページをリロードせずに即時切り替え。
+
+## Member Stats 強化 (stats.js)
+
+### calcStats() の追加フィールド
+
+- `avgScore4`, `avgScore3` — 平均スコア
+- `bestScore4`, `bestScore4`, `worstScore3`, `worstScore4` — 最高・最低スコア
+- `playTime` — 総プレイ時間（gather の start/end から計算、分単位→時間:分）
+
+### 新関数
+
+- `calcRecentGames(memberName, gathers, n=10)` — 直近N局（チップ除く）を返す。各ゲームは `{date, score, rank, type}` を含む
+- `calcH2H(memberName, gathers)` — 3局以上同卓した相手ごとに `{name, games, rate, score}` を返す（rateは連対率、scoreは同卓時の通算スコア差）
+
+### renderMemberDetail() の追加表示
+
+- 4麻/3麻ブロックに「平均」「最高」「最低」行を追加
+- 総合ブロックに「プレイ時間」を追加（収支は非表示）
+- 「直近N局」セクション: 色付きランクボックスで最近の対局を一覧
+- 「同卓成績」セクション: 相手ごとに勝率バーと通算スコアを表示
+
 ## Debugging Tips
 
 - Check browser console for Firebase errors (auth, network)
 - Open DevTools → Network tab to verify data.json loads
 - Firestore writes fail silently if `_isAdmin` is false; check firestore.rules
 - iOS Safari viewport/zoom issues: check that viewport meta tag is correct and font-size ≥ 16px on inputs
+- 季節テーマが切り替わらない場合: `body.dataset.season` の値をDevToolsで確認、`_updateDecoParticles()` が呼ばれているか確認
