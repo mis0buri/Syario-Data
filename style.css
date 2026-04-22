@@ -833,6 +833,8 @@
   .deco-leaf { position: absolute; top: 0; opacity: .45; animation: leaf-fall linear infinite; }
   body[data-season="tsuyu"] .deco-leaf { animation-name: rain-fall; animation-duration: 1.4s !important; opacity: .55; }
   body[data-season="natsu"] .deco-leaf { display: none; }
+  .deco-rain { display: none; position: absolute; top: 0; opacity: .55; animation: rain-fall linear infinite; animation-duration: 1.4s; }
+  body[data-season="tsuyu"] .deco-rain { display: block; }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── FIREWORKS (夏) ── */
