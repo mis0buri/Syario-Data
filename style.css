@@ -832,7 +832,64 @@
   }
   .deco-leaf { position: absolute; top: 0; opacity: .45; animation: leaf-fall linear infinite; }
   body[data-season="tsuyu"] .deco-leaf { animation-name: rain-fall; animation-duration: 1.4s !important; opacity: .55; }
+  body[data-season="natsu"] .deco-leaf { display: none; }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
+
+  /* ── FIREWORKS (夏) ── */
+  .firework {
+    display: none; position: absolute; bottom: 8%; width: 3px; height: 3px; border-radius: 50%;
+  }
+  body[data-season="natsu"] .firework { display: block; }
+  .firework::before {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: var(--c, #ffdd44);
+    box-shadow: 0 0 4px 2px var(--c, #ffdd44);
+    animation: fw-rocket var(--d, 3.8s) var(--delay, 0s) infinite;
+  }
+  .firework::after {
+    content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 3px; border-radius: 50%;
+    animation: fw-explode var(--d, 3.8s) var(--delay, 0s) infinite;
+  }
+  @keyframes fw-rocket {
+    0%, 100% { transform: translateY(0);               opacity: 0; }
+    5%        { transform: translateY(0);               opacity: 1; }
+    45%       { transform: translateY(var(--h, -54vh)); opacity: 1; }
+    52%       { transform: translateY(var(--h, -54vh)); opacity: 0; }
+  }
+  @keyframes fw-explode {
+    0%, 48% {
+      box-shadow: 0 0 0 0 var(--c, #ffdd44);
+      transform: translateY(var(--h, -54vh)); opacity: 0;
+    }
+    55% {
+      box-shadow: 0 0 3px 3px var(--c, #ffdd44);
+      transform: translateY(var(--h, -54vh)); opacity: 1;
+    }
+    82% {
+      box-shadow:
+        0 -65px 4px var(--c, #ffdd44),   46px -46px 4px var(--c2, #ffaa22),
+        65px 0   4px var(--c, #ffdd44),   46px  46px 4px var(--c2, #ffaa22),
+        0   65px 4px var(--c, #ffdd44),  -46px  46px 4px var(--c2, #ffaa22),
+       -65px 0   4px var(--c, #ffdd44),  -46px -46px 4px var(--c2, #ffaa22),
+        0  -38px 3px var(--c2, #ffaa22),   27px -27px 3px var(--c, #ffdd44),
+        38px 0   3px var(--c2, #ffaa22),   27px  27px 3px var(--c, #ffdd44),
+        0   38px 3px var(--c2, #ffaa22),  -27px  27px 3px var(--c, #ffdd44),
+       -38px 0   3px var(--c2, #ffaa22),  -27px -27px 3px var(--c, #ffdd44);
+      transform: translateY(var(--h, -54vh)); opacity: 0.85;
+    }
+    100% {
+      box-shadow:
+        0 -95px 2px transparent,  67px -67px 2px transparent,
+        95px 0   2px transparent,  67px  67px 2px transparent,
+        0   95px 2px transparent, -67px  67px 2px transparent,
+       -95px 0   2px transparent, -67px -67px 2px transparent,
+        0  -55px 1px transparent,  39px -39px 1px transparent,
+        55px 0   1px transparent,  39px  39px 1px transparent,
+        0   55px 1px transparent, -39px  39px 1px transparent,
+       -55px 0   1px transparent, -39px -39px 1px transparent;
+      transform: translateY(var(--h, -54vh)); opacity: 0;
+    }
+  }
 
   /* ── TOP PAGE ── */
   .top-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
