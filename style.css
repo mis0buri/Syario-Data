@@ -839,8 +839,8 @@
   .midori-bird { display: none; position: absolute; opacity: .58; animation: midori-bird-fly linear infinite; animation-duration: var(--dur, 12s); animation-delay: var(--delay, 0s); }
   .midori-bird.rtl { animation-name: midori-bird-fly-rtl; }
   body[data-season="midori"] .midori-bird { display: block; }
-  @keyframes midori-bird-fly     { 0% { transform: translateX(-60px); } 100% { transform: translateX(calc(100vw + 60px)); } }
-  @keyframes midori-bird-fly-rtl { 0% { transform: translateX(calc(100vw + 60px)); } 100% { transform: translateX(-60px); } }
+  @keyframes midori-bird-fly     { 0% { transform: translateX(-60px) translateY(var(--y0,0px)) rotate(var(--angle,0deg)); } 100% { transform: translateX(calc(100vw + 60px)) translateY(var(--y1,0px)) rotate(var(--angle,0deg)); } }
+  @keyframes midori-bird-fly-rtl { 0% { transform: translateX(calc(100vw + 60px)) translateY(var(--y0,0px)) rotate(var(--angle,0deg)); } 100% { transform: translateX(-60px) translateY(var(--y1,0px)) rotate(var(--angle,0deg)); } }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── FIREWORKS (夏) ── */
