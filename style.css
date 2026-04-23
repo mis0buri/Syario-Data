@@ -835,6 +835,12 @@
   body[data-season="natsu"] .deco-leaf { display: none; }
   .deco-rain { display: none; position: absolute; top: 0; opacity: .55; animation: rain-fall linear infinite; animation-duration: 1.4s; }
   body[data-season="tsuyu"] .deco-rain { display: block; }
+  /* ── MIDORI BIRDS (新緑の青い小鳥) ── */
+  .midori-bird { display: none; position: absolute; opacity: .58; animation: midori-bird-fly linear infinite; animation-duration: var(--dur, 12s); animation-delay: var(--delay, 0s); }
+  .midori-bird.rtl { animation-name: midori-bird-fly-rtl; }
+  body[data-season="midori"] .midori-bird { display: block; }
+  @keyframes midori-bird-fly     { 0% { transform: translateX(-60px); } 100% { transform: translateX(calc(100vw + 60px)); } }
+  @keyframes midori-bird-fly-rtl { 0% { transform: translateX(calc(100vw + 60px)); } 100% { transform: translateX(-60px); } }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── FIREWORKS (夏) ── */
