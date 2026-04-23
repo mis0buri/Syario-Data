@@ -840,7 +840,7 @@
   .midori-bird.rtl { animation-name: midori-bird-fly-rtl; }
   body[data-season="midori"] .midori-bird { display: block; }
   @keyframes midori-bird-fly     { 0% { transform: translateX(-60px); } 100% { transform: translateX(calc(100vw + 60px)); } }
-  @keyframes midori-bird-fly-rtl { 0% { transform: translateX(calc(100vw + 60px)); } 100% { transform: translateX(-60px); } }
+  @keyframes midori-bird-fly-rtl { 0% { transform: translateX(calc(100vw + 60px)) scaleX(-1); } 100% { transform: translateX(-60px) scaleX(-1); } }
   @media(max-width:640px) { .sakura-tree { width: 150px; } .nature-grass { width: 100%; } }
 
   /* ── FIREWORKS (夏) ── */
