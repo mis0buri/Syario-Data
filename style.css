@@ -66,6 +66,16 @@
   body[data-night="true"] .nature-birds path  { stroke: #5a2828 !important; }
   body[data-night="true"] .deco-leaf { display: none; }
   body[data-night="true"] .nature-shrub { display: none; }
+
+  /* ── 背景プレビュー ── */
+  body[data-bg-preview] #sec-top { min-height: calc(100vh - 56px); }
+  body[data-bg-preview] #sec-top > *:not(.sakura-deco) { display: none !important; }
+  body[data-bg-preview] .subnav { display: none !important; }
+  body[data-bg-preview] header { cursor: pointer; }
+  body[data-bg-preview] header::after {
+    content: 'クリックで解除'; position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    font-size: 11px; color: var(--dim); pointer-events: none;
+  }
   .night-deco { display: none; position: absolute; inset: 0; pointer-events: none; }
   body[data-night="true"] .night-deco { display: block; }
   .night-moon {
