@@ -138,8 +138,8 @@ function calcRatings(memberNames, gathers) {
       const players = g.members
         .map((name, i) => ({name, score: m.scores[i], rank: m.ranks[i]}))
         .filter(p => p.score !== null && p.score !== undefined && p.rank !== null);
-      if (players.length < 3) return;
-      const rankPts = players.length === 3 ? RANK_PT_3 : RANK_PT_4;
+      if (players.length !== 4) return;
+      const rankPts = RANK_PT_4;
       // snapshot ratings before applying deltas
       const snap = {};
       players.forEach(p => snap[p.name] = ratings[p.name] ?? INITIAL);
