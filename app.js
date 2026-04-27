@@ -840,4 +840,13 @@ function setNightTheme() {
 }
 setNightTheme();
 
+let _nightOverride = false;
+function setNightOverride() {
+  _nightOverride = !_nightOverride;
+  if (_nightOverride) document.body.dataset.night = 'true';
+  else setNightTheme();
+  const btn = document.getElementById('night-toggle-btn');
+  if (btn) btn.classList.toggle('active', _nightOverride);
+}
+
 document.addEventListener('DOMContentLoaded', initFirebase);
