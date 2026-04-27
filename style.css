@@ -64,7 +64,7 @@
   body[data-night="true"] .sakura-tree circle { fill: #2a1212 !important; }
   body[data-night="true"] .sakura-tree line   { stroke: #3a1818 !important; }
   body[data-night="true"] .nature-grass path  { fill: #180808 !important; }
-  body[data-night="true"] .nature-birds path  { stroke: #5a2828 !important; }
+  body[data-night="true"] .nature-birds { display: none; }
   body[data-night="true"] .deco-leaf { display: none; }
   body[data-night="true"] .nature-shrub { display: none; }
 
