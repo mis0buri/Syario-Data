@@ -60,6 +60,7 @@
     --border: #3a1414; --accent: #cc2828; --text: #f0e0e0; --dim: #8a5050;
     --red: #ff4444; --green: #4a7a60;
   }
+  body[data-night="true"] .sakura-tree { bottom: -80px; }
   body[data-night="true"] .sakura-tree circle { fill: #2a1212 !important; }
   body[data-night="true"] .sakura-tree line   { stroke: #3a1818 !important; }
   body[data-night="true"] .nature-grass path  { fill: #180808 !important; }
