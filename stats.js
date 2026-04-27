@@ -126,8 +126,8 @@ function calcDataPoints(memberName, gathers) {
 // ── レート計算 ──
 function calcRatings(memberNames, gathers) {
   const INITIAL = 1500;
-  const RANK_PT_4 = [15, 5, -5, -15];
-  const RANK_PT_3 = [10, 0, -10];
+  const RANK_PT_4 = [15, 5, -3, -8];
+  const RANK_PT_3 = [10, 2, -5];
   const K = 600;
   const ratings = {};
   memberNames.forEach(n => ratings[n] = INITIAL);
