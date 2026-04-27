@@ -404,7 +404,8 @@ function _renderAdminScheduleList() {
   const listEl = document.getElementById('admin-schedule-list');
   if (!listEl) return;
   // Show all dates from SCHEDULE_DATA (schedule.js base + Firestore overrides merged)
-  const entries = Object.entries(SCHEDULE_DATA).sort(([a],[b]) => a.localeCompare(b));
+  const today = new Date().toISOString().slice(0, 10);
+  const entries = Object.entries(SCHEDULE_DATA).filter(([d]) => d >= today).sort(([a],[b]) => a.localeCompare(b));
   if (!entries.length) {
     listEl.innerHTML = '<div class="admin-empty">スケジュールデータがありません</div>';
     return;
