@@ -145,7 +145,7 @@ function calcRatings(memberNames, gathers) {
       players.forEach(p => snap[p.name] = ratings[p.name] ?? INITIAL);
       const deltas = players.map(p => {
         const rankPt = rankPts[p.rank - 1] ?? 0;
-        const scoreBonus = Math.max(-5, Math.min(5, p.score / 20));
+        const scoreBonus = p.score <= -60 ? -3 : 0;
         const basePt = rankPt + scoreBonus;
         const opps = players.filter(op => op.name !== p.name);
         const avgOpp = opps.reduce((s, op) => s + (snap[op.name] ?? INITIAL), 0) / opps.length;
