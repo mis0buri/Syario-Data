@@ -56,9 +56,15 @@
 
   /* ── 夜テーマ ── */
   body[data-night="true"] {
-    --bg: #060810; --surface: #0c1020; --surface2: #121828;
-    --border: #1e2840; --accent: #90b4e8; --text: #ccd8f0; --dim: #566880;
+    --bg: #080404; --surface: #120808; --surface2: #1c0c0c;
+    --border: #3a1414; --accent: #cc2828; --text: #f0e0e0; --dim: #8a5050;
+    --red: #ff4444; --green: #4a7a60;
   }
+  body[data-night="true"] .sakura-tree circle { fill: #2a1212 !important; }
+  body[data-night="true"] .sakura-tree line   { stroke: #3a1818 !important; }
+  body[data-night="true"] .nature-grass path  { fill: #180808 !important; }
+  body[data-night="true"] .nature-birds path  { stroke: #5a2828 !important; }
+  body[data-night="true"] .deco-leaf { display: none; }
   .night-deco { display: none; position: absolute; inset: 0; pointer-events: none; }
   body[data-night="true"] .night-deco { display: block; }
   .night-moon {
@@ -67,7 +73,7 @@
     filter: drop-shadow(0 0 14px rgba(240,210,70,.55)) drop-shadow(0 0 40px rgba(240,210,70,.2));
   }
   .night-star {
-    position: absolute; border-radius: 50%; background: #dde8ff;
+    position: absolute; border-radius: 50%; background: #f0d8d8;
     animation: night-twinkle var(--d, 2s) var(--delay, 0s) ease-in-out infinite alternate;
   }
   @keyframes night-twinkle {

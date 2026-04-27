@@ -833,18 +833,26 @@ function setSeasonOverride(season) {
 }
 setSeasonTheme();
 
+function _applyNight() {
+  document.body.dataset.night = 'true';
+  delete document.body.dataset.season;
+}
+function _removeNight() {
+  delete document.body.dataset.night;
+  setSeasonTheme();
+}
 function setNightTheme() {
   const h = new Date().getHours();
-  if (h >= 20 || h < 5) document.body.dataset.night = 'true';
-  else delete document.body.dataset.night;
+  if (h >= 20 || h < 5) _applyNight();
+  else _removeNight();
 }
 setNightTheme();
 
 let _nightOverride = false;
 function setNightOverride() {
   _nightOverride = !_nightOverride;
-  if (_nightOverride) document.body.dataset.night = 'true';
-  else setNightTheme();
+  if (_nightOverride) _applyNight();
+  else _removeNight();
   const btn = document.getElementById('night-toggle-btn');
   if (btn) btn.classList.toggle('active', _nightOverride);
 }
