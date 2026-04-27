@@ -126,8 +126,8 @@ function calcDataPoints(memberName, gathers) {
 // ── レート計算 ──
 function calcRatings(memberNames, gathers) {
   const INITIAL = 1500;
-  const RANK_PT_4 = [15, 5, -3, -8];
-  const RANK_PT_3 = [10, 2, -5];
+  const RANK_PT_4 = [15, 5, -5, -15];
+  const RANK_PT_3 = [10, 0, -10];
   const K = 600;
   const ratings = {};
   memberNames.forEach(n => ratings[n] = INITIAL);
@@ -145,7 +145,7 @@ function calcRatings(memberNames, gathers) {
       players.forEach(p => snap[p.name] = ratings[p.name] ?? INITIAL);
       const deltas = players.map(p => {
         const rankPt = rankPts[p.rank - 1] ?? 0;
-        const scoreBonus = Math.max(-5, Math.min(5, p.score / 20));
+        const scoreBonus = Math.max(0, Math.min(5, p.score / 20));
         const basePt = rankPt + scoreBonus;
         const opps = players.filter(op => op.name !== p.name);
         const avgOpp = opps.reduce((s, op) => s + (snap[op.name] ?? INITIAL), 0) / opps.length;
