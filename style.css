@@ -294,6 +294,7 @@
   .rank-badge.rn { background:var(--surface2); color:var(--dim); }
   .pos { color: var(--green); } .neg { color: var(--red); }
   .name-cell { font-weight: 700; font-size: 14px; }
+  .rate-cell { font-weight: 700; font-variant-numeric: tabular-nums; }
 
   /* MEMBER SORT */
   .member-sort-wrap { display:flex; align-items:center; gap:8px; margin-bottom:12px; }

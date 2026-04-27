@@ -123,22 +123,62 @@ function calcDataPoints(memberName, gathers) {
   return r;
 }
 
+// ── レート計算 ──
+function calcRatings(memberNames, gathers) {
+  const INITIAL = 1500;
+  const RANK_PT_4 = [15, 5, -5, -15];
+  const RANK_PT_3 = [10, 0, -10];
+  const K = 600;
+  const ratings = {};
+  memberNames.forEach(n => ratings[n] = INITIAL);
+
+  [...gathers].sort((a, b) => a.date.localeCompare(b.date)).forEach(g => {
+    g.matches.forEach(m => {
+      if (m.isChip) return;
+      const players = g.members
+        .map((name, i) => ({name, score: m.scores[i], rank: m.ranks[i]}))
+        .filter(p => p.score !== null && p.score !== undefined && p.rank !== null);
+      if (players.length < 3) return;
+      const rankPts = players.length === 3 ? RANK_PT_3 : RANK_PT_4;
+      // snapshot ratings before applying deltas
+      const snap = {};
+      players.forEach(p => snap[p.name] = ratings[p.name] ?? INITIAL);
+      const deltas = players.map(p => {
+        const rankPt = rankPts[p.rank - 1] ?? 0;
+        const scoreBonus = Math.max(-5, Math.min(5, p.score / 20));
+        const basePt = rankPt + scoreBonus;
+        const opps = players.filter(op => op.name !== p.name);
+        const avgOpp = opps.reduce((s, op) => s + (snap[op.name] ?? INITIAL), 0) / opps.length;
+        const multiplier = Math.max(0.8, Math.min(1.3, 1 + (avgOpp - snap[p.name]) / K));
+        return {name: p.name, delta: basePt * multiplier};
+      });
+      deltas.forEach(d => { if (ratings[d.name] !== undefined) ratings[d.name] += d.delta; });
+    });
+  });
+  return ratings;
+}
+
 // ── リフレッシュ ──
 function refresh() {
   const gathers = filteredGathers();
   const stats = DATA.members.map(m=>calcStats(m.name, gathers));
-  buildRanking(stats);
+  const ratings = calcRatings(DATA.members.map(m=>m.name), DATA.gathers || []);
+  buildRanking(stats, ratings);
   buildMemberButtons(stats, gathers);
   buildHistory(gathers);
   if (currentSection==='graph') renderChart(gathers);
 }
 
-function buildRanking(stats) {
+function buildRanking(stats, ratings={}) {
   document.getElementById('tbody-ranking').innerHTML =
     [...stats].sort((a,b)=>b.allTotal-a.allTotal).map((m,i)=>{
       const r=i+1;
+      const rate = ratings[m.name];
+      const rateTxt = rate !== undefined ? Math.round(rate) : '-';
+      const rateCls = rate === undefined ? '' : rate >= 1500 ? 'pos' : 'neg';
       return `<tr>
         <td>${rankBadge(r)}</td><td class="name-cell">${m.name}</td>
+        <td class="rate-cell ${rateCls}">${rateTxt}</td>
         <td class="${sc(m.allTotal)}">${fmt(m.allTotal)}</td>
         <td class="${sc(m.total4)}">${fmt(m.total4)}</td>
         <td class="${sc(m.total3)}">${fmt(m.total3)}</td>
