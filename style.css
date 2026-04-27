@@ -65,6 +65,7 @@
   body[data-night="true"] .nature-grass path  { fill: #180808 !important; }
   body[data-night="true"] .nature-birds path  { stroke: #5a2828 !important; }
   body[data-night="true"] .deco-leaf { display: none; }
+  body[data-night="true"] .nature-shrub { display: none; }
   .night-deco { display: none; position: absolute; inset: 0; pointer-events: none; }
   body[data-night="true"] .night-deco { display: block; }
   .night-moon {
