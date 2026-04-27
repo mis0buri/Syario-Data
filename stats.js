@@ -178,8 +178,8 @@ function buildRanking(stats, ratings={}) {
       const rateCls = rate === undefined ? '' : rate >= 1500 ? 'pos' : 'neg';
       return `<tr>
         <td>${rankBadge(r)}</td><td class="name-cell">${m.name}</td>
-        <td class="rate-cell ${rateCls}">${rateTxt}</td>
         <td class="${sc(m.allTotal)}">${fmt(m.allTotal)}</td>
+        <td class="rate-cell ${rateCls}">${rateTxt}</td>
         <td class="${sc(m.total4)}">${fmt(m.total4)}</td>
         <td class="${sc(m.total3)}">${fmt(m.total3)}</td>
         <td>${m.matchCount4}</td><td>${m.matchCount3}</td><td>${m.matchCount4+m.matchCount3}</td><td>${fmtPct(m.rentairitsu)}</td>
