@@ -54,6 +54,27 @@
   body[data-season="fuyu"] .nature-grass path  { fill: #404858 !important; }
   body[data-season="fuyu"] .nature-birds path  { stroke: #6080a0 !important; }
 
+  /* ── 夜テーマ ── */
+  body[data-night="true"] {
+    --bg: #060810; --surface: #0c1020; --surface2: #121828;
+    --border: #1e2840; --accent: #90b4e8; --text: #ccd8f0; --dim: #566880;
+  }
+  .night-deco { display: none; position: absolute; inset: 0; pointer-events: none; }
+  body[data-night="true"] .night-deco { display: block; }
+  .night-moon {
+    position: absolute; top: 3%; right: 16%;
+    width: 88px; height: 88px;
+    filter: drop-shadow(0 0 14px rgba(240,210,70,.55)) drop-shadow(0 0 40px rgba(240,210,70,.2));
+  }
+  .night-star {
+    position: absolute; border-radius: 50%; background: #dde8ff;
+    animation: night-twinkle var(--d, 2s) var(--delay, 0s) ease-in-out infinite alternate;
+  }
+  @keyframes night-twinkle {
+    from { opacity: .12; transform: scale(.7); }
+    to   { opacity: .88; transform: scale(1.4); }
+  }
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; overflow-x: hidden; }
   html { overflow-x: hidden; }

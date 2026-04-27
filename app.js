@@ -833,4 +833,11 @@ function setSeasonOverride(season) {
 }
 setSeasonTheme();
 
+function setNightTheme() {
+  const h = new Date().getHours();
+  if (h >= 20 || h < 5) document.body.dataset.night = 'true';
+  else delete document.body.dataset.night;
+}
+setNightTheme();
+
 document.addEventListener('DOMContentLoaded', initFirebase);

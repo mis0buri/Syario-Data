@@ -110,6 +110,38 @@
 
   <!-- 桜の木デコレーション（いらすとや等の画像URLがあれば src に差し替え可） -->
   <div class="sakura-deco" aria-hidden="true">
+    <!-- 夜：三日月と星 -->
+    <div class="night-deco">
+      <svg class="night-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+        <defs>
+          <radialGradient id="moonGrad" cx="36%" cy="32%" r="68%">
+            <stop offset="0%" stop-color="#fffef0"/>
+            <stop offset="55%" stop-color="#f4e060"/>
+            <stop offset="100%" stop-color="#c8a028"/>
+          </radialGradient>
+          <mask id="moonMask">
+            <rect width="120" height="120" fill="white"/>
+            <circle cx="76" cy="42" r="54" fill="black"/>
+          </mask>
+        </defs>
+        <circle cx="50" cy="60" r="50" fill="url(#moonGrad)" mask="url(#moonMask)" opacity="0.92"/>
+      </svg>
+      <div class="night-star" style="top:6%;left:12%;width:2px;height:2px;--d:2.1s;--delay:0.3s"></div>
+      <div class="night-star" style="top:4%;left:28%;width:1px;height:1px;--d:1.8s;--delay:1.2s"></div>
+      <div class="night-star" style="top:10%;left:42%;width:2px;height:2px;--d:2.5s;--delay:0.7s"></div>
+      <div class="night-star" style="top:5%;left:55%;width:1px;height:1px;--d:1.6s;--delay:0s"></div>
+      <div class="night-star" style="top:8%;left:70%;width:2px;height:2px;--d:2.3s;--delay:1.8s"></div>
+      <div class="night-star" style="top:3%;left:84%;width:1px;height:1px;--d:2.0s;--delay:0.5s"></div>
+      <div class="night-star" style="top:15%;left:8%;width:1px;height:1px;--d:1.9s;--delay:2.1s"></div>
+      <div class="night-star" style="top:18%;left:22%;width:2px;height:2px;--d:2.2s;--delay:0.9s"></div>
+      <div class="night-star" style="top:12%;left:50%;width:1px;height:1px;--d:1.7s;--delay:1.5s"></div>
+      <div class="night-star" style="top:20%;left:64%;width:2px;height:2px;--d:2.4s;--delay:0.2s"></div>
+      <div class="night-star" style="top:14%;left:78%;width:1px;height:1px;--d:1.8s;--delay:2.4s"></div>
+      <div class="night-star" style="top:7%;left:35%;width:3px;height:3px;--d:2.6s;--delay:0.6s"></div>
+      <div class="night-star" style="top:24%;left:5%;width:2px;height:2px;--d:1.5s;--delay:1.7s"></div>
+      <div class="night-star" style="top:11%;left:93%;width:2px;height:2px;--d:2.1s;--delay:2.8s"></div>
+      <div class="night-star" style="top:22%;left:88%;width:1px;height:1px;--d:1.9s;--delay:0.4s"></div>
+    </div>
     <svg class="sakura-tree s-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
       <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
       <line x1="100" y1="255" x2="58"  y2="172" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
