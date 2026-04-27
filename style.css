@@ -74,12 +74,17 @@
     filter: drop-shadow(0 0 14px rgba(240,210,70,.55)) drop-shadow(0 0 40px rgba(240,210,70,.2));
   }
   .night-star {
-    position: absolute; border-radius: 50%; background: #f0d8d8;
-    animation: night-twinkle var(--d, 2s) var(--delay, 0s) ease-in-out infinite alternate;
+    position: absolute; border-radius: 50%; background: #fff4ee;
+    animation-name: night-twinkle;
+    animation-duration: var(--d, 2s);
+    animation-delay: var(--delay, 0s);
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
   }
   @keyframes night-twinkle {
-    from { opacity: .12; transform: scale(.7); }
-    to   { opacity: .88; transform: scale(1.4); }
+    from { opacity: .04; transform: scale(.25); box-shadow: 0 0 0 rgba(255,240,220,0); }
+    to   { opacity: 1;   transform: scale(1.7); box-shadow: 0 0 8px 3px rgba(255,230,200,.75); }
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
