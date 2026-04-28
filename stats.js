@@ -123,14 +123,13 @@ function calcDataPoints(memberName, gathers) {
   return r;
 }
 
-// ── レート計算 ──
+// ── レート計算 (MSM方式) ──
 function calcRatings(memberNames, gathers) {
   const INITIAL = 1500;
-  const RANK_PT_4 = [15, 5, -5, -15];
-  const RANK_PT_3 = [10, 0, -10];
-  const K = 600;
+  const RANK_PT_4 = [30, 10, -10, -30];
   const ratings = {};
-  memberNames.forEach(n => ratings[n] = INITIAL);
+  const matchCounts = {};
+  memberNames.forEach(n => { ratings[n] = INITIAL; matchCounts[n] = 0; });
 
   [...gathers].sort((a, b) => a.date.localeCompare(b.date)).forEach(g => {
     g.matches.forEach(m => {
@@ -139,20 +138,22 @@ function calcRatings(memberNames, gathers) {
         .map((name, i) => ({name, score: m.scores[i], rank: m.ranks[i]}))
         .filter(p => p.score !== null && p.score !== undefined && p.rank !== null);
       if (players.length !== 4) return;
-      const rankPts = RANK_PT_4;
-      // snapshot ratings before applying deltas
       const snap = {};
       players.forEach(p => snap[p.name] = ratings[p.name] ?? INITIAL);
+      // 卓の平均R（全員）、1500未満は1500に切り上げ
+      const tableAvg = Math.max(1500,
+        players.reduce((s, p) => s + (snap[p.name] ?? INITIAL), 0) / 4
+      );
       const deltas = players.map(p => {
-        const rankPt = rankPts[p.rank - 1] ?? 0;
-        const scoreBonus = p.score >= 90 ? 5 : p.score >= 80 ? 4 : p.score >= 70 ? 3 : p.score >= 60 ? 2 : p.score >= 50 ? 1 : p.score <= -60 ? -3 : 0;
-        const basePt = rankPt + scoreBonus;
-        const opps = players.filter(op => op.name !== p.name);
-        const avgOpp = opps.reduce((s, op) => s + (snap[op.name] ?? INITIAL), 0) / opps.length;
-        const multiplier = Math.max(0.8, Math.min(1.3, 1 + (avgOpp - snap[p.name]) / K));
-        return {name: p.name, delta: basePt * multiplier};
+        const rankPt = RANK_PT_4[p.rank - 1] ?? 0;
+        const correction = (tableAvg - (snap[p.name] ?? INITIAL)) / 40;
+        const n = matchCounts[p.name] ?? 0;
+        const matchCorr = n < 400 ? 1 - n * 0.002 : 0.2;
+        const raw = matchCorr * (rankPt + correction);
+        return {name: p.name, delta: Math.ceil(raw * 100) / 100};
       });
       deltas.forEach(d => { if (ratings[d.name] !== undefined) ratings[d.name] += d.delta; });
+      players.forEach(p => { if (matchCounts[p.name] !== undefined) matchCounts[p.name]++; });
     });
   });
   return ratings;
