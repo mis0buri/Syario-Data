@@ -56,14 +56,14 @@
 
   /* ── 夜テーマ ── */
   body[data-night="true"] {
-    --bg: #080404; --surface: #120808; --surface2: #1c0c0c;
-    --border: #3a1414; --accent: #cc2828; --text: #f0e0e0; --dim: #8a5050;
-    --red: #ff4444; --green: #4a7a60;
+    --bg: #070707; --surface: #0e0e0e; --surface2: #161616;
+    --border: #261414; --accent: #c89610; --text: #ede8df; --dim: #7a6848;
+    --red: #cc3030; --green: #4a7a60;
   }
   body[data-night="true"] .sakura-tree { bottom: -80px; }
-  body[data-night="true"] .sakura-tree circle { fill: #2a1212 !important; }
-  body[data-night="true"] .sakura-tree line   { stroke: #3a1818 !important; }
-  body[data-night="true"] .nature-grass path  { fill: #180808 !important; }
+  body[data-night="true"] .sakura-tree circle { fill: #111111 !important; }
+  body[data-night="true"] .sakura-tree line   { stroke: #181818 !important; }
+  body[data-night="true"] .nature-grass path  { fill: #0c0808 !important; }
   body[data-night="true"] .nature-birds { display: none; }
   body[data-night="true"] .deco-leaf { display: none; }
   body[data-night="true"] .nature-shrub { display: none; }
@@ -85,7 +85,7 @@
     filter: drop-shadow(0 0 14px rgba(240,210,70,.55)) drop-shadow(0 0 40px rgba(240,210,70,.2));
   }
   .night-star {
-    position: absolute; border-radius: 50%; background: #fff4ee;
+    position: absolute; border-radius: 50%; background: #f0d890;
     animation-name: night-twinkle;
     animation-duration: var(--d, 2s);
     animation-delay: var(--delay, 0s);
@@ -105,8 +105,8 @@
     to   { transform: translateX(calc(100vw + 220px)); }
   }
   @keyframes night-twinkle {
-    from { opacity: .04; transform: scale(.25); box-shadow: 0 0 0 rgba(255,240,220,0); }
-    to   { opacity: 1;   transform: scale(1.7); box-shadow: 0 0 8px 3px rgba(255,230,200,.75); }
+    from { opacity: .04; transform: scale(.25); box-shadow: 0 0 0 rgba(220,180,40,0); }
+    to   { opacity: 1;   transform: scale(1.7); box-shadow: 0 0 8px 3px rgba(220,180,40,.7); }
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
