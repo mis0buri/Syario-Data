@@ -162,8 +162,8 @@ function calcRatings(memberNames, gathers) {
 // ── リフレッシュ ──
 function refresh() {
   const gathers = filteredGathers();
-  const stats = DATA.members.map(m=>calcStats(m.name, gathers));
   const ratings = calcRatings(DATA.members.map(m=>m.name), DATA.gathers || []);
+  const stats = DATA.members.map(m => { const s = calcStats(m.name, gathers); s.rating = ratings[m.name] ?? 1500; return s; });
   buildRanking(stats, ratings);
   buildMemberButtons(stats, gathers);
   buildHistory(gathers);
@@ -194,20 +194,23 @@ function buildRanking(stats, ratings={}) {
 function memberSortFn(a, b) {
   if (memberSortKey === 'name') return a.name.localeCompare(b.name, 'ja');
   if (memberSortKey === 'matchCount') return (b.matchCount4+b.matchCount3) - (a.matchCount4+a.matchCount3);
+  if (memberSortKey === 'rating') return (b.rating ?? 1500) - (a.rating ?? 1500);
   return b[memberSortKey] - a[memberSortKey];
 }
 
 function onMemberSortChange(val) {
   memberSortKey = val;
   const g = filteredGathers();
-  const stats = DATA.members.map(m => calcStats(m.name, g));
+  const ratings = calcRatings(DATA.members.map(m=>m.name), DATA.gathers || []);
+  const stats = DATA.members.map(m => { const s = calcStats(m.name, g); s.rating = ratings[m.name] ?? 1500; return s; });
   buildMemberButtons(stats, g);
 }
 
 function memberSortDisplay(m) {
-  if (memberSortKey === 'total4')    return { val: fmt(m.total4),  cls: sc(m.total4) };
-  if (memberSortKey === 'total3')    return { val: fmt(m.total3),  cls: sc(m.total3) };
+  if (memberSortKey === 'total4')  return { val: fmt(m.total4),  cls: sc(m.total4) };
+  if (memberSortKey === 'total3')  return { val: fmt(m.total3),  cls: sc(m.total3) };
   if (memberSortKey === 'matchCount') return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
+  if (memberSortKey === 'rating')  return { val: Math.round(m.rating), cls: m.rating >= 1500 ? 'pos' : 'neg' };
   return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
 }
 
