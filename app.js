@@ -415,6 +415,7 @@ async function _mergeFirestoreGathers() {
     const fsGathers = snap.docs.map(d => d.data()).filter(g => g.date && Array.isArray(g.members));
     if (!fsGathers.length) return;
     DATA.gathers = [...(DATA.gathers || []), ...fsGathers];
+    initPeriod();
     refresh();
   } catch(e) {
     _fsGathersMerged = false;
