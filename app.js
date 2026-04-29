@@ -50,6 +50,7 @@ async function loadData() {
   initPeriod();
   initGraphControls();
   refresh();
+  _mergeFirestoreGathers();
   // data.json 読み込み完了後にハッシュルーティングが未適用なら再適用
   // （キャッシュ済みデータが DOMContentLoaded より先に返った場合の保険）
   if (location.hash === '#boshu' && currentSection !== 'boshu') {
@@ -405,7 +406,21 @@ async function initTopPage() {
   }
 }
 
-
+let _fsGathersMerged = false;
+async function _mergeFirestoreGathers() {
+  if (!_db || !DATA || _fsGathersMerged) return;
+  _fsGathersMerged = true;
+  try {
+    const snap = await _db.collection('admin_gathers').orderBy('date', 'asc').get();
+    const fsGathers = snap.docs.map(d => d.data()).filter(g => g.date && Array.isArray(g.members));
+    if (!fsGathers.length) return;
+    DATA.gathers = [...(DATA.gathers || []), ...fsGathers];
+    refresh();
+  } catch(e) {
+    _fsGathersMerged = false;
+    console.warn('admin_gathers merge failed:', e);
+  }
+}
 
 loadData();
 
@@ -520,6 +535,7 @@ function initFirebase() {
       firebase.initializeApp(FIREBASE_CONFIG);
       _db = firebase.firestore();
       _auth = firebase.auth();
+      _mergeFirestoreGathers();
       _auth.onAuthStateChanged(user => {
         _currentUser = user;
         updateAuthUI(user);
