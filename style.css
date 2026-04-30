@@ -672,6 +672,17 @@
     border-radius:4px; font-size:11px; color:var(--accent); padding:2px 8px;
   }
   .renban-empty { text-align:center; padding:48px 0; color:var(--dim); font-size:14px; }
+  .renban-expired-section { margin-top:16px; }
+  .renban-expired-toggle {
+    background:none; border:none; cursor:pointer;
+    font-size:12px; color:var(--dim); padding:4px 8px;
+    opacity:.65; transition:opacity .15s;
+  }
+  .renban-expired-toggle::before { content:'▶ '; font-size:10px; }
+  .renban-expired-toggle.open::before { content:'▼ '; }
+  .renban-expired-toggle:hover { opacity:1; }
+  #renban-expired-list .renban-item { opacity:.5; }
+  #renban-expired-list .renban-item:hover { opacity:.8; border-color:var(--border); }
   /* 募集一覧 */
   .boshu-section { margin-bottom:28px; }
   .boshu-section:last-child { margin-bottom:0; }
