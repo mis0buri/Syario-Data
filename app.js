@@ -65,7 +65,7 @@ function initPeriod() {
   const dates = DATA.gathers.map(g=>g.date).sort();
   if (!dates.length) return;
   filterStart = toDate(dates[0]);
-  filterEnd   = toDate(dates[dates.length-1]);
+  filterEnd   = new Date();
   document.getElementById('filter-start').value = dateStr(filterStart);
   document.getElementById('filter-end').value   = dateStr(filterEnd);
 
