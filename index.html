@@ -701,7 +701,8 @@
         </div>
       </div>
       <div id="admin-status-gather" class="admin-status"></div>
-      <button class="admin-btn primary" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <button class="admin-btn primary" id="admin-gather-submit" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <button class="admin-btn" id="admin-gather-cancel" style="width:100%;margin-bottom:8px;display:none;" onclick="_cancelEditGather()">キャンセル</button>
       <hr class="admin-divider">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px;">登録済みの対局</div>
       <div id="admin-gather-list" class="admin-gather-list">

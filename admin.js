@@ -2,6 +2,7 @@
 let _adminMembers = null;
 let _adminGathersCache = [];
 let _adminCurrentGatherId = null;
+let _editingGatherId = null;
 
 async function _loadAdminMembers() {
   if (!_db) return (DATA && DATA.members) ? DATA.members.map(m=>m.name) : [];
@@ -170,7 +171,10 @@ function _renderAdminGatherList() {
           <div class="admin-gather-meta">${_esc(memberStr)}</div>
           <div class="admin-gather-meta">${matchCnt}半荘</div>
         </div>
-        <button class="admin-btn sm danger" style="flex-shrink:0;" onclick="deleteAdminGather('${g.id}')">削除</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="admin-btn sm" onclick="editAdminGather('${g.id}')">編集</button>
+          <button class="admin-btn sm danger" onclick="deleteAdminGather('${g.id}')">削除</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -194,25 +198,65 @@ async function submitAdminGather() {
   const start = document.getElementById('admin-gather-start').value;
   const end   = document.getElementById('admin-gather-end').value;
   const rate  = parseInt(document.getElementById('admin-gather-rate').value) || 0;
-  statusEl.textContent = '登録中...';
+  statusEl.textContent = _editingGatherId ? '更新中...' : '登録中...';
   statusEl.className = 'admin-status';
   try {
-    await _db.collection('admin_gathers').add({
-      date, start, end, rate, members, matches: [],
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    statusEl.textContent = '登録しました ✓';
-    statusEl.className = 'admin-status ok';
-    document.getElementById('admin-gather-date').value = '';
-    document.getElementById('admin-gather-start').value = '';
-    document.getElementById('admin-gather-end').value = '';
-    document.getElementById('admin-gather-rate').value = '';
-    document.querySelectorAll('.admin-gather-member-cb').forEach(cb => cb.checked = false);
+    if (_editingGatherId) {
+      await _db.collection('admin_gathers').doc(_editingGatherId).update({ date, start, end, rate, members });
+      const idx = _adminGathersCache.findIndex(g => g.id === _editingGatherId);
+      if (idx >= 0) _adminGathersCache[idx] = { ..._adminGathersCache[idx], date, start, end, rate, members };
+      statusEl.textContent = '更新しました ✓';
+      statusEl.className = 'admin-status ok';
+      _cancelEditGather();
+    } else {
+      await _db.collection('admin_gathers').add({
+        date, start, end, rate, members, matches: [],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      statusEl.textContent = '登録しました ✓';
+      statusEl.className = 'admin-status ok';
+      document.getElementById('admin-gather-date').value = '';
+      document.getElementById('admin-gather-start').value = '';
+      document.getElementById('admin-gather-end').value = '';
+      document.getElementById('admin-gather-rate').value = '';
+      document.querySelectorAll('.admin-gather-member-cb').forEach(cb => cb.checked = false);
+    }
     await _reloadAdminGatherList();
   } catch(e) {
     statusEl.textContent = 'エラー: ' + e.message;
     statusEl.className = 'admin-status error';
   }
+}
+
+function editAdminGather(id) {
+  const g = _adminGathersCache.find(g => g.id === id);
+  if (!g) return;
+  _editingGatherId = id;
+  document.getElementById('admin-gather-date').value  = g.date  || '';
+  document.getElementById('admin-gather-start').value = g.start || '';
+  document.getElementById('admin-gather-end').value   = g.end   || '';
+  document.getElementById('admin-gather-rate').value  = g.rate  || '';
+  document.querySelectorAll('.admin-gather-member-cb').forEach(cb => {
+    cb.checked = (g.members || []).includes(cb.value);
+  });
+  document.getElementById('admin-gather-submit').textContent = '更新する';
+  document.getElementById('admin-gather-cancel').style.display = '';
+  const statusEl = document.getElementById('admin-status-gather');
+  statusEl.textContent = '編集中: ' + g.date;
+  statusEl.className = 'admin-status';
+  document.getElementById('admin-gather-date').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function _cancelEditGather() {
+  _editingGatherId = null;
+  document.getElementById('admin-gather-date').value  = '';
+  document.getElementById('admin-gather-start').value = '';
+  document.getElementById('admin-gather-end').value   = '';
+  document.getElementById('admin-gather-rate').value  = '';
+  document.querySelectorAll('.admin-gather-member-cb').forEach(cb => cb.checked = false);
+  document.getElementById('admin-gather-submit').textContent = '登録する';
+  document.getElementById('admin-gather-cancel').style.display = 'none';
+  document.getElementById('admin-status-gather').textContent = '';
 }
 
 async function deleteAdminGather(id) {
