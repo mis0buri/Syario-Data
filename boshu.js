@@ -94,11 +94,13 @@ function _boshuRender() {
 
   // ── 連番募集 ──
   const renbanEl = document.getElementById('boshu-renban-list');
-  if (!renbanEvents.length) {
+  const activeRenban  = renbanEvents.filter(ev => !_isRenbanExpired(ev, todayJST));
+  const expiredRenban = renbanEvents.filter(ev =>  _isRenbanExpired(ev, todayJST));
+
+  if (!activeRenban.length) {
     renbanEl.innerHTML = '<div class="renban-empty">現在募集中のイベントはありません</div>';
   } else {
-    renbanEl.innerHTML = renbanEvents.map(ev => {
-      const expired     = ev.deadline ? new Date(ev.deadline + 'T00:00:00+09:00') < todayJST : false;
+    renbanEl.innerHTML = activeRenban.map(ev => {
       const maxStr      = ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし';
       const deadlineStr = ev.deadline || '期限なし';
       const key         = `renban:${ev.id}`;
@@ -108,7 +110,7 @@ function _boshuRender() {
       const chk         = sm ? `<span class="boshu-check-icon">${isSelected ? '☑' : '☐'}</span>` : '';
       return `<div class="renban-item${selCls}" onclick="${onclick}" style="${sm ? 'display:flex;align-items:flex-start;gap:10px;' : ''}">
         ${chk}<div style="${sm ? 'flex:1;min-width:0' : ''}">
-          <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
+          <div class="renban-item-title">${escHtml(ev.title)}</div>
           <div class="renban-item-meta">
             ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
             <span>📅 ${escHtml((ev.dates && ev.dates.length ? ev.dates : [ev.date]).join(', '))}</span>
@@ -121,6 +123,12 @@ function _boshuRender() {
         </div>
       </div>`;
     }).join('');
+  }
+
+  if (expiredRenban.length) {
+    renbanEl.innerHTML += `<div class="renban-expired-section">
+      <button class="renban-expired-toggle" onclick="openBoshuExpiredList()">期限切れ一覧 (${expiredRenban.length}件)</button>
+    </div>`;
   }
 
   // ── 予約 ──
@@ -159,6 +167,19 @@ function _boshuRender() {
   }
 }
 
+function openBoshuExpiredList() {
+  if (!_boshuCache) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  _rbExpiredEvents = _boshuCache.renbanEvents
+    .filter(ev => _isRenbanExpired(ev, today))
+    .sort((a, b) => {
+      const da = (a.dates && a.dates.length) ? a.dates[0] : (a.date || '');
+      const db = (b.dates && b.dates.length) ? b.dates[0] : (b.date || '');
+      return db.localeCompare(da);
+    });
+  openRenbanExpiredList();
+}
+
 // ── 選択モード操作 ──
 function enterBoshuSelectMode() {
   _boshuSelectMode = true;
@@ -186,15 +207,18 @@ function _boshuUpdateCount() {
   if (el)  el.textContent = `${_boshuSelected.size}件選択中`;
   if (btn) btn.disabled   = _boshuSelected.size === 0;
   if (allBtn && _boshuCache) {
-    const total = _boshuCache.renbanEvents.length + _boshuCache.rsvGroups.length;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const activeRenbanCount = _boshuCache.renbanEvents.filter(ev => !_isRenbanExpired(ev, today)).length;
+    const total = activeRenbanCount + _boshuCache.rsvGroups.length;
     allBtn.textContent = (total > 0 && _boshuSelected.size === total) ? '全解除' : '全選択';
   }
 }
 
 function toggleBoshuSelectAll() {
   if (!_boshuCache) return;
+  const today = new Date(); today.setHours(0,0,0,0);
   const allKeys = [
-    ..._boshuCache.renbanEvents.map(ev => `renban:${ev.id}`),
+    ..._boshuCache.renbanEvents.filter(ev => !_isRenbanExpired(ev, today)).map(ev => `renban:${ev.id}`),
     ..._boshuCache.rsvGroups.map(g  => `rsv:${g.date}`),
   ];
   const allSelected = allKeys.length > 0 && allKeys.every(k => _boshuSelected.has(k));

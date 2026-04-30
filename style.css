@@ -672,17 +672,13 @@
     border-radius:4px; font-size:11px; color:var(--accent); padding:2px 8px;
   }
   .renban-empty { text-align:center; padding:48px 0; color:var(--dim); font-size:14px; }
-  .renban-expired-section { margin-top:16px; }
+  .renban-expired-section { margin-top:12px; text-align:right; }
   .renban-expired-toggle {
     background:none; border:none; cursor:pointer;
-    font-size:12px; color:var(--dim); padding:4px 8px;
-    opacity:.65; transition:opacity .15s;
+    font-size:11px; color:var(--dim); padding:4px 8px;
+    opacity:.6; transition:opacity .15s; text-decoration:underline; text-underline-offset:2px;
   }
-  .renban-expired-toggle::before { content:'▶ '; font-size:10px; }
-  .renban-expired-toggle.open::before { content:'▼ '; }
   .renban-expired-toggle:hover { opacity:1; }
-  #renban-expired-list .renban-item { opacity:.5; }
-  #renban-expired-list .renban-item:hover { opacity:.8; border-color:var(--border); }
   /* 募集一覧 */
   .boshu-section { margin-bottom:28px; }
   .boshu-section:last-child { margin-bottom:0; }
@@ -725,6 +721,10 @@
   .rb-title { font-family:'Noto Serif JP',serif; font-size:16px; color:var(--accent); letter-spacing:.1em; }
   .rb-close { background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all .2s; }
   .rb-close:hover { color:var(--text); background:var(--surface2); }
+  .rb-back { background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all .2s; margin-right:4px; }
+  .rb-back:hover { color:var(--text); background:var(--surface2); }
+  .rb-expired-items .renban-item { opacity:.55; }
+  .rb-expired-items .renban-item:hover { opacity:.85; border-color:var(--border); }
   .rb-screen { display:none; }
   .rb-screen.active { display:block; }
   .rb-form-group { margin-bottom:14px; }

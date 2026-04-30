@@ -188,6 +188,8 @@ async function initRenban() {
   }
 }
 
+let _rbExpiredEvents = [];
+
 function _isRenbanExpired(ev, today) {
   if (ev.deadline && new Date(ev.deadline) < today) return true;
   const dates = (ev.dates && ev.dates.length) ? ev.dates : (ev.date ? [ev.date] : []);
@@ -212,21 +214,23 @@ function _renbanItemHtml(ev) {
   </div>`;
 }
 
-function toggleRenbanExpiredList() {
-  const el = document.getElementById('renban-expired-list');
-  const btn = document.getElementById('renban-expired-toggle');
-  if (!el || !btn) return;
-  const visible = el.style.display !== 'none';
-  el.style.display = visible ? 'none' : '';
-  btn.classList.toggle('open', !visible);
+function openRenbanExpiredList() {
+  const listEl = document.getElementById('rb-expired-screen-list');
+  if (listEl) {
+    listEl.innerHTML = _rbExpiredEvents.length
+      ? _rbExpiredEvents.map(_renbanItemHtml).join('')
+      : '<div class="renban-empty">期限切れのイベントはありません</div>';
+  }
+  rbShowScreen('rb-expired-screen');
+  openRbModal();
 }
 
 function renderRenbanList(events) {
   const el = document.getElementById('renban-list');
   const today = new Date(); today.setHours(0,0,0,0);
 
-  const active  = events.filter(ev => !_isRenbanExpired(ev, today));
-  const expired = events.filter(ev =>  _isRenbanExpired(ev, today))
+  const active = events.filter(ev => !_isRenbanExpired(ev, today));
+  _rbExpiredEvents = events.filter(ev => _isRenbanExpired(ev, today))
     .sort((a, b) => {
       const da = (a.dates && a.dates.length) ? a.dates[0] : (a.date || '');
       const db = (b.dates && b.dates.length) ? b.dates[0] : (b.date || '');
@@ -240,14 +244,9 @@ function renderRenbanList(events) {
     html += active.map(_renbanItemHtml).join('');
   }
 
-  if (expired.length) {
+  if (_rbExpiredEvents.length) {
     html += `<div class="renban-expired-section">
-      <button id="renban-expired-toggle" class="renban-expired-toggle" onclick="toggleRenbanExpiredList()">
-        期限切れ一覧 (${expired.length}件)
-      </button>
-      <div id="renban-expired-list" style="display:none;">
-        ${expired.map(_renbanItemHtml).join('')}
-      </div>
+      <button class="renban-expired-toggle" onclick="openRenbanExpiredList()">期限切れ一覧 (${_rbExpiredEvents.length}件)</button>
     </div>`;
   }
 
