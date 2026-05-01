@@ -705,7 +705,8 @@
   }
   .boshu-select-count { font-size:13px; color:var(--dim); flex-shrink:0; }
   .renban-item.boshu-selected,
-  .boshu-rsv-item.boshu-selected { border-color:var(--accent); background:rgba(200,169,110,.08); }
+  .boshu-rsv-item.boshu-selected,
+  .rsv-list-item.boshu-selected { border-color:var(--accent); background:rgba(200,169,110,.08); }
   .boshu-check-icon { font-size:18px; color:var(--accent); flex-shrink:0; margin-top:2px; line-height:1; }
   /* 連番詳細・モーダル */
   .rb-overlay {

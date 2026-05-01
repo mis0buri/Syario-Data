@@ -885,7 +885,17 @@
         <span class="rsv-title">予約一覧</span>
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
+      <!-- 選択モード確認バー -->
+      <div id="rsv-list-confirm-bar" class="boshu-confirm-bar" style="display:none;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="exitRsvListSelectMode()">キャンセル</button>
+          <span id="rsv-list-select-count" class="boshu-select-count">0件選択中</span>
+          <button id="rsv-list-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleRsvListSelectAll()">全選択</button>
+        </div>
+        <button id="rsv-list-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareRsvListSelected()" disabled>共有する</button>
+      </div>
       <div id="rsv-list-content"></div>
+      <div id="rsv-list-modal-btn-wrap" class="rsv-btn-row" style="display:none;padding-top:12px;"></div>
     </div>
 
   </div>
