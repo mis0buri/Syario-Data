@@ -110,6 +110,59 @@
 
   <!-- 桜の木デコレーション（いらすとや等の画像URLがあれば src に差し替え可） -->
   <div class="sakura-deco" aria-hidden="true">
+    <!-- 夜：三日月と星 -->
+    <div class="night-deco">
+      <svg class="night-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+        <defs>
+          <radialGradient id="moonGrad" cx="36%" cy="32%" r="68%">
+            <stop offset="0%" stop-color="#fffef0"/>
+            <stop offset="55%" stop-color="#f4e060"/>
+            <stop offset="100%" stop-color="#c8a028"/>
+          </radialGradient>
+          <mask id="moonMask">
+            <rect width="120" height="120" fill="white"/>
+            <circle cx="76" cy="42" r="54" fill="black"/>
+          </mask>
+        </defs>
+        <circle cx="50" cy="60" r="50" fill="url(#moonGrad)" mask="url(#moonMask)" opacity="0.92"/>
+      </svg>
+      <div class="night-star" style="top:16%;left:12%;width:2px;height:2px;--d:2.1s;--delay:0.3s"></div>
+      <div class="night-star" style="top:14%;left:28%;width:1px;height:1px;--d:1.8s;--delay:1.2s"></div>
+      <div class="night-star" style="top:20%;left:42%;width:2px;height:2px;--d:2.5s;--delay:0.7s"></div>
+      <div class="night-star" style="top:15%;left:55%;width:1px;height:1px;--d:1.6s;--delay:0s"></div>
+      <div class="night-star" style="top:18%;left:70%;width:2px;height:2px;--d:2.3s;--delay:1.8s"></div>
+      <div class="night-star" style="top:13%;left:84%;width:1px;height:1px;--d:2.0s;--delay:0.5s"></div>
+      <div class="night-star" style="top:25%;left:8%;width:1px;height:1px;--d:1.9s;--delay:2.1s"></div>
+      <div class="night-star" style="top:28%;left:22%;width:2px;height:2px;--d:2.2s;--delay:0.9s"></div>
+      <div class="night-star" style="top:22%;left:50%;width:1px;height:1px;--d:1.7s;--delay:1.5s"></div>
+      <div class="night-star" style="top:30%;left:64%;width:2px;height:2px;--d:2.4s;--delay:0.2s"></div>
+      <div class="night-star" style="top:24%;left:78%;width:1px;height:1px;--d:1.8s;--delay:2.4s"></div>
+      <div class="night-star" style="top:17%;left:35%;width:3px;height:3px;--d:2.6s;--delay:0.6s"></div>
+      <div class="night-star" style="top:34%;left:5%;width:2px;height:2px;--d:1.5s;--delay:1.7s"></div>
+      <div class="night-star" style="top:21%;left:93%;width:2px;height:2px;--d:2.1s;--delay:2.8s"></div>
+      <div class="night-star" style="top:32%;left:88%;width:1px;height:1px;--d:1.9s;--delay:0.4s"></div>
+      <!-- 雲 -->
+      <svg class="night-cloud" style="top:22%;opacity:.48;width:160px;animation-duration:30s;animation-delay:-6s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="18" fill="#5a2020"/><circle cx="62" cy="32" r="24" fill="#5a2020"/>
+        <circle cx="96" cy="27" r="26" fill="#5a2020"/><circle cx="130" cy="34" r="20" fill="#5a2020"/>
+        <circle cx="148" cy="44" r="14" fill="#5a2020"/>
+      </svg>
+      <svg class="night-cloud" style="top:34%;opacity:.38;width:120px;animation-duration:22s;animation-delay:-14s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="16" fill="#5a2020"/><circle cx="60" cy="34" r="20" fill="#5a2020"/>
+        <circle cx="92" cy="29" r="22" fill="#5a2020"/><circle cx="124" cy="36" r="18" fill="#5a2020"/>
+        <circle cx="142" cy="45" r="12" fill="#5a2020"/>
+      </svg>
+      <svg class="night-cloud" style="top:18%;opacity:.35;width:200px;animation-duration:40s;animation-delay:-22s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="18" fill="#5a2020"/><circle cx="62" cy="32" r="24" fill="#5a2020"/>
+        <circle cx="96" cy="27" r="26" fill="#5a2020"/><circle cx="130" cy="34" r="20" fill="#5a2020"/>
+        <circle cx="148" cy="44" r="14" fill="#5a2020"/>
+      </svg>
+      <svg class="night-cloud" style="top:40%;opacity:.42;width:140px;animation-duration:26s;animation-delay:-2s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="14" fill="#5a2020"/><circle cx="58" cy="35" r="19" fill="#5a2020"/>
+        <circle cx="88" cy="30" r="22" fill="#5a2020"/><circle cx="120" cy="37" r="17" fill="#5a2020"/>
+        <circle cx="138" cy="46" r="12" fill="#3a1010"/>
+      </svg>
+    </div>
     <svg class="sakura-tree s-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
       <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
       <line x1="100" y1="255" x2="58"  y2="172" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
@@ -134,6 +187,20 @@
       <circle cx="100" cy="46"  r="28" fill="#8fca72"/>
       <circle cx="78"  cy="50"  r="22" fill="#a8d880"/>
       <circle cx="122" cy="54"  r="24" fill="#a8d880"/>
+      <!-- シマエナガ：右向き（scaleX(-1)で画面では左向き） -->
+      <path d="M90 162 C89 172 89 181 89 188 C90 191 91.5 191 92 188 C92.5 181 92 172 91 162Z" fill="#d0c0ae"/>
+      <circle cx="97" cy="152" r="8" fill="#f8f8f8"/>
+      <path d="M89 152 C90 146 94 144 97 145 C94 147 91 151 90 155Z" fill="#d0ae88" opacity="0.5"/>
+      <circle cx="97" cy="155" r="3" fill="#f0c0b8" opacity="0.3"/>
+      <circle cx="105" cy="145" r="6" fill="#f8f8f8"/>
+      <path d="M99 145 C100 140 106 139 109 143 C107 141 104 140 100 144Z" fill="#1e1a1a"/>
+      <circle cx="109" cy="146" r="2" fill="#1e1a1a"/>
+      <circle cx="109.8" cy="145.3" r="0.7" fill="white"/>
+      <path d="M111 146.5 L115 147 L111 147.5Z" fill="#363030"/>
+      <line x1="95" y1="159" x2="91" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="95" y1="159" x2="98" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="100" y1="159" x2="97" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="100" y1="159" x2="103" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
     </svg>
     <svg class="sakura-tree s-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
       <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
@@ -159,6 +226,20 @@
       <circle cx="100" cy="46"  r="28" fill="#8fca72"/>
       <circle cx="78"  cy="50"  r="22" fill="#a8d880"/>
       <circle cx="122" cy="54"  r="24" fill="#a8d880"/>
+      <!-- シマエナガ：右向き（画面右向き） -->
+      <path d="M61 149 C60 159 60 168 60 175 C61 178 62.5 178 63 175 C63.5 168 63 159 62 149Z" fill="#d0c0ae"/>
+      <circle cx="67" cy="139" r="8" fill="#f8f8f8"/>
+      <path d="M59 139 C60 133 64 131 67 132 C64 134 61 138 60 142Z" fill="#d0ae88" opacity="0.5"/>
+      <circle cx="67" cy="142" r="3" fill="#f0c0b8" opacity="0.3"/>
+      <circle cx="75" cy="132" r="6" fill="#f8f8f8"/>
+      <path d="M69 132 C70 127 76 126 79 130 C77 128 74 127 70 131Z" fill="#1e1a1a"/>
+      <circle cx="79" cy="133" r="2" fill="#1e1a1a"/>
+      <circle cx="79.8" cy="132.3" r="0.7" fill="white"/>
+      <path d="M81 133.5 L85 134 L81 134.5Z" fill="#363030"/>
+      <line x1="69" y1="146" x2="73" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="69" y1="146" x2="66" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="64" y1="146" x2="67" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="64" y1="146" x2="61" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
     </svg>
     <!-- 冬：葉の落ちた木 -->
     <svg class="fuyu-tree f-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
@@ -329,6 +410,12 @@
     <svg class="deco-rain" style="left:62%;animation-delay:0.0s" xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
     <svg class="deco-rain" style="left:75%;animation-delay:1.3s" xmlns="http://www.w3.org/2000/svg" width="3" height="12" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
     <svg class="deco-rain" style="left:87%;animation-delay:0.7s" xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <!-- 新緑の青い小鳥 (midori only) 翼広げ斜め視点：右向き3羽・左向き2羽 -->
+    <svg class="midori-bird"     style="top:20%;left:0;--delay:0s;--dur:14s;--angle:-10deg;--y0:40px;--y1:-40px"  xmlns="http://www.w3.org/2000/svg" width="22" height="11" viewBox="0 0 52 26"><path d="M6 9 L1 5 L5 12 L1 20 C9 20 19 20 27 16 C32 16 37 15 41 14 Q46 14 50 13 Q46 12 41 11 C37 10 32 9 27 8 C19 5 9 4 6 9Z" fill="#6aaae8"/></svg>
+    <svg class="midori-bird"     style="top:32%;left:0;--delay:-5s;--dur:11s;--angle:-6deg;--y0:20px;--y1:-20px" xmlns="http://www.w3.org/2000/svg" width="26" height="13" viewBox="0 0 52 26"><path d="M6 9 L1 5 L5 12 L1 20 C9 20 19 20 27 16 C32 16 37 15 41 14 Q46 14 50 13 Q46 12 41 11 C37 10 32 9 27 8 C19 5 9 4 6 9Z" fill="#5599cc"/></svg>
+    <svg class="midori-bird rtl" style="top:38%;left:0;--delay:-3s;--dur:16s;--angle:12deg;--y0:-35px;--y1:35px" xmlns="http://www.w3.org/2000/svg" width="18" height="9"  viewBox="0 0 52 26"><path d="M46 9 L51 5 L47 12 L51 20 C43 20 33 20 25 16 C20 16 15 15 11 14 Q6 14 2 13 Q6 12 11 11 C15 10 20 9 25 8 C33 5 43 4 46 9Z" fill="#6aaae8"/></svg>
+    <svg class="midori-bird"     style="top:55%;left:0;--delay:-8s;--dur:10s;--angle:-12deg;--y0:45px;--y1:-45px" xmlns="http://www.w3.org/2000/svg" width="28" height="14" viewBox="0 0 52 26"><path d="M6 9 L1 5 L5 12 L1 20 C9 20 19 20 27 16 C32 16 37 15 41 14 Q46 14 50 13 Q46 12 41 11 C37 10 32 9 27 8 C19 5 9 4 6 9Z" fill="#4488cc"/></svg>
+    <svg class="midori-bird rtl" style="top:24%;left:0;--delay:0s;--dur:13s;--angle:-8deg;--y0:22px;--y1:-22px"  xmlns="http://www.w3.org/2000/svg" width="16" height="8"  viewBox="0 0 52 26"><path d="M46 9 L51 5 L47 12 L51 20 C43 20 33 20 25 16 C20 16 15 15 11 14 Q6 14 2 13 Q6 12 11 11 C15 10 20 9 25 8 C33 5 43 4 46 9Z" fill="#5599dd"/></svg>
     <!-- 花火 (natsu only) -->
     <div class="firework" style="left:14%;--c:#ffdd44;--c2:#ffaa22;--delay:0s;--d:3.8s;--h:-50vh"></div>
     <div class="firework" style="left:29%;--c:#ff6688;--c2:#ffbbdd;--delay:1.3s;--d:4.2s;--h:-62vh"></div>
@@ -345,7 +432,7 @@
       <div style="overflow-x:auto">
         <table class="rank-table">
           <thead><tr>
-            <th>順位</th><th>名前</th><th>総成績</th><th>4麻</th><th>3麻</th>
+            <th>順位</th><th>名前</th><th>総成績</th><th>レート(4麻)</th><th>4麻</th><th>3麻</th>
             <th>対局数(4)</th><th>対局数(3)</th><th>対局数(計)</th><th>連対率</th><th>チップ</th><th>飛び(4)</th><th>飛び(3)</th><th>来店</th>
           </tr></thead>
           <tbody id="tbody-ranking"></tbody>
@@ -360,6 +447,7 @@
       <label class="member-sort-label">並び順</label>
       <select id="member-sort" onchange="onMemberSortChange(this.value)">
         <option value="allTotal">総成績順</option>
+        <option value="rating">レート(4麻)順</option>
         <option value="total4">4麻成績順</option>
         <option value="total3">3麻成績順</option>
         <option value="matchCount">半荘数順</option>
@@ -613,7 +701,8 @@
         </div>
       </div>
       <div id="admin-status-gather" class="admin-status"></div>
-      <button class="admin-btn primary" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <button class="admin-btn primary" id="admin-gather-submit" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <button class="admin-btn" id="admin-gather-cancel" style="width:100%;margin-bottom:8px;display:none;" onclick="_cancelEditGather()">キャンセル</button>
       <hr class="admin-divider">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px;">登録済みの対局</div>
       <div id="admin-gather-list" class="admin-gather-list">
@@ -879,6 +968,16 @@
       </div>
     </div>
 
+    <!-- 期限切れ一覧 -->
+    <div id="rb-expired-screen" class="rb-screen">
+      <div class="rb-header">
+        <button class="rb-back" onclick="closeRbModal()">←</button>
+        <span class="rb-title">期限切れ一覧</span>
+        <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+      <div id="rb-expired-screen-list" class="renban-list rb-expired-items"></div>
+    </div>
+
     <!-- 参加 / 興味あり フォーム -->
     <div id="rb-join-screen" class="rb-screen">
       <div class="rb-header">
@@ -945,6 +1044,12 @@
         <button class="mypage-theme-btn" data-season="natsu"  onclick="setSeasonOverride('natsu')">🌻 夏</button>
         <button class="mypage-theme-btn" data-season="koyo"   onclick="setSeasonOverride('koyo')">🍁 紅葉</button>
         <button class="mypage-theme-btn" data-season="fuyu"   onclick="setSeasonOverride('fuyu')">❄️ 冬</button>
+      </div>
+      <div class="mypage-theme-btns" style="margin-top:8px;">
+        <button class="mypage-theme-btn" id="night-toggle-btn" onclick="setNightOverride()">🌙 夜</button>
+      </div>
+      <div style="margin-top:10px;">
+        <button class="mypage-theme-btn" id="bg-preview-btn" onclick="toggleBgPreview()" style="width:100%;">背景を表示</button>
       </div>
     </div>
     <button class="mypage-stamp-btn" onclick="closeMyPage();showSection('stamp')">スタンプカード 🎫</button>

@@ -123,23 +123,64 @@ function calcDataPoints(memberName, gathers) {
   return r;
 }
 
+// ── レート計算 (MSM方式) ──
+function calcRatings(memberNames, gathers) {
+  const INITIAL = 1500;
+  const RANK_PT_4 = [30, 10, -10, -30];
+  const ratings = {};
+  const matchCounts = {};
+  memberNames.forEach(n => { ratings[n] = INITIAL; matchCounts[n] = 0; });
+
+  [...gathers].sort((a, b) => a.date.localeCompare(b.date)).forEach(g => {
+    g.matches.forEach(m => {
+      if (m.isChip) return;
+      const players = g.members
+        .map((name, i) => ({name, score: m.scores[i], rank: m.ranks[i]}))
+        .filter(p => p.score !== null && p.score !== undefined && p.rank !== null);
+      if (players.length !== 4) return;
+      const snap = {};
+      players.forEach(p => snap[p.name] = ratings[p.name] ?? INITIAL);
+      // 卓の平均R（全員）、1500未満は1500に切り上げ
+      const tableAvg = Math.max(1500,
+        players.reduce((s, p) => s + (snap[p.name] ?? INITIAL), 0) / 4
+      );
+      const deltas = players.map(p => {
+        const rankPt = RANK_PT_4[p.rank - 1] ?? 0;
+        const correction = (tableAvg - (snap[p.name] ?? INITIAL)) / 40;
+        const n = matchCounts[p.name] ?? 0;
+        const matchCorr = n < 400 ? 1 - n * 0.002 : 0.2;
+        const raw = matchCorr * (rankPt + correction);
+        return {name: p.name, delta: Math.ceil(raw * 100) / 100};
+      });
+      deltas.forEach(d => { if (ratings[d.name] !== undefined) ratings[d.name] += d.delta; });
+      players.forEach(p => { if (matchCounts[p.name] !== undefined) matchCounts[p.name]++; });
+    });
+  });
+  return ratings;
+}
+
 // ── リフレッシュ ──
 function refresh() {
   const gathers = filteredGathers();
-  const stats = DATA.members.map(m=>calcStats(m.name, gathers));
-  buildRanking(stats);
+  const ratings = calcRatings(DATA.members.map(m=>m.name), DATA.gathers || []);
+  const stats = DATA.members.map(m => { const s = calcStats(m.name, gathers); s.rating = ratings[m.name] ?? 1500; return s; });
+  buildRanking(stats, ratings);
   buildMemberButtons(stats, gathers);
   buildHistory(gathers);
   if (currentSection==='graph') renderChart(gathers);
 }
 
-function buildRanking(stats) {
+function buildRanking(stats, ratings={}) {
   document.getElementById('tbody-ranking').innerHTML =
     [...stats].sort((a,b)=>b.allTotal-a.allTotal).map((m,i)=>{
       const r=i+1;
+      const rate = ratings[m.name];
+      const rateTxt = rate !== undefined ? Math.round(rate) : '-';
+      const rateCls = rate === undefined ? '' : rate >= 1500 ? 'pos' : 'neg';
       return `<tr>
         <td>${rankBadge(r)}</td><td class="name-cell">${m.name}</td>
         <td class="${sc(m.allTotal)}">${fmt(m.allTotal)}</td>
+        <td class="rate-cell ${rateCls}">${rateTxt}</td>
         <td class="${sc(m.total4)}">${fmt(m.total4)}</td>
         <td class="${sc(m.total3)}">${fmt(m.total3)}</td>
         <td>${m.matchCount4}</td><td>${m.matchCount3}</td><td>${m.matchCount4+m.matchCount3}</td><td>${fmtPct(m.rentairitsu)}</td>
@@ -153,20 +194,23 @@ function buildRanking(stats) {
 function memberSortFn(a, b) {
   if (memberSortKey === 'name') return a.name.localeCompare(b.name, 'ja');
   if (memberSortKey === 'matchCount') return (b.matchCount4+b.matchCount3) - (a.matchCount4+a.matchCount3);
+  if (memberSortKey === 'rating') return (b.rating ?? 1500) - (a.rating ?? 1500);
   return b[memberSortKey] - a[memberSortKey];
 }
 
 function onMemberSortChange(val) {
   memberSortKey = val;
   const g = filteredGathers();
-  const stats = DATA.members.map(m => calcStats(m.name, g));
+  const ratings = calcRatings(DATA.members.map(m=>m.name), DATA.gathers || []);
+  const stats = DATA.members.map(m => { const s = calcStats(m.name, g); s.rating = ratings[m.name] ?? 1500; return s; });
   buildMemberButtons(stats, g);
 }
 
 function memberSortDisplay(m) {
-  if (memberSortKey === 'total4')    return { val: fmt(m.total4),  cls: sc(m.total4) };
-  if (memberSortKey === 'total3')    return { val: fmt(m.total3),  cls: sc(m.total3) };
+  if (memberSortKey === 'total4')  return { val: fmt(m.total4),  cls: sc(m.total4) };
+  if (memberSortKey === 'total3')  return { val: fmt(m.total3),  cls: sc(m.total3) };
   if (memberSortKey === 'matchCount') return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
+  if (memberSortKey === 'rating')  return { val: Math.round(m.rating), cls: m.rating >= 1500 ? 'pos' : 'neg' };
   return { val: fmt(m.allTotal), cls: sc(m.allTotal) };
 }
 

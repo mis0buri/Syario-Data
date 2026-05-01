@@ -50,6 +50,7 @@ async function loadData() {
   initPeriod();
   initGraphControls();
   refresh();
+  _mergeFirestoreGathers();
   // data.json 読み込み完了後にハッシュルーティングが未適用なら再適用
   // （キャッシュ済みデータが DOMContentLoaded より先に返った場合の保険）
   if (location.hash === '#boshu' && currentSection !== 'boshu') {
@@ -64,7 +65,7 @@ function initPeriod() {
   const dates = DATA.gathers.map(g=>g.date).sort();
   if (!dates.length) return;
   filterStart = toDate(dates[0]);
-  filterEnd   = toDate(dates[dates.length-1]);
+  filterEnd   = new Date();
   document.getElementById('filter-start').value = dateStr(filterStart);
   document.getElementById('filter-end').value   = dateStr(filterEnd);
 
@@ -405,7 +406,22 @@ async function initTopPage() {
   }
 }
 
-
+let _fsGathersMerged = false;
+async function _mergeFirestoreGathers() {
+  if (!_db || !DATA || _fsGathersMerged) return;
+  _fsGathersMerged = true;
+  try {
+    const snap = await _db.collection('admin_gathers').orderBy('date', 'asc').get();
+    const fsGathers = snap.docs.map(d => d.data()).filter(g => g.date && Array.isArray(g.members));
+    if (!fsGathers.length) return;
+    DATA.gathers = [...(DATA.gathers || []), ...fsGathers];
+    initPeriod();
+    refresh();
+  } catch(e) {
+    _fsGathersMerged = false;
+    console.warn('admin_gathers merge failed:', e);
+  }
+}
 
 loadData();
 
@@ -520,6 +536,7 @@ function initFirebase() {
       firebase.initializeApp(FIREBASE_CONFIG);
       _db = firebase.firestore();
       _auth = firebase.auth();
+      _mergeFirestoreGathers();
       _auth.onAuthStateChanged(user => {
         _currentUser = user;
         updateAuthUI(user);
@@ -832,5 +849,48 @@ function setSeasonOverride(season) {
   });
 }
 setSeasonTheme();
+
+function _applyNight() {
+  document.body.dataset.night = 'true';
+  delete document.body.dataset.season;
+}
+function _removeNight() {
+  delete document.body.dataset.night;
+  setSeasonTheme();
+}
+function setNightTheme() {
+  const h = new Date().getHours();
+  if (h >= 20 || h < 5) _applyNight();
+  else _removeNight();
+}
+setNightTheme();
+
+let _bgPreview = false;
+function toggleBgPreview() {
+  _bgPreview = !_bgPreview;
+  if (_bgPreview) {
+    showSection('top');
+    document.body.dataset.bgPreview = 'true';
+    closeMyPage();
+  } else {
+    delete document.body.dataset.bgPreview;
+  }
+  const btn = document.getElementById('bg-preview-btn');
+  if (btn) btn.classList.toggle('active', _bgPreview);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('header').addEventListener('click', () => {
+    if (_bgPreview) toggleBgPreview();
+  });
+});
+
+let _nightOverride = false;
+function setNightOverride() {
+  _nightOverride = !_nightOverride;
+  if (_nightOverride) _applyNight();
+  else _removeNight();
+  const btn = document.getElementById('night-toggle-btn');
+  if (btn) btn.classList.toggle('active', _nightOverride);
+}
 
 document.addEventListener('DOMContentLoaded', initFirebase);

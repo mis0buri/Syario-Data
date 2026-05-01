@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty' 2>/dev/null); [ -n \"$f\" ] && echo \"$f\" | grep -qE '\\.(js|css)$' && printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Note: %s was just modified. If this change affects the architecture, routing, global state, module organization, data flow, Firestore collections, seasonal themes, or key implementation patterns documented in CLAUDE.md, update CLAUDE.md to reflect the changes.\"}}' \"$(basename \"$f\")\" || true",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -188,30 +188,69 @@ async function initRenban() {
   }
 }
 
+let _rbExpiredEvents = [];
+
+function _isRenbanExpired(ev, today) {
+  if (ev.deadline && new Date(ev.deadline) < today) return true;
+  const dates = (ev.dates && ev.dates.length) ? ev.dates : (ev.date ? [ev.date] : []);
+  if (dates.length && dates.every(d => new Date(d) < today)) return true;
+  return false;
+}
+
+function _renbanItemHtml(ev) {
+  const deadlineStr = ev.deadline ? ev.deadline : '期限なし';
+  const maxStr = ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし';
+  return `<div class="renban-item" onclick="openRenbanDetail('${ev.id}')">
+    <div class="renban-item-title">${escHtml(ev.title)}</div>
+    <div class="renban-item-meta">
+      ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
+      <span>📅 ${escHtml((ev.dates && ev.dates.length ? ev.dates : [ev.date]).join(', '))}</span>
+      <span>👥 ${maxStr}</span>
+      <span>⏰ ${deadlineStr}</span>
+      <span style="color:#4caf82">✅ 参加 ${ev._joinCount}人</span>
+      <span style="color:#61afef">👀 興味あり ${ev._interestCount}人</span>
+    </div>
+    ${ev.note ? '<div style="font-size:12px;color:var(--dim);margin-top:6px;">' + escHtml(ev.note) + '</div>' : ''}
+  </div>`;
+}
+
+function openRenbanExpiredList() {
+  const listEl = document.getElementById('rb-expired-screen-list');
+  if (listEl) {
+    listEl.innerHTML = _rbExpiredEvents.length
+      ? _rbExpiredEvents.map(_renbanItemHtml).join('')
+      : '<div class="renban-empty">期限切れのイベントはありません</div>';
+  }
+  rbShowScreen('rb-expired-screen');
+  openRbModal();
+}
+
 function renderRenbanList(events) {
   const el = document.getElementById('renban-list');
   const today = new Date(); today.setHours(0,0,0,0);
-  if (!events.length) {
-    el.innerHTML = '<div class="renban-empty">現在募集中のイベントはありません</div>';
-    return;
+
+  const active = events.filter(ev => !_isRenbanExpired(ev, today));
+  _rbExpiredEvents = events.filter(ev => _isRenbanExpired(ev, today))
+    .sort((a, b) => {
+      const da = (a.dates && a.dates.length) ? a.dates[0] : (a.date || '');
+      const db = (b.dates && b.dates.length) ? b.dates[0] : (b.date || '');
+      return db.localeCompare(da);
+    });
+
+  let html = '';
+  if (!active.length) {
+    html += '<div class="renban-empty">現在募集中のイベントはありません</div>';
+  } else {
+    html += active.map(_renbanItemHtml).join('');
   }
-  el.innerHTML = events.map(ev => {
-    const expired = ev.deadline ? new Date(ev.deadline) < today : false;
-    const deadlineStr = ev.deadline ? ev.deadline : '期限なし';
-    const maxStr = ev.maxPeople ? ev.maxPeople + '人まで' : '上限なし';
-    return `<div class="renban-item" onclick="openRenbanDetail('${ev.id}')">
-      <div class="renban-item-title">${escHtml(ev.title)}${expired ? ' <span class="rb-expired">期限切れ</span>' : ''}</div>
-      <div class="renban-item-meta">
-        ${ev.owner ? '<span>👤 ' + escHtml(ev.owner) + '</span>' : ''}
-        <span>📅 ${escHtml((ev.dates && ev.dates.length ? ev.dates : [ev.date]).join(', '))}</span>
-        <span>👥 ${maxStr}</span>
-        <span>⏰ ${deadlineStr}</span>
-        <span style="color:#4caf82">✅ 参加 ${ev._joinCount}人</span>
-        <span style="color:#61afef">👀 興味あり ${ev._interestCount}人</span>
-      </div>
-      ${ev.note ? '<div style="font-size:12px;color:var(--dim);margin-top:6px;">' + escHtml(ev.note) + '</div>' : ''}
+
+  if (_rbExpiredEvents.length) {
+    html += `<div class="renban-expired-section">
+      <button class="renban-expired-toggle" onclick="openRenbanExpiredList()">期限切れ一覧 (${_rbExpiredEvents.length}件)</button>
     </div>`;
-  }).join('');
+  }
+
+  el.innerHTML = html;
 }
 
 function openRenbanForm() {
