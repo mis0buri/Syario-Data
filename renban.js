@@ -1,4 +1,5 @@
 // ── 連番募集 ──
+const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS9wYmllc28ybHE3b25tZXY3MHhobnZuaXpram15eGl2NA==');
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
@@ -299,7 +300,7 @@ async function submitRenbanEvent(e) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     if (_currentUser) rbPayload.uid = _currentUser.uid;
-    await _db.collection('renban_events').add(rbPayload);
+    const rbRef = await _db.collection('renban_events').add(rbPayload);
     try {
       const dateDisplay = datesArr.join(', ');
       const lines = [
@@ -317,6 +318,23 @@ async function submitRenbanEvent(e) {
         body: JSON.stringify({ content: lines })
       });
     } catch(e) { console.warn('Discord通知失敗:', e); }
+    if (MAKE_RENBAN_WEBHOOK_URL) {
+      try {
+        await fetch(MAKE_RENBAN_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner,
+            title,
+            dates: datesArr.join('、'),
+            maxPeople: maxPeople ? maxPeople + '人まで' : '上限なし',
+            deadline: deadline || '期限なし',
+            note: note || '',
+            url: location.origin + location.pathname + '#renban/' + rbRef.id,
+          })
+        });
+      } catch(e) { console.warn('Make通知失敗:', e); }
+    }
     closeRbModal();
     initRenban();
   } catch(err) {
