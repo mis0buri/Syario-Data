@@ -883,14 +883,6 @@ async function openCancelModal(docId, name, dateStr) {
     if (data.uid === _currentUser.uid || _isAdmin) {
       if (!confirm(`「${name}」の予約をキャンセルしますか？`)) return;
       await _db.collection('reservations').doc(docId).delete();
-      try {
-        const p = dateStr.split('-');
-        const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
-        await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: `__**予約がキャンセルされました**__\n📅 **日付**: ${dateLabel}\n👤 **お名前**: ${name}` })
-        });
-      } catch(e) {}
       alert('予約をキャンセルしました');
       openDayDetail(dateStr);
     } else {
