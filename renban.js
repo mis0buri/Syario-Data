@@ -270,7 +270,7 @@ function openRenbanForm() {
   const btn = document.getElementById('rb-form-submit-btn');
   btn.disabled = false; btn.textContent = '登録する';
   const xWrap = document.getElementById('rb-x-post-wrap');
-  if (xWrap) xWrap.style.display = (_isAdmin || _isManager) ? '' : 'none';
+  if (xWrap) xWrap.style.display = _isAdmin ? '' : 'none';
   rbShowScreen('rb-form-screen');
   openRbModal();
 }
@@ -321,7 +321,7 @@ async function submitRenbanEvent(e) {
       });
     } catch(e) { console.warn('Discord通知失敗:', e); }
     const xPostCheck = document.getElementById('rb-x-post-check');
-    if (MAKE_RENBAN_WEBHOOK_URL && xPostCheck && xPostCheck.checked) {
+    if (MAKE_RENBAN_WEBHOOK_URL && (!_isAdmin || xPostCheck.checked)) {
       try {
         await fetch(MAKE_RENBAN_WEBHOOK_URL, {
           method: 'POST',

@@ -428,7 +428,7 @@ function _initReservationForm(preselect) {
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
   const rsvXWrap = document.getElementById('rsv-x-post-wrap');
-  if (rsvXWrap) rsvXWrap.style.display = (_isAdmin || _isManager) ? '' : 'none';
+  if (rsvXWrap) rsvXWrap.style.display = _isAdmin ? '' : 'none';
   showRsvScreen('rsv-form');
 }
 
@@ -517,7 +517,7 @@ async function submitReservation() {
     } catch(e) { console.warn('Discord通知失敗:', e); }
     // Make → X 通知（新規予約のみ）
     const rsvXCheck = document.getElementById('rsv-x-post-check');
-    if (!_editMode && MAKE_RSV_WEBHOOK_URL && rsvXCheck && rsvXCheck.checked) {
+    if (!_editMode && MAKE_RSV_WEBHOOK_URL && (!_isAdmin || rsvXCheck.checked)) {
       try {
         const parts2 = rsvCurrentDate.split('-');
         const dateLabel2 = `${parseInt(parts2[0])}年${parseInt(parts2[1])}月${parseInt(parts2[2])}日`;
