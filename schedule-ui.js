@@ -1,5 +1,4 @@
-// Make webhook URL（X自動投稿用）— Make シナリオ作成後に URL を入力
-const MAKE_RSV_WEBHOOK_URL = '';
+const MAKE_RSV_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS9xN2l1N3Zhb2tqeXdueGlndnYwNGYwYXZobXR3ZXZ6ZQ==');
 
 // ── 営業予定カレンダー ──
 let calYear  = new Date().getFullYear();
