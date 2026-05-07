@@ -1,5 +1,5 @@
 // ── 連番募集 ──
-const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS9wYmllc28ybHE3b25tZXY3MHhobnZuaXpram15eGl2NA==');
+const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS9hOGhyZzVrc2E1bnkwa3g5b2p0d3R3Y2RtM3JscGxiZQ==');
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
