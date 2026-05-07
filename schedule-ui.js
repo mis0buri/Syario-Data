@@ -1,3 +1,6 @@
+// Make webhook URL（X自動投稿用）— Make シナリオ作成後に URL を入力
+const MAKE_RSV_WEBHOOK_URL = '';
+
 // ── 営業予定カレンダー ──
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
@@ -511,6 +514,25 @@ async function submitReservation() {
         body: JSON.stringify({ content: `${header}\n${lines.join('\n')}` })
       });
     } catch(e) { console.warn('Discord通知失敗:', e); }
+    // Make → X 通知（新規予約のみ）
+    if (!_editMode && MAKE_RSV_WEBHOOK_URL) {
+      try {
+        const parts2 = rsvCurrentDate.split('-');
+        const dateLabel2 = `${parseInt(parts2[0])}年${parseInt(parts2[1])}月${parseInt(parts2[2])}日`;
+        const displayCats2 = (rsvPendingData.categories || []).map(c => c === 'その他' && rsvPendingData.otherText ? `その他(${rsvPendingData.otherText})` : c);
+        await fetch(MAKE_RSV_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: dateLabel2,
+            name: rsvPendingData.name,
+            categories: displayCats2.join('、') || 'なし',
+            note: rsvPendingData.note || '',
+            url: location.origin + location.pathname + '#schedule/' + rsvCurrentDate,
+          })
+        });
+      } catch(e) { console.warn('Make通知失敗:', e); }
+    }
     const ds = _editMode ? rsvCurrentDate : null;
     const wasEdit = _editMode;
     closeRsvModal();
