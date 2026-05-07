@@ -251,13 +251,19 @@ async function shareBoshuSelected() {
     }
   }
   if (!items.length) return;
-  // 予約を先、その中で日付順。連番を後、その中で日付順
+  // 予約→連番の順で日付ソート
   items.sort((a, b) => {
     if (a.type !== b.type) return a.type === 'rsv' ? -1 : 1;
     const da = a.type === 'renban' ? a.ev.date : a.date;
     const db2 = b.type === 'renban' ? b.ev.date : b.date;
     return da < db2 ? -1 : da > db2 ? 1 : 0;
   });
+
+  // 0件のカテゴリにプレースホルダーを追加
+  const hasRsv    = items.some(it => it.type === 'rsv');
+  const hasRenban = items.some(it => it.type === 'renban');
+  if (!hasRsv)    items.unshift({ type: 'placeholder', label: '予約なし',    color: '#528bff' });
+  if (!hasRenban) items.push(   { type: 'placeholder', label: '連番募集なし', color: '#c8a96e' });
 
   await document.fonts.ready;
 
@@ -279,7 +285,9 @@ async function shareBoshuSelected() {
     return 154 + rsvSecH + pSecH;
   };
 
+  const PLACEHOLDER_H = 130;
   const heights = items.map(it =>
+    it.type === 'placeholder' ? PLACEHOLDER_H :
     it.type === 'renban'
       ? calcRenbanH(it.ev, it.joins, it.interests)
       : calcRsvH(it.rsvs, it.joins, it.interests));
@@ -300,7 +308,13 @@ async function shareBoshuSelected() {
   for (let i = 0; i < items.length; i++) {
     const it = items[i], cardH = heights[i];
 
-    if (it.type === 'renban') {
+    if (it.type === 'placeholder') {
+      ctx.fillStyle = it.color;
+      ctx.fillRect(0, curY, 6, cardH);
+      ctx.fillStyle = '#5c6370';
+      ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+      ctx.fillText(it.label, pad, curY + Math.round(cardH / 2) + 8);
+    } else if (it.type === 'renban') {
       // ── 連番募集カード ──
       const { ev, joins, interests } = it;
       const evDateDisplay = (ev.dates && ev.dates.length ? ev.dates : (ev.date ? [ev.date] : [])).join(', ');
