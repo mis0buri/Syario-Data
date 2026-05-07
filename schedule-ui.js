@@ -427,6 +427,8 @@ function _initReservationForm(preselect) {
   document.getElementById('rsv-other-text').value = '';
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
+  const rsvXWrap = document.getElementById('rsv-x-post-wrap');
+  if (rsvXWrap) rsvXWrap.style.display = (_isAdmin || _isManager) ? '' : 'none';
   showRsvScreen('rsv-form');
 }
 
@@ -514,7 +516,8 @@ async function submitReservation() {
       });
     } catch(e) { console.warn('Discord通知失敗:', e); }
     // Make → X 通知（新規予約のみ）
-    if (!_editMode && MAKE_RSV_WEBHOOK_URL) {
+    const rsvXCheck = document.getElementById('rsv-x-post-check');
+    if (!_editMode && MAKE_RSV_WEBHOOK_URL && rsvXCheck && rsvXCheck.checked) {
       try {
         const parts2 = rsvCurrentDate.split('-');
         const dateLabel2 = `${parseInt(parts2[0])}年${parseInt(parts2[1])}月${parseInt(parts2[2])}日`;
@@ -869,6 +872,8 @@ function _loadEditForm(data, dateStr) {
   document.getElementById('rsv-other-wrap').style.display = hasOther ? 'block' : 'none';
   document.getElementById('rsv-other-text').value = data.otherText || '';
   document.getElementById('rsv-note').value = data.note || '';
+  const rsvXWrapEdit = document.getElementById('rsv-x-post-wrap');
+  if (rsvXWrapEdit) rsvXWrapEdit.style.display = 'none';
   showRsvScreen('rsv-form');
 }
 

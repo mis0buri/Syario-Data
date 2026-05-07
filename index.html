@@ -859,6 +859,12 @@
           <label class="rsv-label">備考</label>
           <textarea id="rsv-note" class="rsv-textarea" placeholder="自由に入力（任意）"></textarea>
         </div>
+        <div id="rsv-x-post-wrap" style="display:none;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="rsv-x-post-check" checked>
+            <span>X に自動ポストする</span>
+          </label>
+        </div>
         <div class="rsv-btn-row">
           <button type="button" class="rsv-btn secondary" onclick="backToDetail()">戻る</button>
           <button type="submit" class="rsv-btn primary">確認する</button>
@@ -943,6 +949,12 @@
         <div class="rb-form-group">
           <label class="rb-label">備考</label>
           <textarea id="rb-event-note" class="rb-textarea" placeholder="座席や時間帯など自由に入力"></textarea>
+        </div>
+        <div id="rb-x-post-wrap" style="display:none;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="rb-x-post-check" checked>
+            <span>X に自動ポストする</span>
+          </label>
         </div>
         <div id="rb-form-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:4px;"></div>
         <div class="rb-btn-row">
