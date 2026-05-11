@@ -132,7 +132,7 @@ const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
 let _firestoreSchedule = {};
 // セクションID → URLハッシュ のマッピング（異なる場合のみ記載）
-const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery', walk: 'walk' };
+const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery', walk: 'walk', 'walk-detail': 'walk' };
 // URLハッシュ → セクションID
 const _HASH_TO_SECTION = {
   '': 'top', top: 'top',
@@ -560,6 +560,10 @@ function _routeHash(hash, isInit) {
   if (hash.startsWith('#renban/')) {
     showSection('renban');
     initRenban().then(() => openRenbanDetail(hash.slice(8)));
+  } else if (hash.startsWith('#walk/')) {
+    showSection('walk');
+    initWalk();
+    openWalkDetail(hash.slice(6));
   } else if (hash.startsWith('#jare/')) {
     showSection('jare');
     initJare();

@@ -605,6 +605,7 @@ async function openWalkDetail(docId) {
   document.getElementById('walk-list').parentElement.style.display = 'none';
   const detailEl = document.getElementById('walk-detail');
   detailEl.style.display = '';
+  history.replaceState(null, '', '#walk/' + docId);
 
   document.getElementById('walk-detail-title').textContent = d.title || d.date;
   const timeRange = (d.startTime && d.endTime) ? `${d.startTime} 〜 ${d.endTime}` : null;
@@ -939,6 +940,7 @@ function closeWalkDetail() {
   document.getElementById('walk-detail').style.display = 'none';
   document.getElementById('walk-list').parentElement.style.display = '';
   if (_walkMap) { _walkMap.remove(); _walkMap = null; }
+  history.replaceState(null, '', '#walk');
 }
 
 function openWalkUpload() {
@@ -1099,10 +1101,10 @@ async function _geocodeKmMarks(marks, statusEl) {
 
 function _extractJaAddress(addr) {
   if (!addr) return '';
-  if (addr.quarter) return addr.quarter;
-  if (addr.road && /丁目|番/.test(addr.road)) return addr.road;
-  if (addr.suburb) return addr.suburb;
-  return addr.neighbourhood || addr.road || '';
+  const pref = addr.state || '';
+  const city = addr.city || addr.town || addr.county || addr.municipality || '';
+  const town = addr.quarter || (addr.road && /丁目|番/.test(addr.road) ? addr.road : '') || addr.suburb || addr.neighbourhood || '';
+  return [pref, city, town].filter(Boolean).join(' ');
 }
 
 function _haversine(a, b) {
