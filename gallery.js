@@ -574,10 +574,13 @@ async function openWalkDetail(docId) {
   detailEl.style.display = '';
 
   document.getElementById('walk-detail-title').textContent = d.title || d.date;
+  const timeRange = (d.startTime && d.endTime) ? `${d.startTime} 〜 ${d.endTime}` : null;
   const meta = [
     d.date,
+    timeRange,
     d.distance ? `距離: ${d.distance} km` : null,
-    d.duration ? `時間: ${d.duration}` : null,
+    d.duration ? `移動時間: ${d.duration}` : null,
+    d.pace ? `ペース: ${d.pace}` : null,
   ].filter(Boolean).join('　／　');
   document.getElementById('walk-detail-meta').textContent = meta;
 
@@ -592,7 +595,7 @@ async function openWalkDetail(docId) {
 
   const points = (d.points || []).map(p => [p.lat, p.lon]);
   if (points.length) {
-    _walkPolyline = L.polyline(points, { color: '#A2D7DD', weight: 4 }).addTo(_walkMap);
+    _walkPolyline = L.polyline(points, { color: '#00E5FF', weight: 4 }).addTo(_walkMap);
     // 始点・終点マーカー
     L.circleMarker(points[0], { radius: 8, color: '#4caf50', fillColor: '#4caf50', fillOpacity: 1 }).addTo(_walkMap);
     L.circleMarker(points[points.length - 1], { radius: 8, color: '#e53935', fillColor: '#e53935', fillOpacity: 1 }).addTo(_walkMap);
@@ -637,8 +640,11 @@ async function submitWalkUpload() {
     await _db.collection('walk_logs').add({
       title: title || null,
       date: parsed.date,
+      startTime: parsed.startTime,
+      endTime: parsed.endTime,
       distance: parsed.distance,
       duration: parsed.duration,
+      pace: parsed.pace,
       points: parsed.points,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -664,9 +670,13 @@ function _parseGpx(text) {
     lon: parseFloat(pt.getAttribute('lon')),
   }));
 
-  // 日付（最初のtrkptのtime要素から）
-  const firstTime = trkpts[0]?.querySelector('time')?.textContent || '';
-  const date = firstTime ? firstTime.slice(0, 10) : '';
+  // 日付・開始終了時刻（JST変換）
+  const firstTimeStr = trkpts[0]?.querySelector('time')?.textContent || '';
+  const lastTimeStr  = trkpts[trkpts.length - 1]?.querySelector('time')?.textContent || '';
+  const date = firstTimeStr ? firstTimeStr.slice(0, 10) : '';
+  const _toJst = s => s ? new Date(s).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' }) : '';
+  const startTime = _toJst(firstTimeStr);
+  const endTime   = _toJst(lastTimeStr);
 
   // 距離計算（ハバーサイン）
   let dist = 0;
@@ -676,15 +686,32 @@ function _parseGpx(text) {
     dist += _haversine(a, b);
   }
 
-  // 所要時間
-  const lastTime = trkpts[trkpts.length - 1]?.querySelector('time')?.textContent || '';
-  let duration = '';
-  if (firstTime && lastTime) {
-    const mins = Math.round((new Date(lastTime) - new Date(firstTime)) / 60000);
-    duration = mins >= 60 ? `${Math.floor(mins/60)}時間${mins%60}分` : `${mins}分`;
+  // 移動時間（連続点間の間隔が60秒超は休憩とみなし除外）
+  const GAP_THRESHOLD = 60 * 1000;
+  let movingSecs = 0;
+  for (let i = 1; i < trkpts.length; i++) {
+    const t0 = trkpts[i-1].querySelector('time')?.textContent;
+    const t1 = trkpts[i].querySelector('time')?.textContent;
+    if (!t0 || !t1) continue;
+    const diff = new Date(t1) - new Date(t0);
+    if (diff > 0 && diff <= GAP_THRESHOLD) movingSecs += diff / 1000;
+  }
+  const movingMins = Math.round(movingSecs / 60);
+  const duration = movingMins >= 60
+    ? `${Math.floor(movingMins/60)}時間${movingMins%60}分`
+    : `${movingMins}分`;
+
+  // ペース（移動時間ベース）
+  const distRounded = Math.round(dist * 10) / 10;
+  let pace = '';
+  if (distRounded > 0 && movingMins > 0) {
+    const paceTotal = movingMins / distRounded;
+    const paceMin = Math.floor(paceTotal);
+    const paceSec = Math.round((paceTotal - paceMin) * 60);
+    pace = `${paceMin}分${String(paceSec).padStart(2,'0')}秒/km`;
   }
 
-  return { points, date, distance: Math.round(dist * 10) / 10, duration };
+  return { points, date, startTime, endTime, distance: distRounded, duration, pace };
 }
 
 function _haversine(a, b) {
