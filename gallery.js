@@ -670,21 +670,30 @@ async function shareWalkDetail(docId, d) {
   try {
     await document.fonts.ready;
 
-    // タイルが描画されるのを少し待つ
-    await new Promise(r => setTimeout(r, 400));
+    const W = 1080, dpr = 2, PAD = 28, headerH = 200;
 
+    // 地図キャプチャ（タイル読み込み完了を待つ、5秒でタイムアウト）
     const mapEl = document.getElementById('walk-map');
-    const mapCanvas = await html2canvas(mapEl, {
-      useCORS: true,
-      allowTaint: false,
-      scale: window.devicePixelRatio || 1,
-    });
+    let mapImg = null;
+    try {
+      await Promise.race([
+        new Promise(resolve => {
+          const check = () => {
+            const imgs = [...mapEl.querySelectorAll('img')];
+            if (imgs.length && imgs.every(i => i.complete)) resolve();
+            else setTimeout(check, 200);
+          };
+          check();
+        }),
+        new Promise(resolve => setTimeout(resolve, 5000)),
+      ]);
+      mapImg = await Promise.race([
+        html2canvas(mapEl, { useCORS: true, allowTaint: false, logging: false }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000)),
+      ]);
+    } catch(e) { mapImg = null; }
 
-    const PAD = 28;
-    const W = 1080;
-    const dpr = 2;
-    const headerH = 200;
-    const mapH = Math.round(mapCanvas.height * (W / mapCanvas.width));
+    const mapH = mapImg ? Math.round(mapImg.height * (W / mapImg.width)) : W;
     const H = headerH + mapH + PAD;
 
     const canvas = document.createElement('canvas');
@@ -702,10 +711,9 @@ async function shareWalkDetail(docId, d) {
     ctx.fillRect(0, 0, 6, headerH);
 
     // タイトル
-    const title = d.title || d.date || '';
     ctx.font = `bold 32px 'Noto Sans JP', sans-serif`;
     ctx.fillStyle = '#e8e6e3';
-    ctx.fillText(title, PAD + 12, 52);
+    ctx.fillText(d.title || d.date || '', PAD + 12, 52);
 
     // 日付・時刻
     const timeRange = (d.startTime && d.endTime) ? `${d.startTime} 〜 ${d.endTime}` : '';
@@ -716,40 +724,31 @@ async function shareWalkDetail(docId, d) {
     // 区切り線
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(PAD + 12, 100);
-    ctx.lineTo(W - PAD, 100);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD + 12, 100); ctx.lineTo(W - PAD, 100); ctx.stroke();
 
     // 統計
-    const stats = [
-      ['距離', d.distance ? `${d.distance} km` : '—'],
-      ['移動時間', d.duration || '—'],
-      ['ペース', d.pace || '—'],
-    ];
+    const stats = [['距離', d.distance ? `${d.distance} km` : '—'], ['移動時間', d.duration || '—'], ['ペース', d.pace || '—']];
     const colW = (W - PAD * 2 - 12) / stats.length;
     stats.forEach(([label, val], i) => {
       const x = PAD + 12 + i * colW;
-      ctx.font = `12px 'Noto Sans JP', sans-serif`;
-      ctx.fillStyle = '#a0a0a0';
-      ctx.fillText(label, x, 128);
-      ctx.font = `bold 22px 'Noto Sans JP', sans-serif`;
-      ctx.fillStyle = '#e8e6e3';
-      ctx.fillText(val, x, 158);
+      ctx.font = `12px 'Noto Sans JP', sans-serif`; ctx.fillStyle = '#a0a0a0'; ctx.fillText(label, x, 128);
+      ctx.font = `bold 22px 'Noto Sans JP', sans-serif`; ctx.fillStyle = '#e8e6e3'; ctx.fillText(val, x, 158);
     });
 
-    // 地図
-    ctx.drawImage(mapCanvas, 0, headerH, W, mapH);
+    // 地図またはルートのみ描画
+    if (mapImg) {
+      ctx.drawImage(mapImg, 0, headerH, W, mapH);
+    } else {
+      // フォールバック：ルートをキャンバスに直接描画
+      _drawRouteFallback(ctx, d.points || [], 0, headerH, W, mapH);
+    }
 
     canvas.toBlob(async blob => {
-      const file = new File([blob], 'walk.png', { type: 'image/png' });
+      const file = new File([blob], `walk-${d.date || 'log'}.png`, { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
         try { await navigator.share({ files: [file] }); } catch(e) { if (e.name !== 'AbortError') throw e; }
       } else {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `walk-${d.date || 'log'}.png`;
-        a.click();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
       }
     }, 'image/png');
   } catch(e) {
@@ -758,6 +757,26 @@ async function shareWalkDetail(docId, d) {
     shareBtn.disabled = false;
     shareBtn.textContent = origText;
   }
+}
+
+function _drawRouteFallback(ctx, points, x0, y0, W, H) {
+  ctx.fillStyle = '#242528';
+  ctx.fillRect(x0, y0, W, H);
+  if (!points.length) return;
+  const lats = points.map(p => p.lat), lons = points.map(p => p.lon);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const merc = lat => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+  const mMin = merc(minLat), mMax = merc(maxLat);
+  const pad = 40;
+  const toXY = (lat, lon) => [
+    x0 + pad + (lon - minLon) / (maxLon - minLon || 1) * (W - pad * 2),
+    y0 + pad + (mMax - merc(lat)) / (mMax - mMin || 1) * (H - pad * 2),
+  ];
+  ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach((p, i) => { const [px, py] = toXY(p.lat, p.lon); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
+  ctx.stroke();
 }
 
 async function mergeGpxToWalk(docId, input) {
