@@ -587,9 +587,16 @@ async function _loadWalkList() {
       const d = doc.data();
       const label = d.title || d.date;
       const meta = [d.date, d.distance ? `${d.distance} km` : null, d.duration || null].filter(Boolean).join('　');
+      const marks = (d.kmMarks || []).slice(0, 4);
+      const marksHtml = marks.length
+        ? `<div class="walk-list-marks">${marks.map(m =>
+            `<span class="walk-list-mark"><span class="walk-km-badge">${m.km}km</span>${m.address ? `<span class="walk-list-mark-addr">${_esc(m.address)}</span>` : ''}</span>`
+          ).join('')}</div>`
+        : '';
       return `<div class="walk-list-item" onclick="openWalkDetail('${doc.id}')">
         <div class="walk-list-title">${_esc(label)}</div>
         <div class="walk-list-meta">${_esc(meta)}</div>
+        ${marksHtml}
       </div>`;
     }).join('');
   } catch(e) {

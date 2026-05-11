@@ -168,6 +168,9 @@
   .walk-list-item:hover { border-color: var(--accent); background: var(--surface2); }
   .walk-list-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
   .walk-list-meta { font-size: 12px; color: var(--dim); }
+  .walk-list-marks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .walk-list-mark { display: flex; align-items: center; gap: 4px; }
+  .walk-list-mark-addr { font-size: 11px; color: var(--dim); }
   .walk-detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
   .walk-back-btn {
     background: none; border: 1px solid var(--border); color: var(--text);
