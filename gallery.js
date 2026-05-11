@@ -584,11 +584,16 @@ async function openWalkDetail(docId) {
   ].filter(Boolean).join('　／　');
   document.getElementById('walk-detail-meta').textContent = meta;
 
-  // 共有ボタン
+  // 共有・削除ボタン
   const shareBtn = document.getElementById('walk-share-btn');
   if (shareBtn) {
     shareBtn.style.display = _isAdmin ? '' : 'none';
     shareBtn.onclick = () => shareWalkDetail(docId, d);
+  }
+  const deleteBtn = document.getElementById('walk-delete-btn');
+  if (deleteBtn) {
+    deleteBtn.style.display = _isAdmin ? '' : 'none';
+    deleteBtn.onclick = () => deleteWalkLog(docId, d.title || d.date);
   }
 
   // 地図初期化（既存インスタンスを破棄）
@@ -641,6 +646,18 @@ async function openWalkDetail(docId) {
       </label>
       <span id="walk-merge-status" style="font-size:12px;color:var(--dim);margin-left:8px;"></span>`;
     mapEl.after(btn);
+  }
+}
+
+async function deleteWalkLog(docId, label) {
+  if (!confirm(`「${label}」を削除しますか？`)) return;
+  try {
+    await _db.collection('walk_logs').doc(docId).delete();
+    closeWalkDetail();
+    _walkInited = false;
+    initWalk();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
   }
 }
 
