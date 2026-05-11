@@ -687,6 +687,40 @@ function walkJumpTo(lat, lon) {
   if (_walkMap) _walkMap.setView([lat, lon], 16);
 }
 
+let _walkAllMap = null;
+
+async function showAllWalkRoutes() {
+  if (!_db) return;
+  document.getElementById('walk-list').parentElement.style.display = 'none';
+  const allEl = document.getElementById('walk-all-routes');
+  allEl.style.display = '';
+
+  const mapEl = document.getElementById('walk-all-map');
+  if (_walkAllMap) { _walkAllMap.remove(); _walkAllMap = null; }
+  _walkAllMap = L.map(mapEl);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(_walkAllMap);
+
+  const snap = await _db.collection('walk_logs').get();
+  const allBounds = [];
+  snap.docs.forEach(doc => {
+    const pts = (doc.data().points || []).map(p => [p.lat, p.lon]);
+    if (!pts.length) return;
+    L.polyline(pts, { color: '#00E5FF', weight: 4 }).addTo(_walkAllMap);
+    allBounds.push(...pts);
+  });
+
+  if (allBounds.length) _walkAllMap.fitBounds(L.latLngBounds(allBounds), { padding: [24, 24] });
+}
+
+function closeAllWalkRoutes() {
+  document.getElementById('walk-all-routes').style.display = 'none';
+  document.getElementById('walk-list').parentElement.style.display = '';
+  if (_walkAllMap) { _walkAllMap.remove(); _walkAllMap = null; }
+}
+
 function closeWalkDetail() {
   document.getElementById('walk-detail').style.display = 'none';
   document.getElementById('walk-list').parentElement.style.display = '';

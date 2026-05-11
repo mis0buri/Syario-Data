@@ -176,6 +176,13 @@
   .walk-back-btn:hover { border-color: var(--accent); color: var(--accent); }
   .walk-detail-title { font-size: 16px; font-weight: 700; }
   .walk-detail-meta { font-size: 12px; color: var(--dim); margin-bottom: 12px; }
+  .walk-all-routes-btn {
+    display: block; width: 100%; margin-bottom: 12px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 13px;
+    padding: 8px 14px; cursor: pointer; text-align: left; transition: all .15s;
+  }
+  .walk-all-routes-btn:hover { border-color: var(--accent); color: var(--accent); }
   .walk-map { height: 400px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
   .walk-km-list { margin-top: 12px; }
   .walk-km-list-title { font-size: 12px; color: var(--dim); margin-bottom: 6px; }

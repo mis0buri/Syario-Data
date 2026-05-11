@@ -640,7 +640,17 @@
         散歩ログ
         <button id="walk-add-btn" class="jare-add-btn" onclick="openWalkUpload()" style="display:none">＋ 追加</button>
       </div>
+      <button class="walk-all-routes-btn" onclick="showAllWalkRoutes()">全ルート表示</button>
       <div id="walk-list"><div class="empty">読み込み中...</div></div>
+    </div>
+    <div id="walk-all-routes" style="display:none">
+      <div class="card">
+        <div class="walk-detail-header">
+          <button class="walk-back-btn" onclick="closeAllWalkRoutes()">← 一覧へ戻る</button>
+          <span class="walk-detail-title">全ルート</span>
+        </div>
+        <div id="walk-all-map" class="walk-map"></div>
+      </div>
     </div>
     <div id="walk-detail" style="display:none">
       <div class="card">
