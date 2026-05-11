@@ -856,6 +856,16 @@ async function _renderTileMap(ctx, points, x0, y0, W, H) {
   ctx.beginPath();
   points.forEach((p, i) => { i === 0 ? ctx.moveTo(lonToX(p.lon), latToY(p.lat)) : ctx.lineTo(lonToX(p.lon), latToY(p.lat)); });
   ctx.stroke();
+
+  const drawDot = (p, color) => {
+    const cx = lonToX(p.lon), cy = latToY(p.lat), r = 10;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  };
+  drawDot(points[0], '#4caf50');
+  drawDot(points[points.length - 1], '#e53935');
+
   ctx.restore();
 }
 
