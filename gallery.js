@@ -656,7 +656,10 @@ async function openWalkDetail(docId) {
     const kmListEl = document.createElement('div');
     kmListEl.id = 'walk-km-list';
     kmListEl.className = 'walk-km-list';
-    kmListEl.innerHTML = '<div class="walk-km-list-title">通過地点</div>' +
+    const refetchBtn = _isAdmin
+      ? `<button class="walk-refetch-btn" onclick="refetchWalkAddresses('${docId}')" style="font-size:12px;padding:3px 10px;margin-left:8px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:6px;">住所を再取得</button>`
+      : '';
+    kmListEl.innerHTML = `<div class="walk-km-list-title">通過地点${refetchBtn}<span id="walk-refetch-status" style="font-size:12px;color:var(--dim);margin-left:8px;"></span></div>` +
       kmMarks.map(m => `
         <div class="walk-km-item" onclick="walkJumpTo(${m.lat},${m.lon})">
           <span class="walk-km-badge">${m.km}km</span>
@@ -1080,6 +1083,39 @@ function _parseGpx(text) {
   }
 
   return { points, date, startTime, endTime, distance: distRounded, movingMins, duration, pace, kmMarks };
+}
+
+async function refetchWalkAddresses(docId) {
+  const btn = document.querySelector('.walk-refetch-btn');
+  const statusEl = document.getElementById('walk-refetch-status');
+  if (btn) btn.disabled = true;
+
+  const doc = await _db.collection('walk_logs').doc(docId).get();
+  if (!doc.exists) { if (btn) btn.disabled = false; return; }
+  const marks = doc.data().kmMarks || [];
+  if (!marks.length) { if (statusEl) statusEl.textContent = '地点なし'; if (btn) btn.disabled = false; return; }
+
+  const geocoded = await _geocodeKmMarks(marks, statusEl);
+  await _db.collection('walk_logs').doc(docId).update({ kmMarks: geocoded });
+
+  if (statusEl) statusEl.textContent = '完了';
+  if (btn) btn.disabled = false;
+
+  // リスト再描画
+  const kmListEl = document.getElementById('walk-km-list');
+  if (kmListEl) {
+    const items = kmListEl.querySelector('.walk-km-list-title').outerHTML.replace(/walk-km-item[\s\S]*/,'');
+    const newItems = geocoded.map(m => `
+      <div class="walk-km-item" onclick="walkJumpTo(${m.lat},${m.lon})">
+        <span class="walk-km-badge">${m.km}km</span>
+        <span class="walk-km-time">${_esc(m.time || '')}</span>
+        <span class="walk-km-addr">${_esc(m.address || '')}</span>
+      </div>`).join('');
+    const title = kmListEl.querySelector('.walk-km-list-title');
+    title.nextSibling && [...kmListEl.querySelectorAll('.walk-km-item')].forEach(el => el.remove());
+    title.insertAdjacentHTML('afterend', newItems);
+    if (statusEl) statusEl.textContent = '完了';
+  }
 }
 
 async function _geocodeKmMarks(marks, statusEl) {
