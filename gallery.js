@@ -592,7 +592,7 @@ async function openWalkDetail(docId) {
 
   const points = (d.points || []).map(p => [p.lat, p.lon]);
   if (points.length) {
-    _walkPolyline = L.polyline(points, { color: '#c8a96e', weight: 4 }).addTo(_walkMap);
+    _walkPolyline = L.polyline(points, { color: '#A2D7DD', weight: 4 }).addTo(_walkMap);
     // 始点・終点マーカー
     L.circleMarker(points[0], { radius: 8, color: '#4caf50', fillColor: '#4caf50', fillOpacity: 1 }).addTo(_walkMap);
     L.circleMarker(points[points.length - 1], { radius: 8, color: '#e53935', fillColor: '#e53935', fillOpacity: 1 }).addTo(_walkMap);
