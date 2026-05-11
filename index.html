@@ -1255,6 +1255,12 @@
       <label class="jare-form-label">GPXファイル</label>
       <input type="file" id="walk-upload-file" accept=".gpx" style="width:100%;box-sizing:border-box;">
     </div>
+    <div style="margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" id="walk-skip-geocode">
+        住所の取得をスキップ
+      </label>
+    </div>
     <div id="walk-upload-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;"></div>
     <div class="jare-modal-actions">
       <button class="jare-cancel-btn" onclick="closeWalkUpload()">キャンセル</button>

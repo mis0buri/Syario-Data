@@ -994,7 +994,8 @@ async function submitWalkUpload() {
     const parsed = _parseGpx(text);
     if (!parsed.points.length) { statusEl.textContent = 'ルートデータが見つかりません'; btn.disabled = false; return; }
 
-    const kmMarks = await _geocodeKmMarks(parsed.kmMarks, statusEl);
+    const skipGeocode = document.getElementById('walk-skip-geocode')?.checked;
+    const kmMarks = skipGeocode ? parsed.kmMarks : await _geocodeKmMarks(parsed.kmMarks, statusEl);
     statusEl.textContent = '保存中...';
 
     await _db.collection('walk_logs').add({
