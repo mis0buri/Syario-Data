@@ -584,13 +584,21 @@ async function openWalkDetail(docId) {
   ].filter(Boolean).join('　／　');
   document.getElementById('walk-detail-meta').textContent = meta;
 
+  // 共有ボタン
+  const shareBtn = document.getElementById('walk-share-btn');
+  if (shareBtn) {
+    shareBtn.style.display = _isAdmin ? '' : 'none';
+    shareBtn.onclick = () => shareWalkDetail(docId, d);
+  }
+
   // 地図初期化（既存インスタンスを破棄）
   const mapEl = document.getElementById('walk-map');
   if (_walkMap) { _walkMap.remove(); _walkMap = null; }
   _walkMap = L.map(mapEl);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19
+    maxZoom: 19,
+    crossOrigin: 'anonymous',
   }).addTo(_walkMap);
 
   const points = (d.points || []).map(p => [p.lat, p.lon]);
@@ -633,6 +641,105 @@ async function openWalkDetail(docId) {
       </label>
       <span id="walk-merge-status" style="font-size:12px;color:var(--dim);margin-left:8px;"></span>`;
     mapEl.after(btn);
+  }
+}
+
+async function shareWalkDetail(docId, d) {
+  const shareBtn = document.getElementById('walk-share-btn');
+  const origText = shareBtn.textContent;
+  shareBtn.disabled = true;
+  shareBtn.textContent = '生成中...';
+
+  try {
+    await document.fonts.ready;
+
+    // タイルが描画されるのを少し待つ
+    await new Promise(r => setTimeout(r, 400));
+
+    const mapEl = document.getElementById('walk-map');
+    const mapCanvas = await html2canvas(mapEl, {
+      useCORS: true,
+      allowTaint: false,
+      scale: window.devicePixelRatio || 1,
+    });
+
+    const PAD = 28;
+    const W = 1080;
+    const dpr = 2;
+    const headerH = 200;
+    const mapH = Math.round(mapCanvas.height * (W / mapCanvas.width));
+    const H = headerH + mapH + PAD;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // 背景
+    ctx.fillStyle = '#1a1b1e';
+    ctx.fillRect(0, 0, W, H);
+
+    // アクセントバー
+    ctx.fillStyle = '#00E5FF';
+    ctx.fillRect(0, 0, 6, headerH);
+
+    // タイトル
+    const title = d.title || d.date || '';
+    ctx.font = `bold 32px 'Noto Sans JP', sans-serif`;
+    ctx.fillStyle = '#e8e6e3';
+    ctx.fillText(title, PAD + 12, 52);
+
+    // 日付・時刻
+    const timeRange = (d.startTime && d.endTime) ? `${d.startTime} 〜 ${d.endTime}` : '';
+    ctx.font = `16px 'Noto Sans JP', sans-serif`;
+    ctx.fillStyle = '#a0a0a0';
+    ctx.fillText([d.date, timeRange].filter(Boolean).join('　'), PAD + 12, 84);
+
+    // 区切り線
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(PAD + 12, 100);
+    ctx.lineTo(W - PAD, 100);
+    ctx.stroke();
+
+    // 統計
+    const stats = [
+      ['距離', d.distance ? `${d.distance} km` : '—'],
+      ['移動時間', d.duration || '—'],
+      ['ペース', d.pace || '—'],
+    ];
+    const colW = (W - PAD * 2 - 12) / stats.length;
+    stats.forEach(([label, val], i) => {
+      const x = PAD + 12 + i * colW;
+      ctx.font = `12px 'Noto Sans JP', sans-serif`;
+      ctx.fillStyle = '#a0a0a0';
+      ctx.fillText(label, x, 128);
+      ctx.font = `bold 22px 'Noto Sans JP', sans-serif`;
+      ctx.fillStyle = '#e8e6e3';
+      ctx.fillText(val, x, 158);
+    });
+
+    // 地図
+    ctx.drawImage(mapCanvas, 0, headerH, W, mapH);
+
+    canvas.toBlob(async blob => {
+      const file = new File([blob], 'walk.png', { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); } catch(e) { if (e.name !== 'AbortError') throw e; }
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `walk-${d.date || 'log'}.png`;
+        a.click();
+      }
+    }, 'image/png');
+  } catch(e) {
+    alert('共有に失敗しました: ' + e.message);
+  } finally {
+    shareBtn.disabled = false;
+    shareBtn.textContent = origText;
   }
 }
 
