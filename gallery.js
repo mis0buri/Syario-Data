@@ -778,21 +778,38 @@ async function _renderTileMap(ctx, points, x0, y0, W, H) {
   const lats = points.map(p => p.lat), lons = points.map(p => p.lon);
   const minLat = Math.min(...lats), maxLat = Math.max(...lats);
   const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+
+  const lon2tx = (lon, z) => (lon + 180) / 360 * (1 << z);
+  const lat2ty = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * (1 << z); };
+
   const zoom = _bestTileZoom(minLat, maxLat, minLon, maxLon, W, H);
 
-  const lon2t = (lon, z) => (lon + 180) / 360 * (1 << z);
-  const lat2t = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * (1 << z); };
+  // ルートのbboxをタイル座標(小数)で取得
+  const txR0 = lon2tx(minLon, zoom), txR1 = lon2tx(maxLon, zoom);
+  const tyR0 = lat2ty(maxLat, zoom),  tyR1 = lat2ty(minLat, zoom); // y軸は上が小さい
 
-  const pad = 1;
-  const txMin = Math.floor(lon2t(minLon, zoom)) - pad;
-  const txMax = Math.floor(lon2t(maxLon, zoom)) + pad;
-  const tyMin = Math.floor(lat2t(maxLat, zoom)) - pad;
-  const tyMax = Math.floor(lat2t(minLat, zoom)) + pad;
-  const tileSize = W / (txMax - txMin + 1);
+  // 10%のパディングを追加した描画範囲
+  const padX = (txR1 - txR0) * 0.1 || 0.3;
+  const padY = (tyR1 - tyR0) * 0.1 || 0.3;
+  const vx0 = txR0 - padX, vx1 = txR1 + padX;
+  const vy0 = tyR0 - padY, vy1 = tyR1 + padY;
 
+  // キャンバス1pxあたりのタイル単位(縦横で小さい方に合わせてルートを最大化)
+  const scale = Math.min(W / (vx1 - vx0), H / (vy1 - vy0));
+
+  // 描画領域をキャンバス中央に配置
+  const rW = (vx1 - vx0) * scale, rH = (vy1 - vy0) * scale;
+  const ox = x0 + (W - rW) / 2, oy = y0 + (H - rH) / 2;
+
+  const txToX = tx => ox + (tx - vx0) * scale;
+  const tyToY = ty => oy + (ty - vy0) * scale;
+
+  // 必要なタイルを取得
+  const iTxMin = Math.floor(vx0), iTxMax = Math.ceil(vx1);
+  const iTyMin = Math.floor(vy0), iTyMax = Math.ceil(vy1);
   const fetches = [];
-  for (let tx = txMin; tx <= txMax; tx++) {
-    for (let ty = tyMin; ty <= tyMax; ty++) {
+  for (let tx = iTxMin; tx <= iTxMax; tx++) {
+    for (let ty = iTyMin; ty <= iTyMax; ty++) {
       fetches.push(new Promise(resolve => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
@@ -812,11 +829,11 @@ async function _renderTileMap(ctx, points, x0, y0, W, H) {
 
   tiles.forEach(t => {
     if (!t) return;
-    ctx.drawImage(t.img, x0 + (t.tx - txMin) * tileSize, y0 + (t.ty - tyMin) * tileSize, tileSize, tileSize);
+    ctx.drawImage(t.img, txToX(t.tx), tyToY(t.ty), scale, scale);
   });
 
-  const lonToX = (lon) => x0 + (lon2t(lon, zoom) - txMin) * tileSize;
-  const latToY = (lat) => y0 + (lat2t(lat, zoom) - tyMin) * tileSize;
+  const lonToX = lon => ox + (lon2tx(lon, zoom) - vx0) * scale;
+  const latToY = lat => oy + (lat2ty(lat, zoom) - vy0) * scale;
 
   ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.beginPath();
