@@ -596,10 +596,65 @@ async function openWalkDetail(docId) {
   const points = (d.points || []).map(p => [p.lat, p.lon]);
   if (points.length) {
     _walkPolyline = L.polyline(points, { color: '#00E5FF', weight: 4 }).addTo(_walkMap);
-    // 始点・終点マーカー
     L.circleMarker(points[0], { radius: 8, color: '#4caf50', fillColor: '#4caf50', fillOpacity: 1 }).addTo(_walkMap);
     L.circleMarker(points[points.length - 1], { radius: 8, color: '#e53935', fillColor: '#e53935', fillOpacity: 1 }).addTo(_walkMap);
     _walkMap.fitBounds(_walkPolyline.getBounds(), { padding: [24, 24] });
+  }
+
+  // 管理者向け GPX 追加ボタン
+  const existingBtn = document.getElementById('walk-add-gpx-btn');
+  if (existingBtn) existingBtn.remove();
+  if (_isAdmin) {
+    const btn = document.createElement('div');
+    btn.id = 'walk-add-gpx-btn';
+    btn.style.cssText = 'margin-top:12px;';
+    btn.innerHTML = `
+      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;">
+        <span>＋ GPXを追加</span>
+        <input type="file" accept=".gpx" style="display:none;" onchange="mergeGpxToWalk('${docId}', this)">
+      </label>
+      <span id="walk-merge-status" style="font-size:12px;color:var(--dim);margin-left:8px;"></span>`;
+    mapEl.after(btn);
+  }
+}
+
+async function mergeGpxToWalk(docId, input) {
+  const statusEl = document.getElementById('walk-merge-status');
+  if (!input.files.length) return;
+  statusEl.textContent = '解析中...';
+  try {
+    const text = await input.files[0].text();
+    const parsed = _parseGpx(text);
+    if (!parsed.points.length) { statusEl.textContent = 'ルートデータが見つかりません'; return; }
+
+    const doc = await _db.collection('walk_logs').doc(docId).get();
+    const d = doc.data();
+
+    const mergedPoints   = [...(d.points || []), ...parsed.points];
+    const mergedDist     = Math.round((( d.distance || 0) + parsed.distance) * 10) / 10;
+    const mergedMins     = (d.movingMins || 0) + parsed.movingMins;
+    const mergedDuration = mergedMins >= 60
+      ? `${Math.floor(mergedMins/60)}時間${mergedMins%60}分` : `${mergedMins}分`;
+    const mergedPace = mergedDist > 0 && mergedMins > 0
+      ? (() => { const p = mergedMins / mergedDist; const m = Math.floor(p); const s = Math.round((p-m)*60); return `${m}分${String(s).padStart(2,'0')}秒/km`; })()
+      : d.pace || '';
+    const mergedStart = (!d.startTime || (parsed.startTime && parsed.startTime < d.startTime)) ? parsed.startTime : d.startTime;
+    const mergedEnd   = (!d.endTime   || (parsed.endTime   && parsed.endTime   > d.endTime))   ? parsed.endTime   : d.endTime;
+
+    await _db.collection('walk_logs').doc(docId).update({
+      points: mergedPoints,
+      distance: mergedDist,
+      movingMins: mergedMins,
+      duration: mergedDuration,
+      pace: mergedPace,
+      startTime: mergedStart,
+      endTime: mergedEnd,
+    });
+
+    statusEl.textContent = '追加しました';
+    openWalkDetail(docId);
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message;
   }
 }
 
@@ -643,6 +698,7 @@ async function submitWalkUpload() {
       startTime: parsed.startTime,
       endTime: parsed.endTime,
       distance: parsed.distance,
+      movingMins: parsed.movingMins,
       duration: parsed.duration,
       pace: parsed.pace,
       points: parsed.points,
@@ -711,7 +767,7 @@ function _parseGpx(text) {
     pace = `${paceMin}分${String(paceSec).padStart(2,'0')}秒/km`;
   }
 
-  return { points, date, startTime, endTime, distance: distRounded, duration, pace };
+  return { points, date, startTime, endTime, distance: distRounded, movingMins, duration, pace };
 }
 
 function _haversine(a, b) {
