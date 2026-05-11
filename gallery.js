@@ -670,6 +670,7 @@ async function shareWalkDetail(docId, d) {
   try {
     const W = 1080, dpr = 2, PAD = 28, headerH = 200, mapH = W;
     const H = headerH + mapH;
+    const shareUrl = location.origin + location.pathname + '#walk';
 
     const canvas = document.createElement('canvas');
     canvas.width  = W * dpr;
@@ -702,15 +703,24 @@ async function shareWalkDetail(docId, d) {
       ctx.font = "bold 22px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#e8e6e3'; ctx.fillText(val, x, 158);
     });
 
-    _drawRouteFallback(ctx, d.points || [], 0, headerH, W, mapH);
+    await _renderTileMap(ctx, d.points || [], 0, headerH, W, mapH);
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('画像の生成に失敗しました');
 
     const file = new File([blob], 'walk-' + (d.date || 'log') + '.png', { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
-    } else {
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareUrl });
+      } else {
+        throw new Error('files not supported');
+      }
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+      // ファイル共有不可の場合はURLテキストのみ or ダウンロード
+      if (navigator.share) {
+        try { await navigator.share({ url: shareUrl }); return; } catch(_) {}
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = file.name;
@@ -725,6 +735,68 @@ async function shareWalkDetail(docId, d) {
   }
 }
 
+async function _renderTileMap(ctx, points, x0, y0, W, H) {
+  if (!points.length) { _drawRouteFallback(ctx, points, x0, y0, W, H); return; }
+
+  const lats = points.map(p => p.lat), lons = points.map(p => p.lon);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const zoom = _bestTileZoom(minLat, maxLat, minLon, maxLon, W, H);
+
+  const lon2t = (lon, z) => (lon + 180) / 360 * (1 << z);
+  const lat2t = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * (1 << z); };
+
+  const pad = 1;
+  const txMin = Math.floor(lon2t(minLon, zoom)) - pad;
+  const txMax = Math.floor(lon2t(maxLon, zoom)) + pad;
+  const tyMin = Math.floor(lat2t(maxLat, zoom)) - pad;
+  const tyMax = Math.floor(lat2t(minLat, zoom)) + pad;
+  const tileSize = W / (txMax - txMin + 1);
+
+  const fetches = [];
+  for (let tx = txMin; tx <= txMax; tx++) {
+    for (let ty = tyMin; ty <= tyMax; ty++) {
+      fetches.push(new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve({ img, tx, ty });
+        img.onerror = () => resolve(null);
+        img.src = 'https://tile.openstreetmap.org/' + zoom + '/' + tx + '/' + ty + '.png';
+      }));
+    }
+  }
+
+  const tiles = await Promise.race([
+    Promise.all(fetches),
+    new Promise(resolve => setTimeout(() => resolve(null), 3000)),
+  ]);
+
+  if (!tiles) { _drawRouteFallback(ctx, points, x0, y0, W, H); return; }
+
+  tiles.forEach(t => {
+    if (!t) return;
+    ctx.drawImage(t.img, x0 + (t.tx - txMin) * tileSize, y0 + (t.ty - tyMin) * tileSize, tileSize, tileSize);
+  });
+
+  const lonToX = (lon) => x0 + (lon2t(lon, zoom) - txMin) * tileSize;
+  const latToY = (lat) => y0 + (lat2t(lat, zoom) - tyMin) * tileSize;
+
+  ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  points.forEach((p, i) => { i === 0 ? ctx.moveTo(lonToX(p.lon), latToY(p.lat)) : ctx.lineTo(lonToX(p.lon), latToY(p.lat)); });
+  ctx.stroke();
+}
+
+function _bestTileZoom(minLat, maxLat, minLon, maxLon, W, H) {
+  const lon2t = (lon, z) => (lon + 180) / 360 * (1 << z);
+  const lat2t = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * (1 << z); };
+  for (let z = 16; z >= 1; z--) {
+    const tw = lon2t(maxLon, z) - lon2t(minLon, z);
+    const th = lat2t(minLat, z) - lat2t(maxLat, z);
+    if (tw <= W/256 * 0.65 && th <= H/256 * 0.65) return z;
+  }
+  return 10;
+}
 function _drawRouteFallback(ctx, points, x0, y0, W, H) {
   ctx.fillStyle = '#242528';
   ctx.fillRect(x0, y0, W, H);
