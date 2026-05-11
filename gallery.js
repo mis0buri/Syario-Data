@@ -531,12 +531,43 @@ function applyJareJson() {
 let _walkInited = false;
 let _walkMap = null;
 let _walkPolyline = null;
+let _walkSortKey = 'date';
+let _walkSortAsc = false;
 
 function initWalk() {
   const addBtn = document.getElementById('walk-add-btn');
   if (addBtn) addBtn.style.display = _isAdmin ? '' : 'none';
+  _renderWalkSortBar();
   if (_walkInited) return;
   _walkInited = true;
+  _loadWalkList();
+}
+
+function _renderWalkSortBar() {
+  const existing = document.getElementById('walk-sort-bar');
+  if (existing) existing.remove();
+  const bar = document.createElement('div');
+  bar.id = 'walk-sort-bar';
+  bar.className = 'walk-sort-bar';
+  const keys = [['date', '日付'], ['distance', '距離'], ['movingMins', '時間']];
+  const dirLabel = _walkSortAsc ? '↑' : '↓';
+  bar.innerHTML = keys.map(([k, label]) =>
+    `<button class="walk-sort-btn${_walkSortKey === k ? ' active' : ''}" onclick="setWalkSort('${k}')">${label}</button>`
+  ).join('') +
+    `<button class="walk-sort-btn walk-sort-dir" onclick="toggleWalkSortDir()">${dirLabel}</button>`;
+  document.getElementById('walk-list').before(bar);
+}
+
+function setWalkSort(key) {
+  if (_walkSortKey === key) { _walkSortAsc = !_walkSortAsc; }
+  else { _walkSortKey = key; _walkSortAsc = key !== 'date'; }
+  _renderWalkSortBar();
+  _loadWalkList();
+}
+
+function toggleWalkSortDir() {
+  _walkSortAsc = !_walkSortAsc;
+  _renderWalkSortBar();
   _loadWalkList();
 }
 
@@ -544,16 +575,18 @@ async function _loadWalkList() {
   const listEl = document.getElementById('walk-list');
   if (!_db) { listEl.innerHTML = '<div class="empty">Firebase未設定</div>'; return; }
   try {
-    const snap = await _db.collection('walk_logs').orderBy('date', 'desc').get();
+    const snap = await _db.collection('walk_logs').get();
     if (snap.empty) { listEl.innerHTML = '<div class="empty">まだログがありません</div>'; return; }
-    listEl.innerHTML = snap.docs.map(doc => {
+    const docs = snap.docs.slice().sort((a, b) => {
+      const da = a.data(), db2 = b.data();
+      const va = da[_walkSortKey] ?? (typeof da[_walkSortKey] === 'number' ? 0 : '');
+      const vb = db2[_walkSortKey] ?? (typeof db2[_walkSortKey] === 'number' ? 0 : '');
+      return _walkSortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    });
+    listEl.innerHTML = docs.map(doc => {
       const d = doc.data();
       const label = d.title || d.date;
-      const meta = [
-        d.date,
-        d.distance ? `${d.distance} km` : null,
-        d.duration || null,
-      ].filter(Boolean).join('　');
+      const meta = [d.date, d.distance ? `${d.distance} km` : null, d.duration || null].filter(Boolean).join('　');
       return `<div class="walk-list-item" onclick="openWalkDetail('${doc.id}')">
         <div class="walk-list-title">${_esc(label)}</div>
         <div class="walk-list-meta">${_esc(meta)}</div>
@@ -793,7 +826,7 @@ function _bestTileZoom(minLat, maxLat, minLon, maxLon, W, H) {
   for (let z = 16; z >= 1; z--) {
     const tw = lon2t(maxLon, z) - lon2t(minLon, z);
     const th = lat2t(minLat, z) - lat2t(maxLat, z);
-    if (tw <= W/256 * 0.65 && th <= H/256 * 0.65) return z;
+    if (Math.max(tw / (W/256), th / (H/256)) <= 0.82) return z;
   }
   return 10;
 }
