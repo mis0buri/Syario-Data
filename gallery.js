@@ -687,7 +687,7 @@ function _parseGpx(text) {
   }
 
   // 移動時間（連続点間の間隔が60秒超は休憩とみなし除外）
-  const GAP_THRESHOLD = 60 * 1000;
+  const GAP_THRESHOLD = 5 * 60 * 1000;
   let movingSecs = 0;
   for (let i = 1; i < trkpts.length; i++) {
     const t0 = trkpts[i-1].querySelector('time')?.textContent;
