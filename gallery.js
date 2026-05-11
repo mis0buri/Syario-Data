@@ -836,7 +836,7 @@ async function _geocodeKmMarks(marks, statusEl) {
     if (statusEl) statusEl.textContent = `住所を取得中... (${m.km}km / ${marks.length}km)`;
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${m.lat}&lon=${m.lon}&format=json&zoom=16&accept-language=ja`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${m.lat}&lon=${m.lon}&format=json&zoom=18&accept-language=ja`,
         { headers: { 'User-Agent': 'SyarioWalkLog/1.0' } }
       );
       const data = await res.json();
@@ -851,7 +851,10 @@ async function _geocodeKmMarks(marks, statusEl) {
 
 function _extractJaAddress(addr) {
   if (!addr) return '';
-  return addr.quarter || addr.suburb || addr.neighbourhood || addr.road || '';
+  if (addr.quarter) return addr.quarter;
+  if (addr.road && /丁目|番/.test(addr.road)) return addr.road;
+  if (addr.suburb) return addr.suburb;
+  return addr.neighbourhood || addr.road || '';
 }
 
 function _haversine(a, b) {
