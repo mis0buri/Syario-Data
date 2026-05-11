@@ -668,33 +668,8 @@ async function shareWalkDetail(docId, d) {
   shareBtn.textContent = '生成中...';
 
   try {
-    await document.fonts.ready;
-
-    const W = 1080, dpr = 2, PAD = 28, headerH = 200;
-
-    // 地図キャプチャ（タイル読み込み完了を待つ、5秒でタイムアウト）
-    const mapEl = document.getElementById('walk-map');
-    let mapImg = null;
-    try {
-      await Promise.race([
-        new Promise(resolve => {
-          const check = () => {
-            const imgs = [...mapEl.querySelectorAll('img')];
-            if (imgs.length && imgs.every(i => i.complete)) resolve();
-            else setTimeout(check, 200);
-          };
-          check();
-        }),
-        new Promise(resolve => setTimeout(resolve, 5000)),
-      ]);
-      mapImg = await Promise.race([
-        html2canvas(mapEl, { useCORS: true, allowTaint: false, logging: false }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000)),
-      ]);
-    } catch(e) { mapImg = null; }
-
-    const mapH = mapImg ? Math.round(mapImg.height * (W / mapImg.width)) : W;
-    const H = headerH + mapH + PAD;
+    const W = 1080, dpr = 2, PAD = 28, headerH = 200, mapH = W;
+    const H = headerH + mapH;
 
     const canvas = document.createElement('canvas');
     canvas.width  = W * dpr;
@@ -702,60 +677,44 @@ async function shareWalkDetail(docId, d) {
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    // 背景
     ctx.fillStyle = '#1a1b1e';
     ctx.fillRect(0, 0, W, H);
-
-    // アクセントバー
     ctx.fillStyle = '#00E5FF';
     ctx.fillRect(0, 0, 6, headerH);
 
-    // タイトル
-    ctx.font = `bold 32px 'Noto Sans JP', sans-serif`;
+    ctx.font = "bold 32px 'Noto Sans JP', sans-serif";
     ctx.fillStyle = '#e8e6e3';
     ctx.fillText(d.title || d.date || '', PAD + 12, 52);
 
-    // 日付・時刻
-    const timeRange = (d.startTime && d.endTime) ? `${d.startTime} 〜 ${d.endTime}` : '';
-    ctx.font = `16px 'Noto Sans JP', sans-serif`;
+    const timeRange = (d.startTime && d.endTime) ? d.startTime + ' 〜 ' + d.endTime : '';
+    ctx.font = "16px 'Noto Sans JP', sans-serif";
     ctx.fillStyle = '#a0a0a0';
     ctx.fillText([d.date, timeRange].filter(Boolean).join('　'), PAD + 12, 84);
 
-    // 区切り線
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(PAD + 12, 100); ctx.lineTo(W - PAD, 100); ctx.stroke();
 
-    // 統計
-    const stats = [['距離', d.distance ? `${d.distance} km` : '—'], ['移動時間', d.duration || '—'], ['ペース', d.pace || '—']];
+    const stats = [['距離', d.distance ? d.distance + ' km' : '—'], ['移動時間', d.duration || '—'], ['ペース', d.pace || '—']];
     const colW = (W - PAD * 2 - 12) / stats.length;
     stats.forEach(([label, val], i) => {
       const x = PAD + 12 + i * colW;
-      ctx.font = `12px 'Noto Sans JP', sans-serif`; ctx.fillStyle = '#a0a0a0'; ctx.fillText(label, x, 128);
-      ctx.font = `bold 22px 'Noto Sans JP', sans-serif`; ctx.fillStyle = '#e8e6e3'; ctx.fillText(val, x, 158);
+      ctx.font = "12px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#a0a0a0'; ctx.fillText(label, x, 128);
+      ctx.font = "bold 22px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#e8e6e3'; ctx.fillText(val, x, 158);
     });
 
-    // 地図またはルートのみ描画
-    if (mapImg) {
-      ctx.drawImage(mapImg, 0, headerH, W, mapH);
-    } else {
-      // フォールバック：ルートをキャンバスに直接描画
-      _drawRouteFallback(ctx, d.points || [], 0, headerH, W, mapH);
-    }
+    _drawRouteFallback(ctx, d.points || [], 0, headerH, W, mapH);
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('画像の生成に失敗しました');
 
-    const file = new File([blob], `walk-${d.date || 'log'}.png`, { type: 'image/png' });
-    if (navigator.canShare?.({ files: [file] })) {
+    const file = new File([blob], 'walk-' + (d.date || 'log') + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file] });
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
   } catch(e) {
