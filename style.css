@@ -177,6 +177,19 @@
   .walk-detail-title { font-size: 16px; font-weight: 700; }
   .walk-detail-meta { font-size: 12px; color: var(--dim); margin-bottom: 12px; }
   .walk-map { height: 400px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+  .walk-km-list { margin-top: 12px; }
+  .walk-km-list-title { font-size: 12px; color: var(--dim); margin-bottom: 6px; }
+  .walk-km-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background .15s;
+  }
+  .walk-km-item:hover { background: var(--surface2); }
+  .walk-km-badge {
+    font-size: 11px; font-weight: 700; color: var(--bg);
+    background: var(--accent); border-radius: 4px; padding: 2px 6px; white-space: nowrap;
+  }
+  .walk-km-time { font-size: 13px; color: var(--dim); white-space: nowrap; min-width: 42px; }
+  .walk-km-addr { font-size: 13px; color: var(--text); }
   /* じゃれ本リスト */
   .jare-add-btn {
     float: right; background: var(--accent); border: none; color: var(--bg);

@@ -601,6 +601,24 @@ async function openWalkDetail(docId) {
     _walkMap.fitBounds(_walkPolyline.getBounds(), { padding: [24, 24] });
   }
 
+  // km地点リスト
+  const existingKmList = document.getElementById('walk-km-list');
+  if (existingKmList) existingKmList.remove();
+  const kmMarks = d.kmMarks || [];
+  if (kmMarks.length) {
+    const kmListEl = document.createElement('div');
+    kmListEl.id = 'walk-km-list';
+    kmListEl.className = 'walk-km-list';
+    kmListEl.innerHTML = '<div class="walk-km-list-title">通過地点</div>' +
+      kmMarks.map(m => `
+        <div class="walk-km-item" onclick="walkJumpTo(${m.lat},${m.lon})">
+          <span class="walk-km-badge">${m.km}km</span>
+          <span class="walk-km-time">${_esc(m.time || '')}</span>
+          <span class="walk-km-addr">${_esc(m.address || '')}</span>
+        </div>`).join('');
+    mapEl.after(kmListEl);
+  }
+
   // 管理者向け GPX 追加ボタン
   const existingBtn = document.getElementById('walk-add-gpx-btn');
   if (existingBtn) existingBtn.remove();
@@ -631,7 +649,7 @@ async function mergeGpxToWalk(docId, input) {
     const d = doc.data();
 
     const mergedPoints   = [...(d.points || []), ...parsed.points];
-    const mergedDist     = Math.round((( d.distance || 0) + parsed.distance) * 10) / 10;
+    const mergedDist     = Math.round(((d.distance || 0) + parsed.distance) * 10) / 10;
     const mergedMins     = (d.movingMins || 0) + parsed.movingMins;
     const mergedDuration = mergedMins >= 60
       ? `${Math.floor(mergedMins/60)}時間${mergedMins%60}分` : `${mergedMins}分`;
@@ -641,6 +659,12 @@ async function mergeGpxToWalk(docId, input) {
     const mergedStart = (!d.startTime || (parsed.startTime && parsed.startTime < d.startTime)) ? parsed.startTime : d.startTime;
     const mergedEnd   = (!d.endTime   || (parsed.endTime   && parsed.endTime   > d.endTime))   ? parsed.endTime   : d.endTime;
 
+    // km地点をオフセット付きでジオコーディング
+    const kmOffset = Math.floor(d.distance || 0);
+    const offsetMarks = parsed.kmMarks.map(m => ({ ...m, km: m.km + kmOffset }));
+    const geocodedNew = await _geocodeKmMarks(offsetMarks, statusEl);
+    const mergedKmMarks = [...(d.kmMarks || []), ...geocodedNew];
+
     await _db.collection('walk_logs').doc(docId).update({
       points: mergedPoints,
       distance: mergedDist,
@@ -649,6 +673,7 @@ async function mergeGpxToWalk(docId, input) {
       pace: mergedPace,
       startTime: mergedStart,
       endTime: mergedEnd,
+      kmMarks: mergedKmMarks,
     });
 
     statusEl.textContent = '追加しました';
@@ -656,6 +681,10 @@ async function mergeGpxToWalk(docId, input) {
   } catch(e) {
     statusEl.textContent = 'エラー: ' + e.message;
   }
+}
+
+function walkJumpTo(lat, lon) {
+  if (_walkMap) _walkMap.setView([lat, lon], 16);
 }
 
 function closeWalkDetail() {
@@ -692,6 +721,9 @@ async function submitWalkUpload() {
     const parsed = _parseGpx(text);
     if (!parsed.points.length) { statusEl.textContent = 'ルートデータが見つかりません'; btn.disabled = false; return; }
 
+    const kmMarks = await _geocodeKmMarks(parsed.kmMarks, statusEl);
+    statusEl.textContent = '保存中...';
+
     await _db.collection('walk_logs').add({
       title: title || null,
       date: parsed.date,
@@ -702,6 +734,7 @@ async function submitWalkUpload() {
       duration: parsed.duration,
       pace: parsed.pace,
       points: parsed.points,
+      kmMarks,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -767,7 +800,58 @@ function _parseGpx(text) {
     pace = `${paceMin}分${String(paceSec).padStart(2,'0')}秒/km`;
   }
 
-  return { points, date, startTime, endTime, distance: distRounded, movingMins, duration, pace };
+  // km地点の計算（座標・通過時刻）
+  const kmMarks = [];
+  let cumKm = 0;
+  let nextKm = 1;
+  for (let i = 1; i < trkpts.length; i++) {
+    const a = { lat: parseFloat(trkpts[i-1].getAttribute('lat')), lon: parseFloat(trkpts[i-1].getAttribute('lon')) };
+    const b = { lat: parseFloat(trkpts[i].getAttribute('lat')), lon: parseFloat(trkpts[i].getAttribute('lon')) };
+    const seg = _haversine(a, b);
+    const prev = cumKm;
+    cumKm += seg;
+    while (cumKm >= nextKm) {
+      const frac = seg > 0 ? (nextKm - prev) / seg : 0;
+      const mkLat = a.lat + frac * (b.lat - a.lat);
+      const mkLon = a.lon + frac * (b.lon - a.lon);
+      const t0 = trkpts[i-1].querySelector('time')?.textContent;
+      const t1 = trkpts[i].querySelector('time')?.textContent;
+      let markTime = '';
+      if (t0 && t1) {
+        const ms = new Date(t0).getTime() + frac * (new Date(t1).getTime() - new Date(t0).getTime());
+        markTime = new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+      }
+      kmMarks.push({ km: nextKm, lat: mkLat, lon: mkLon, time: markTime, address: '' });
+      nextKm++;
+    }
+  }
+
+  return { points, date, startTime, endTime, distance: distRounded, movingMins, duration, pace, kmMarks };
+}
+
+async function _geocodeKmMarks(marks, statusEl) {
+  const result = [];
+  for (let i = 0; i < marks.length; i++) {
+    const m = marks[i];
+    if (statusEl) statusEl.textContent = `住所を取得中... (${m.km}km / ${marks.length}km)`;
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${m.lat}&lon=${m.lon}&format=json&zoom=16&accept-language=ja`,
+        { headers: { 'User-Agent': 'SyarioWalkLog/1.0' } }
+      );
+      const data = await res.json();
+      result.push({ ...m, address: _extractJaAddress(data.address) });
+    } catch(e) {
+      result.push({ ...m, address: '' });
+    }
+    if (i < marks.length - 1) await new Promise(r => setTimeout(r, 1100));
+  }
+  return result;
+}
+
+function _extractJaAddress(addr) {
+  if (!addr) return '';
+  return addr.quarter || addr.suburb || addr.neighbourhood || addr.road || '';
 }
 
 function _haversine(a, b) {
