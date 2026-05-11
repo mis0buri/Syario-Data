@@ -527,3 +527,171 @@ function applyJareJson() {
   _setOcrStatus(`${filled}段落を反映しました。内容を確認・修正してから保存してください。`, 'ok');
 }
 
+// ── 散歩ログ ──
+let _walkInited = false;
+let _walkMap = null;
+let _walkPolyline = null;
+
+function initWalk() {
+  const addBtn = document.getElementById('walk-add-btn');
+  if (addBtn) addBtn.style.display = _isAdmin ? '' : 'none';
+  if (_walkInited) return;
+  _walkInited = true;
+  _loadWalkList();
+}
+
+async function _loadWalkList() {
+  const listEl = document.getElementById('walk-list');
+  if (!_db) { listEl.innerHTML = '<div class="empty">Firebase未設定</div>'; return; }
+  try {
+    const snap = await _db.collection('walk_logs').orderBy('date', 'desc').get();
+    if (snap.empty) { listEl.innerHTML = '<div class="empty">まだログがありません</div>'; return; }
+    listEl.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const label = d.title || d.date;
+      const meta = [
+        d.date,
+        d.distance ? `${d.distance} km` : null,
+        d.duration || null,
+      ].filter(Boolean).join('　');
+      return `<div class="walk-list-item" onclick="openWalkDetail('${doc.id}')">
+        <div class="walk-list-title">${_esc(label)}</div>
+        <div class="walk-list-meta">${_esc(meta)}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = '<div class="empty">読み込みに失敗しました</div>';
+  }
+}
+
+async function openWalkDetail(docId) {
+  const doc = await _db.collection('walk_logs').doc(docId).get();
+  if (!doc.exists) return;
+  const d = doc.data();
+
+  document.getElementById('walk-list').parentElement.style.display = 'none';
+  const detailEl = document.getElementById('walk-detail');
+  detailEl.style.display = '';
+
+  document.getElementById('walk-detail-title').textContent = d.title || d.date;
+  const meta = [
+    d.date,
+    d.distance ? `距離: ${d.distance} km` : null,
+    d.duration ? `時間: ${d.duration}` : null,
+  ].filter(Boolean).join('　／　');
+  document.getElementById('walk-detail-meta').textContent = meta;
+
+  // 地図初期化（既存インスタンスを破棄）
+  const mapEl = document.getElementById('walk-map');
+  if (_walkMap) { _walkMap.remove(); _walkMap = null; }
+  _walkMap = L.map(mapEl);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(_walkMap);
+
+  const points = (d.points || []).map(p => [p.lat, p.lon]);
+  if (points.length) {
+    _walkPolyline = L.polyline(points, { color: '#c8a96e', weight: 4 }).addTo(_walkMap);
+    // 始点・終点マーカー
+    L.circleMarker(points[0], { radius: 8, color: '#4caf50', fillColor: '#4caf50', fillOpacity: 1 }).addTo(_walkMap);
+    L.circleMarker(points[points.length - 1], { radius: 8, color: '#e53935', fillColor: '#e53935', fillOpacity: 1 }).addTo(_walkMap);
+    _walkMap.fitBounds(_walkPolyline.getBounds(), { padding: [24, 24] });
+  }
+}
+
+function closeWalkDetail() {
+  document.getElementById('walk-detail').style.display = 'none';
+  document.getElementById('walk-list').parentElement.style.display = '';
+  if (_walkMap) { _walkMap.remove(); _walkMap = null; }
+}
+
+function openWalkUpload() {
+  document.getElementById('walk-upload-title').value = '';
+  document.getElementById('walk-upload-file').value = '';
+  document.getElementById('walk-upload-status').textContent = '';
+  document.getElementById('walk-upload-submit-btn').disabled = false;
+  const modal = document.getElementById('walk-upload-modal');
+  modal.style.display = 'flex';
+}
+
+function closeWalkUpload() {
+  document.getElementById('walk-upload-modal').style.display = 'none';
+}
+
+async function submitWalkUpload() {
+  const statusEl = document.getElementById('walk-upload-status');
+  const btn = document.getElementById('walk-upload-submit-btn');
+  const fileInput = document.getElementById('walk-upload-file');
+  const title = document.getElementById('walk-upload-title').value.trim();
+
+  if (!fileInput.files.length) { statusEl.textContent = 'GPXファイルを選択してください'; return; }
+  btn.disabled = true;
+  statusEl.textContent = '解析中...';
+
+  try {
+    const text = await fileInput.files[0].text();
+    const parsed = _parseGpx(text);
+    if (!parsed.points.length) { statusEl.textContent = 'ルートデータが見つかりません'; btn.disabled = false; return; }
+
+    await _db.collection('walk_logs').add({
+      title: title || null,
+      date: parsed.date,
+      distance: parsed.distance,
+      duration: parsed.duration,
+      points: parsed.points,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    closeWalkUpload();
+    _walkInited = false;
+    initWalk();
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+function _parseGpx(text) {
+  const xml = new DOMParser().parseFromString(text, 'application/xml');
+  const trkpts = [...xml.querySelectorAll('trkpt')];
+
+  // 座標を間引き（最大500点）
+  const step = Math.max(1, Math.floor(trkpts.length / 500));
+  const sampled = trkpts.filter((_, i) => i % step === 0 || i === trkpts.length - 1);
+  const points = sampled.map(pt => ({
+    lat: parseFloat(pt.getAttribute('lat')),
+    lon: parseFloat(pt.getAttribute('lon')),
+  }));
+
+  // 日付（最初のtrkptのtime要素から）
+  const firstTime = trkpts[0]?.querySelector('time')?.textContent || '';
+  const date = firstTime ? firstTime.slice(0, 10) : '';
+
+  // 距離計算（ハバーサイン）
+  let dist = 0;
+  for (let i = 1; i < trkpts.length; i++) {
+    const a = { lat: parseFloat(trkpts[i-1].getAttribute('lat')), lon: parseFloat(trkpts[i-1].getAttribute('lon')) };
+    const b = { lat: parseFloat(trkpts[i].getAttribute('lat')), lon: parseFloat(trkpts[i].getAttribute('lon')) };
+    dist += _haversine(a, b);
+  }
+
+  // 所要時間
+  const lastTime = trkpts[trkpts.length - 1]?.querySelector('time')?.textContent || '';
+  let duration = '';
+  if (firstTime && lastTime) {
+    const mins = Math.round((new Date(lastTime) - new Date(firstTime)) / 60000);
+    duration = mins >= 60 ? `${Math.floor(mins/60)}時間${mins%60}分` : `${mins}分`;
+  }
+
+  return { points, date, distance: Math.round(dist * 10) / 10, duration };
+}
+
+function _haversine(a, b) {
+  const R = 6371;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLon = (b.lon - a.lon) * Math.PI / 180;
+  const s = Math.sin(dLat/2) ** 2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLon/2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+}
+

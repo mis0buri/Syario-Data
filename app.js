@@ -125,19 +125,19 @@ function filteredGathers() {
 // ── ナビ ──
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
-const _GALLERY = ['gallery','jare','jare-detail'];
+const _GALLERY = ['gallery','jare','jare-detail','walk'];
 const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
 let _firestoreSchedule = {};
 // セクションID → URLハッシュ のマッピング（異なる場合のみ記載）
-const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery' };
+const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery', walk: 'walk' };
 // URLハッシュ → セクションID
 const _HASH_TO_SECTION = {
   '': 'top', top: 'top',
   ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
-  gallery: 'jare', schedule: 'schedule', board: 'board',
+  gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
   renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp',
 };
 
@@ -168,7 +168,7 @@ function showSection(id) {
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isGallery) {
-    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本'};
+    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本',walk:'散歩ログ'};
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
@@ -187,6 +187,7 @@ function showSection(id) {
   if (id==='boshu') initBoshu();
   if (id==='stamp') initStampCard();
   if (id==='jare') initJare();
+  if (id==='walk') initWalk();
   if (id==='top') initTopPage();
   if (id==='feedback' && _registeredName) {
     const fbName = document.getElementById('fb-name');

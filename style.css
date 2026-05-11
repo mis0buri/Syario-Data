@@ -160,6 +160,23 @@
   .gallery-hub-badge {
     display: block; font-size: 11px; font-weight: 400; color: var(--dim); margin-top: 6px;
   }
+  /* 散歩ログ */
+  .walk-list-item {
+    padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 10px; cursor: pointer; transition: all .15s;
+  }
+  .walk-list-item:hover { border-color: var(--accent); background: var(--surface2); }
+  .walk-list-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .walk-list-meta { font-size: 12px; color: var(--dim); }
+  .walk-detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .walk-back-btn {
+    background: none; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  .walk-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .walk-detail-title { font-size: 16px; font-weight: 700; }
+  .walk-detail-meta { font-size: 12px; color: var(--dim); margin-bottom: 12px; }
+  .walk-map { height: 400px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
   /* じゃれ本リスト */
   .jare-add-btn {
     float: right; background: var(--accent); border: none; color: var(--bg);

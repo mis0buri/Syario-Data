@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>シャリオ</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -54,6 +56,7 @@
 <!-- ギャラリーサブナビ -->
 <div id="subnav-gallery" class="subnav" style="display:none">
   <button class="active" onclick="showSection('jare')">じゃれ本</button>
+  <button onclick="showSection('walk')">散歩ログ</button>
 </div>
 
 <!-- 管理者サブナビ -->
@@ -625,6 +628,28 @@
       <div class="card-title">ギャラリー</div>
       <div class="gallery-hub">
         <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本</button>
+        <button class="gallery-hub-btn" onclick="showSection('walk')">散歩ログ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 散歩ログ -->
+  <div id="sec-walk" class="section">
+    <div class="card">
+      <div class="card-title">
+        散歩ログ
+        <button id="walk-add-btn" class="jare-add-btn" onclick="openWalkUpload()" style="display:none">＋ 追加</button>
+      </div>
+      <div id="walk-list"><div class="empty">読み込み中...</div></div>
+    </div>
+    <div id="walk-detail" style="display:none">
+      <div class="card">
+        <div class="walk-detail-header">
+          <button class="walk-back-btn" onclick="closeWalkDetail()">← 一覧へ戻る</button>
+          <span id="walk-detail-title" class="walk-detail-title"></span>
+        </div>
+        <div id="walk-detail-meta" class="walk-detail-meta"></div>
+        <div id="walk-map" class="walk-map"></div>
       </div>
     </div>
   </div>
@@ -1202,6 +1227,26 @@
     </button>
     <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です<br>（じゃれ本の閲覧にはログインが必要です）</p>
     <button class="login-close-btn" onclick="closeLoginModal()">閉じる</button>
+  </div>
+</div>
+
+<!-- 散歩ログ アップロードモーダル -->
+<div id="walk-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:24px 16px;">
+  <div class="jare-modal-box" style="width:min(420px,100%);">
+    <h3 style="margin:0 0 16px;font-size:16px;">散歩ログを追加</h3>
+    <div class="jare-form-row">
+      <label class="jare-form-label">タイトル（任意）</label>
+      <input type="text" id="walk-upload-title" class="admin-input" placeholder="例：代々木公園" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div class="jare-form-row">
+      <label class="jare-form-label">GPXファイル</label>
+      <input type="file" id="walk-upload-file" accept=".gpx" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div id="walk-upload-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;"></div>
+    <div class="jare-modal-actions">
+      <button class="jare-cancel-btn" onclick="closeWalkUpload()">キャンセル</button>
+      <button class="jare-submit-btn" id="walk-upload-submit-btn" onclick="submitWalkUpload()">登録する</button>
+    </div>
   </div>
 </div>
 </body>
