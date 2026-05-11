@@ -899,7 +899,10 @@ async function mergeGpxToWalk(docId, input) {
 }
 
 function walkJumpTo(lat, lon) {
-  if (_walkMap) _walkMap.setView([lat, lon], 16);
+  if (_walkMap) {
+    _walkMap.setView([lat, lon], 16);
+    document.getElementById('walk-map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 let _walkAllMap = null;
