@@ -743,16 +743,23 @@ async function shareWalkDetail(docId, d) {
       _drawRouteFallback(ctx, d.points || [], 0, headerH, W, mapH);
     }
 
-    canvas.toBlob(async blob => {
-      const file = new File([blob], `walk-${d.date || 'log'}.png`, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file] }); } catch(e) { if (e.name !== 'AbortError') throw e; }
-      } else {
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
-      }
-    }, 'image/png');
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('画像の生成に失敗しました');
+
+    const file = new File([blob], `walk-${d.date || 'log'}.png`, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file] });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
   } catch(e) {
-    alert('共有に失敗しました: ' + e.message);
+    if (e.name !== 'AbortError') alert('共有に失敗しました: ' + e.message);
   } finally {
     shareBtn.disabled = false;
     shareBtn.textContent = origText;
