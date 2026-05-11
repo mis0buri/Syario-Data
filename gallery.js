@@ -704,7 +704,7 @@ async function shareWalkDetail(docId, d) {
   try {
     const W = 1080, dpr = 2, PAD = 28, headerH = 200, mapH = W;
     const H = headerH + mapH;
-    const shareUrl = location.origin + location.pathname + '#walk';
+    const shareUrl = location.origin + location.pathname + '#walk/' + docId;
 
     const canvas = document.createElement('canvas');
     canvas.width  = W * dpr;
