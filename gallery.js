@@ -827,6 +827,11 @@ async function _renderTileMap(ctx, points, x0, y0, W, H) {
 
   if (!tiles) { _drawRouteFallback(ctx, points, x0, y0, W, H); return; }
 
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y0, W, H);
+  ctx.clip();
+
   tiles.forEach(t => {
     if (!t) return;
     ctx.drawImage(t.img, txToX(t.tx), tyToY(t.ty), scale, scale);
@@ -839,6 +844,7 @@ async function _renderTileMap(ctx, points, x0, y0, W, H) {
   ctx.beginPath();
   points.forEach((p, i) => { i === 0 ? ctx.moveTo(lonToX(p.lon), latToY(p.lat)) : ctx.lineTo(lonToX(p.lon), latToY(p.lat)); });
   ctx.stroke();
+  ctx.restore();
 }
 
 function _bestTileZoom(minLat, maxLat, minLon, maxLon, W, H) {
