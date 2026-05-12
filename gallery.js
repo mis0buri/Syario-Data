@@ -1208,7 +1208,7 @@ async function _geocodeKmMarks(marks, statusEl) {
       );
       if (res.status === 429) {
         if (statusEl) statusEl.textContent = `リクエスト制限のため ${m.km}km 以降をスキップ`;
-        result.push(...marks.slice(i).map(mk => ({ ...mk, address: '' })));
+        result.push(...marks.slice(i).map(mk => ({ ...mk })));
         break;
       }
       const data = await res.json();
