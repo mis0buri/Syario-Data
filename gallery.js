@@ -1220,7 +1220,9 @@ function _extractJaAddress(addr) {
   if (!addr) return '';
   const pref = addr.state || addr.province || '';
   const city = addr.city || addr.town || addr.county || addr.municipality || '';
-  const town = addr.quarter || (addr.road && /丁目|番/.test(addr.road) ? addr.road : '') || addr.suburb || addr.neighbourhood || '';
+  // 丁目・番を含むフィールドを優先して町名として使用
+  const candidates = [addr.quarter, addr.road, addr.suburb, addr.neighbourhood].filter(Boolean);
+  const town = candidates.find(f => /丁目|番/.test(f)) || candidates[0] || '';
   return [pref, city, town].filter(Boolean).join(' ');
 }
 
