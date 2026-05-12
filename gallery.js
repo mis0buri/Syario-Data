@@ -1206,6 +1206,11 @@ async function _geocodeKmMarks(marks, statusEl) {
         `https://nominatim.openstreetmap.org/reverse?lat=${m.lat}&lon=${m.lon}&format=json&zoom=18&accept-language=ja`,
         { headers: { 'User-Agent': 'SyarioWalkLog/1.0' } }
       );
+      if (res.status === 429) {
+        if (statusEl) statusEl.textContent = `リクエスト制限のため ${m.km}km 以降をスキップ`;
+        result.push(...marks.slice(i).map(mk => ({ ...mk, address: '' })));
+        break;
+      }
       const data = await res.json();
       result.push({ ...m, address: _extractJaAddress(data.address) });
     } catch(e) {
