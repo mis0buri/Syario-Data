@@ -955,6 +955,16 @@ function walkJumpTo(lat, lon) {
 
 let _walkAllMap = null;
 
+// 半期ごとの色パレット（順番に循環）
+const _HALF_YEAR_COLORS = ['#00E5FF','#FF6B6B','#69DB7C','#FFD43B','#CC5DE8','#FF922B','#4DABF7','#F783AC'];
+
+function _halfYearKey(dateStr) {
+  if (!dateStr) return '';
+  const m = dateStr.match(/^(\d{4})-(\d{2})/);
+  if (!m) return dateStr;
+  return `${m[1]}年${+m[2] <= 6 ? '前期' : '後期'}`;
+}
+
 async function showAllWalkRoutes() {
   if (!_db) return;
   document.getElementById('walk-list').parentElement.style.display = 'none';
@@ -970,15 +980,37 @@ async function showAllWalkRoutes() {
   }).addTo(_walkAllMap);
 
   const snap = await _db.collection('walk_logs').get();
+
+  // 半期キーを収集して色を割り当て
+  const keys = [...new Set(snap.docs.map(doc => _halfYearKey(doc.data().date)).filter(Boolean))].sort();
+  const colorMap = Object.fromEntries(keys.map((k, i) => [k, _HALF_YEAR_COLORS[i % _HALF_YEAR_COLORS.length]]));
+
   const allBounds = [];
   snap.docs.forEach(doc => {
-    const pts = (doc.data().points || []).map(p => [p.lat, p.lon]);
+    const d = doc.data();
+    const pts = (d.points || []).map(p => [p.lat, p.lon]);
     if (!pts.length) return;
-    L.polyline(pts, { color: '#00E5FF', weight: 4 }).addTo(_walkAllMap);
+    const color = colorMap[_halfYearKey(d.date)] || '#00E5FF';
+    L.polyline(pts, { color, weight: 4 }).addTo(_walkAllMap);
     allBounds.push(...pts);
   });
 
   if (allBounds.length) _walkAllMap.fitBounds(L.latLngBounds(allBounds), { padding: [24, 24] });
+
+  // 凡例
+  const existingLegend = document.getElementById('walk-all-legend');
+  if (existingLegend) existingLegend.remove();
+  if (keys.length > 1) {
+    const legend = document.createElement('div');
+    legend.id = 'walk-all-legend';
+    legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:13px;';
+    legend.innerHTML = keys.map(k =>
+      `<span style="display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:24px;height:4px;border-radius:2px;background:${colorMap[k]};"></span>${k}
+      </span>`
+    ).join('');
+    mapEl.after(legend);
+  }
 }
 
 function closeAllWalkRoutes() {
