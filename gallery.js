@@ -1223,11 +1223,23 @@ async function _geocodeKmMarks(marks, statusEl) {
 
 function _extractJaAddress(addr) {
   if (!addr) return '';
-  const pref = addr.state || addr.province || '';
-  const city = addr.city || addr.town || addr.county || addr.municipality || '';
-  // 丁目・番を含むフィールドを優先して町名として使用
-  const candidates = [addr.quarter, addr.road, addr.suburb, addr.neighbourhood].filter(Boolean);
+
+  // 都道府県：state/province、またはcityが「都道府県」で終わる場合
+  const pref = addr.state || addr.province ||
+    (/[都道府県]$/.test(addr.city || '') ? addr.city : '') || '';
+
+  // 市区町村：prefと重複しない city/town/county + 政令指定都市の区(suburb)
+  const cityRaw = (addr.city && addr.city !== pref ? addr.city : '') ||
+    addr.town || addr.county || addr.municipality || '';
+  const ward = (addr.suburb && /区$/.test(addr.suburb) && addr.suburb !== cityRaw) ? addr.suburb : '';
+  const city = cityRaw ? cityRaw + (ward ? ward : '') : ward;
+
+  // 町名・丁目（上で使ったフィールドを除外）
+  const used = new Set([pref, cityRaw, ward].filter(Boolean));
+  const candidates = [addr.quarter, addr.road, addr.suburb, addr.neighbourhood]
+    .filter(f => f && !used.has(f));
   const town = candidates.find(f => /丁目|番/.test(f)) || candidates[0] || '';
+
   return [pref, city, town].filter(Boolean).join(' ');
 }
 
