@@ -1218,7 +1218,7 @@ async function _geocodeKmMarks(marks, statusEl) {
 
 function _extractJaAddress(addr) {
   if (!addr) return '';
-  const pref = addr.state || '';
+  const pref = addr.state || addr.province || '';
   const city = addr.city || addr.town || addr.county || addr.municipality || '';
   const town = addr.quarter || (addr.road && /丁目|番/.test(addr.road) ? addr.road : '') || addr.suburb || addr.neighbourhood || '';
   return [pref, city, town].filter(Boolean).join(' ');
