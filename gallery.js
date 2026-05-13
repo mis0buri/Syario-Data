@@ -537,6 +537,8 @@ let _walkSortAsc = false;
 function initWalk() {
   const addBtn = document.getElementById('walk-add-btn');
   if (addBtn) addBtn.style.display = _isAdmin ? '' : 'none';
+  const batchBtn = document.getElementById('walk-batch-geocode-btn');
+  if (batchBtn) batchBtn.style.display = _isAdmin ? '' : 'none';
   _renderWalkSortBar();
   if (_walkInited) return;
   _walkInited = true;
@@ -1163,6 +1165,64 @@ function _parseGpx(text) {
   }
 
   return { points, date, startTime, endTime, distance: distRounded, movingMins, duration, pace, kmMarks };
+}
+
+async function batchGeocodeWalkLogs() {
+  if (!_isAdmin || !_db) return;
+  const btn = document.getElementById('walk-batch-geocode-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '取得中...'; }
+
+  try {
+    const snap = await _db.collection('walk_logs').get();
+    const targets = snap.docs.filter(doc => {
+      const marks = doc.data().kmMarks || [];
+      return marks.some(m => !m.address);
+    });
+
+    if (!targets.length) {
+      alert('住所未取得のログはありません');
+      return;
+    }
+
+    let stopped = false;
+    for (let di = 0; di < targets.length; di++) {
+      const doc = targets[di];
+      const marks = doc.data().kmMarks || [];
+      if (btn) btn.textContent = `取得中... (${di + 1}/${targets.length}件)`;
+
+      const result = [];
+      for (let i = 0; i < marks.length; i++) {
+        const m = marks[i];
+        if (m.address) { result.push(m); continue; }
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${m.lat}&lon=${m.lon}&format=json&zoom=18&accept-language=ja`,
+            { headers: { 'User-Agent': 'SyarioWalkLog/1.0' } }
+          );
+          if (res.status === 429) {
+            result.push(...marks.slice(i));
+            stopped = true;
+            break;
+          }
+          const data = await res.json();
+          result.push({ ...m, address: _extractJaAddress(data.address) });
+        } catch(e) {
+          result.push(m);
+        }
+        if (i < marks.length - 1) await new Promise(r => setTimeout(r, 1100));
+      }
+
+      await _db.collection('walk_logs').doc(doc.id).update({ kmMarks: result });
+      if (stopped) break;
+    }
+
+    await _loadWalkList();
+    if (btn) btn.textContent = stopped ? 'レート制限で停止' : '住所を一括取得';
+    alert(stopped ? 'レート制限に達したため途中で停止しました。時間をおいて再実行してください。' : '一括取得が完了しました');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btn && btn.textContent === '取得中...') btn.textContent = '住所を一括取得';
+  }
 }
 
 async function refetchWalkAddresses(docId) {
