@@ -962,7 +962,8 @@ function _halfYearKey(dateStr) {
   if (!dateStr) return '';
   const m = dateStr.match(/^(\d{4})-(\d{2})/);
   if (!m) return dateStr;
-  return `${m[1]}年${+m[2] <= 6 ? '前期' : '後期'}`;
+  const q = Math.ceil(+m[2] / 3);
+  return `${m[1]}年Q${q}`;
 }
 
 async function showAllWalkRoutes() {
