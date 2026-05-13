@@ -963,7 +963,8 @@ function _halfYearKey(dateStr) {
   const m = dateStr.match(/^(\d{4})-(\d{2})/);
   if (!m) return dateStr;
   const q = Math.ceil(+m[2] / 3);
-  return `${m[1]}年Q${q}`;
+  const qLabel = ['1-3月','4-6月','7-9月','10-12月'][q - 1];
+  return `${m[1]}年Q${q}(${qLabel})`;
 }
 
 async function showAllWalkRoutes() {
