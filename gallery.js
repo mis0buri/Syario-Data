@@ -1157,7 +1157,7 @@ function _parseGpx(text) {
       let markTime = '';
       if (t0 && t1) {
         const ms = new Date(t0).getTime() + frac * (new Date(t1).getTime() - new Date(t0).getTime());
-        markTime = new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+        markTime = new Date(ms).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Tokyo' });
       }
       kmMarks.push({ km: nextKm, lat: mkLat, lon: mkLon, time: markTime, address: '' });
       nextKm++;
