@@ -563,6 +563,7 @@
         <div id="vote-detail-meta" class="vote-detail-meta"></div>
         <div id="vote-detail-delete-row" style="display:none;margin-bottom:12px;gap:8px;align-items:center;flex-wrap:wrap;">
           <button id="vote-detail-share-btn" class="admin-btn sm" style="display:none;">共有</button>
+          <button id="vote-detail-edit-btn" class="admin-btn sm" style="display:none;">編集</button>
           <button id="vote-detail-delete-btn" class="admin-btn danger sm">投票箱を削除</button>
         </div>
         <div id="vote-detail-content"></div>
@@ -578,7 +579,7 @@
         <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
       </div>
       <div class="card">
-        <div class="vote-form-title">投票箱を作成</div>
+        <div id="vote-add-form-title" class="vote-form-title">投票箱を作成</div>
         <div id="vote-add-login-warn" class="vote-login-warn">
           ⚠ ログインしていない場合、後から変更・削除できません
         </div>

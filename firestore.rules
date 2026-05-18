@@ -8,6 +8,11 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function isManager() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/managers/$(request.auth.uid));
+    }
+
     match /reservations/{docId} {
       allow read, create: if true;
       allow update: if request.auth != null &&
@@ -83,7 +88,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if true;
       allow update, delete: if request.auth != null &&
-        (resource.data.uid == request.auth.uid || isAdmin());
+        (resource.data.uid == request.auth.uid || isAdmin() || isManager());
     }
 
     match /vote_answers/{docId} {

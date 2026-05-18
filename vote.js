@@ -7,6 +7,7 @@ let _voteDeadlinePicker = null;
 let _voteListCache = [];
 let _voteSelectMode = false;
 let _voteSelected = new Set();
+let _voteEditBoxId = null;
 
 // ── ビュー切替 ──
 function _voteShowView(viewId) {
@@ -140,11 +141,17 @@ function _renderVoteDetail(box, answers) {
     `;
   }
 
-  // 削除ボタン
-  const canDelete = (_currentUser && box.uid && box.uid === _currentUser.uid) || _isAdmin;
+  // 編集・削除ボタン
+  const canEdit = (_currentUser && box.uid && box.uid === _currentUser.uid) || _isAdmin || _isManager;
+  const canDelete = canEdit;
   const deleteRow = document.getElementById('vote-detail-delete-row');
   if (deleteRow) {
-    deleteRow.style.display = canDelete ? '' : 'none';
+    deleteRow.style.display = (canEdit || canDelete) ? '' : 'none';
+    const editBtn = document.getElementById('vote-detail-edit-btn');
+    if (editBtn) {
+      editBtn.style.display = canEdit ? '' : 'none';
+      editBtn.onclick = () => openVoteEditForm(box);
+    }
     const deleteBtn = document.getElementById('vote-detail-delete-btn');
     if (deleteBtn) deleteBtn.onclick = () => deleteVoteBox(box.id);
   }
@@ -561,6 +568,9 @@ function openVoteAddForm() {
   const submitBtn = document.getElementById('vote-add-submit-btn');
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '投票箱を作成'; }
 
+  const formTitle = document.getElementById('vote-add-form-title');
+  if (formTitle) formTitle.textContent = '投票箱を作成';
+
   // 管理者のみXポストチェックボックスを表示
   const xWrap = document.getElementById('vote-x-post-wrap');
   if (xWrap) {
@@ -568,6 +578,59 @@ function openVoteAddForm() {
     const xCheck = document.getElementById('vote-x-post-check');
     if (xCheck) xCheck.checked = true;
   }
+
+  _voteEditBoxId = null;
+}
+
+function openVoteEditForm(box) {
+  _voteEditBoxId = box.id;
+  _voteShowView('vote-add-view');
+
+  const formTitle = document.getElementById('vote-add-form-title');
+  if (formTitle) formTitle.textContent = '投票箱を編集';
+
+  const warnEl = document.getElementById('vote-add-login-warn');
+  if (warnEl) warnEl.style.display = 'none';
+
+  const nameEl = document.getElementById('vote-add-name');
+  if (nameEl) nameEl.value = box.authorName || '';
+
+  const titleEl = document.getElementById('vote-add-title');
+  if (titleEl) titleEl.value = box.title || '';
+
+  // 選択肢を既存データで埋める
+  const container = document.getElementById('vote-options-container');
+  if (container) {
+    container.innerHTML = (box.options || []).map((opt, i) => `
+      <div class="vote-opt-row">
+        <input type="text" class="vote-opt-input admin-input" placeholder="選択肢 ${i+1}" value="${_escHtml(opt)}" required>
+        <button type="button" class="vote-opt-remove-btn admin-btn" onclick="_voteRemoveOption(this)">－</button>
+      </div>`).join('');
+    _voteUpdateRemoveBtns();
+  }
+
+  const allowOtherEl = document.getElementById('vote-add-allow-other');
+  if (allowOtherEl) allowOtherEl.checked = !!box.allowOther;
+  const multiEl = document.getElementById('vote-add-multiple');
+  if (multiEl) multiEl.checked = !!box.multipleChoice;
+
+  const today = _voteTodayStr();
+  const maxDate = _voteAddMonth(today, 1);
+  const deadlineEl = document.getElementById('vote-add-deadline');
+  if (deadlineEl) {
+    deadlineEl.value = box.deadline || '';
+    deadlineEl.min = today;
+    deadlineEl.max = maxDate;
+  }
+
+  const statusEl = document.getElementById('vote-add-status');
+  if (statusEl) statusEl.textContent = '';
+
+  const submitBtn = document.getElementById('vote-add-submit-btn');
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '変更を保存'; }
+
+  const xWrap = document.getElementById('vote-x-post-wrap');
+  if (xWrap) xWrap.style.display = 'none';
 }
 
 function _voteResetOptions() {
@@ -637,44 +700,53 @@ async function submitVoteBox(e) {
     .map(inp => inp.value.trim())
     .filter(v => v.length > 0);
 
-  if (!title) { statusEl.textContent = '質問を入力してください'; submitBtn.disabled = false; submitBtn.textContent = '投票箱を作成'; return; }
-  if (options.length < 2) { statusEl.textContent = '選択肢を2つ以上入力してください'; submitBtn.disabled = false; submitBtn.textContent = '投票箱を作成'; return; }
+  const isEdit = !!_voteEditBoxId;
+  const btnLabel = isEdit ? '変更を保存' : '投票箱を作成';
+  if (!title) { statusEl.textContent = '質問を入力してください'; submitBtn.disabled = false; submitBtn.textContent = btnLabel; return; }
+  if (options.length < 2) { statusEl.textContent = '選択肢を2つ以上入力してください'; submitBtn.disabled = false; submitBtn.textContent = btnLabel; return; }
 
   // 重複チェック
   if (new Set(options).size !== options.length) {
-    statusEl.textContent = '選択肢に重複があります'; submitBtn.disabled = false; submitBtn.textContent = '投票箱を作成'; return;
+    statusEl.textContent = '選択肢に重複があります'; submitBtn.disabled = false; submitBtn.textContent = btnLabel; return;
   }
 
   try {
-    const payload = {
-      title, authorName, options, allowOther, multipleChoice,
-      deadline,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if (_currentUser) payload.uid = _currentUser.uid;
+    if (isEdit) {
+      await _db.collection('vote_boxes').doc(_voteEditBoxId).update({
+        title, authorName, options, allowOther, multipleChoice, deadline
+      });
+      await openVoteDetail(_voteEditBoxId);
+    } else {
+      const payload = {
+        title, authorName, options, allowOther, multipleChoice,
+        deadline,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (_currentUser) payload.uid = _currentUser.uid;
 
-    const ref = await _db.collection('vote_boxes').add(payload);
-    // X自動ポスト
-    const xCheck = document.getElementById('vote-x-post-check');
-    if (MAKE_VOTE_WEBHOOK_URL && (!_isAdmin || (xCheck && xCheck.checked))) {
-      try {
-        await fetch(MAKE_VOTE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            authorName,
-            title,
-            options: options.join('、'),
-            deadline: deadline || '期限なし',
-            url: location.origin + location.pathname + '#vote/' + ref.id,
-          })
-        });
-      } catch(e) { console.warn('Make通知失敗:', e); }
+      const ref = await _db.collection('vote_boxes').add(payload);
+      // X自動ポスト
+      const xCheck = document.getElementById('vote-x-post-check');
+      if (MAKE_VOTE_WEBHOOK_URL && (!_isAdmin || (xCheck && xCheck.checked))) {
+        try {
+          await fetch(MAKE_VOTE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              authorName,
+              title,
+              options: options.join('、'),
+              deadline: deadline || '期限なし',
+              url: location.origin + location.pathname + '#vote/' + ref.id,
+            })
+          });
+        } catch(e) { console.warn('Make通知失敗:', e); }
+      }
+      initVote();
     }
-    initVote();
   } catch(err) {
     statusEl.textContent = 'エラー: ' + err.message;
-    submitBtn.disabled = false; submitBtn.textContent = '投票箱を作成';
+    submitBtn.disabled = false; submitBtn.textContent = btnLabel;
   }
 }
 
