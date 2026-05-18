@@ -28,7 +28,7 @@ async function _loadVoteList() {
   listEl.innerHTML = '<div class="vote-empty">読み込み中...</div>';
   if (!_db) { listEl.innerHTML = '<div class="vote-empty">データベース未接続</div>'; return; }
   try {
-    const snap = await _db.collection('vote_boxes').orderBy('createdAt', 'desc').get();
+    const snap = await _db.collection('vote_boxes').get();
     if (snap.empty) { listEl.innerHTML = '<div class="vote-empty">まだ投票箱がありません</div>'; return; }
 
     // 各投票箱の回答数を取得
@@ -38,6 +38,7 @@ async function _loadVoteList() {
       data._answers = ansSnap.docs.map(a => ({ id: a.id, ...a.data() }));
       return data;
     }));
+    boxes.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     _voteListCache = boxes;
 
     listEl.innerHTML = boxes.map(box => {
