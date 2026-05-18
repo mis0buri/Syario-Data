@@ -579,6 +579,7 @@ function _routeHash(hash, isInit) {
     const key = hash.slice(1);
     if (_HASH_TO_SECTION[key] !== undefined) {
       showSection(_HASH_TO_SECTION[key]);
+    }
     // hash が空・未知の場合はトップ（初期表示のまま）
   }
 }
