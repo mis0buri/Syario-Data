@@ -535,6 +535,13 @@
     <div id="vote-list-view" class="vote-view active">
       <div class="vote-list-header">
         <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openVoteAddForm()">＋ 投票箱を作成</button>
+        <button id="vote-select-mode-btn" class="rsv-btn" style="flex:none;padding:8px 16px;" onclick="enterVoteSelectMode()">選択して共有</button>
+      </div>
+      <div id="vote-select-bar" class="vote-select-bar" style="display:none;">
+        <span id="vote-select-count">0件選択中</span>
+        <button id="vote-select-all-btn" class="admin-btn sm" onclick="toggleVoteSelectAll()">全選択</button>
+        <button id="vote-share-exec-btn" class="rsv-btn x-post" onclick="shareVoteListSelected()" disabled>画像を共有</button>
+        <button class="admin-btn sm" onclick="exitVoteSelectMode()">キャンセル</button>
       </div>
       <div id="vote-list">
         <div class="vote-empty">読み込み中...</div>
@@ -554,7 +561,8 @@
         <div id="vote-expired-notice" class="vote-expired-notice" style="display:none;">この投票箱は期限切れのため、回答できません。</div>
         <h2 id="vote-detail-title" class="vote-detail-title"></h2>
         <div id="vote-detail-meta" class="vote-detail-meta"></div>
-        <div id="vote-detail-delete-row" style="display:none;margin-bottom:12px;">
+        <div id="vote-detail-delete-row" style="display:none;margin-bottom:12px;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button id="vote-detail-share-btn" class="admin-btn sm" style="display:none;">共有</button>
           <button id="vote-detail-delete-btn" class="admin-btn danger sm">投票箱を削除</button>
         </div>
         <div id="vote-detail-content"></div>
@@ -603,6 +611,12 @@
           <div class="admin-form-group">
             <label>期限（今日〜最長1ヶ月）</label>
             <input type="date" id="vote-add-deadline" class="admin-input">
+          </div>
+          <div id="vote-x-post-wrap" class="admin-form-group" style="display:none;">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-x-post-check" checked>
+              X(Twitter)に自動ポスト
+            </label>
           </div>
           <div id="vote-add-status" class="admin-status error"></div>
           <button type="submit" id="vote-add-submit-btn" class="admin-btn primary" style="width:100%;">投票箱を作成</button>

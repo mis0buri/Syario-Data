@@ -1,7 +1,12 @@
 // ── 投票箱 ──
+const MAKE_VOTE_WEBHOOK_URL = ''; // TODO: atob('...') で設定
+
 let _voteCurrentBoxId = null;
 let _voteDetailMode = 'option'; // 'option' | 'voter'
 let _voteDeadlinePicker = null;
+let _voteListCache = [];
+let _voteSelectMode = false;
+let _voteSelected = new Set();
 
 // ── ビュー切替 ──
 function _voteShowView(viewId) {
@@ -33,6 +38,7 @@ async function _loadVoteList() {
       data._answers = ansSnap.docs.map(a => ({ id: a.id, ...a.data() }));
       return data;
     }));
+    _voteListCache = boxes;
 
     listEl.innerHTML = boxes.map(box => {
       const today = _voteTodayStr();
@@ -66,8 +72,11 @@ async function _loadVoteList() {
         </div>`;
       }).join('');
 
-      return `<div class="vote-card" onclick="openVoteDetail('${_escHtml(box.id)}')">
+      const sel = _voteSelected.has(box.id);
+      return `<div class="vote-card${_voteSelectMode ? ' vote-card-selectable' + (sel ? ' vote-card-selected' : '') : ''}"
+          onclick="${_voteSelectMode ? `toggleVoteItem('${_escHtml(box.id)}')` : `openVoteDetail('${_escHtml(box.id)}')`}">
         <div class="vote-card-header">
+          ${_voteSelectMode ? `<input type="checkbox" class="vote-sel-check" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleVoteItem('${_escHtml(box.id)}')">` : ''}
           <span class="vote-card-title">${_esc(box.title)}</span>
           ${expired ? '<span class="vote-expired-badge">期限切れ</span>' : ''}
         </div>
@@ -136,6 +145,13 @@ function _renderVoteDetail(box, answers) {
     deleteRow.style.display = canDelete ? '' : 'none';
     const deleteBtn = document.getElementById('vote-detail-delete-btn');
     if (deleteBtn) deleteBtn.onclick = () => deleteVoteBox(box.id);
+  }
+
+  // 共有ボタン（管理者のみ）
+  const shareBtn = document.getElementById('vote-detail-share-btn');
+  if (shareBtn) {
+    shareBtn.style.display = _isAdmin ? '' : 'none';
+    shareBtn.onclick = shareVoteDetail;
   }
 
   // 解答ボタン
@@ -275,6 +291,232 @@ function _renderVoteDetailContent(box, answers) {
   }
 }
 
+// ── 一覧選択モード ──
+function enterVoteSelectMode() {
+  _voteSelectMode = true;
+  _voteSelected.clear();
+  document.getElementById('vote-select-bar').style.display = '';
+  document.getElementById('vote-select-mode-btn').style.display = 'none';
+  _voteUpdateSelectCount();
+  _loadVoteList();
+}
+
+function exitVoteSelectMode() {
+  _voteSelectMode = false;
+  _voteSelected.clear();
+  document.getElementById('vote-select-bar').style.display = 'none';
+  document.getElementById('vote-select-mode-btn').style.display = '';
+  _loadVoteList();
+}
+
+function toggleVoteItem(id) {
+  if (_voteSelected.has(id)) _voteSelected.delete(id);
+  else _voteSelected.add(id);
+  _voteUpdateSelectCount();
+  _loadVoteList();
+}
+
+function toggleVoteSelectAll() {
+  const allIds = _voteListCache.map(b => b.id);
+  const allSel = allIds.length > 0 && allIds.every(id => _voteSelected.has(id));
+  if (allSel) _voteSelected.clear();
+  else allIds.forEach(id => _voteSelected.add(id));
+  _voteUpdateSelectCount();
+  _loadVoteList();
+}
+
+function _voteUpdateSelectCount() {
+  const el = document.getElementById('vote-select-count');
+  const btn = document.getElementById('vote-share-exec-btn');
+  const allBtn = document.getElementById('vote-select-all-btn');
+  if (el) el.textContent = `${_voteSelected.size}件選択中`;
+  if (btn) btn.disabled = _voteSelected.size === 0;
+  if (allBtn) {
+    const allSel = _voteListCache.length > 0 && _voteListCache.every(b => _voteSelected.has(b.id));
+    allBtn.textContent = allSel ? '全解除' : '全選択';
+  }
+}
+
+// ── 一覧共有 canvas ──
+async function shareVoteListSelected() {
+  const boxes = _voteListCache.filter(b => _voteSelected.has(b.id));
+  if (!boxes.length) return;
+
+  const btn = document.getElementById('vote-share-exec-btn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '生成中...';
+
+  try {
+    await document.fonts.ready;
+    const W = 720, pad = 36, SEP = 10;
+    const rowH = 26;
+
+    const calcBoxH = box => 60 + 20 + Math.min(3, Object.keys(_voteOptCounts(box)).length) * rowH + 16;
+    const heights = boxes.map(calcBoxH);
+    const totalH = heights.reduce((s, h) => s + h, 0) + Math.max(0, boxes.length - 1) * SEP + 60;
+
+    const canvas = document.createElement('canvas');
+    const dpr = 2;
+    canvas.width = W * dpr; canvas.height = totalH * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#21252b'; ctx.fillRect(0, 0, W, totalH);
+    ctx.fillStyle = '#528bff'; ctx.fillRect(0, 0, 6, totalH);
+
+    ctx.fillStyle = '#dde2ec';
+    ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+    ctx.fillText('投票箱', pad, 40);
+    ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, 54); ctx.lineTo(W - pad, 54); ctx.stroke();
+
+    let curY = 66;
+    boxes.forEach((box, i) => {
+      const today = _voteTodayStr();
+      const expired = box.deadline && box.deadline < today;
+      const counts = _voteOptCounts(box);
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      const total = box._answers.length;
+      const max = Math.max(1, ...sorted.map(e => e[1]));
+
+      ctx.fillStyle = expired ? '#5c6370' : '#528bff';
+      ctx.fillRect(0, curY, 4, heights[i]);
+
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "bold 16px 'Noto Sans JP', sans-serif";
+      ctx.fillText(_truncate(box.title, 38), pad, curY + 22);
+
+      ctx.fillStyle = '#7f848e';
+      ctx.font = "12px 'Noto Sans JP', sans-serif";
+      const meta = [box.authorName || '匿名', box.deadline || '期限なし', `${total}件の回答`].join('　');
+      ctx.fillText(meta, pad, curY + 42);
+
+      let optY = curY + 58;
+      sorted.forEach(([opt, cnt]) => {
+        const label = opt === '__other__' ? 'その他' : opt;
+        const barW = Math.round((cnt / max) * (W - pad * 2 - 80));
+        ctx.fillStyle = '#2c313a'; ctx.fillRect(pad, optY - 14, W - pad * 2, 18);
+        ctx.fillStyle = '#528bff'; ctx.fillRect(pad, optY - 14, barW, 18);
+        ctx.fillStyle = '#dde2ec';
+        ctx.font = "12px 'Noto Sans JP', sans-serif";
+        ctx.fillText(_truncate(label, 24), pad + 4, optY - 1);
+        ctx.fillStyle = '#a0a0a0';
+        ctx.fillText(`${cnt}票`, W - pad - 34, optY - 1);
+        optY += rowH;
+      });
+
+      curY += heights[i] + SEP;
+      if (i < boxes.length - 1) {
+        ctx.fillStyle = '#2a2f3b'; ctx.fillRect(0, curY - SEP, W, SEP);
+      }
+    });
+
+    const shareUrl = location.origin + location.pathname + '#vote';
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    const file = new File([blob], 'vote-list.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: shareUrl }); }
+      catch(e) { if (e.name === 'AbortError') return; }
+    } else {
+      try { await navigator.clipboard.writeText(shareUrl); } catch {}
+      alert('URLをコピーしました: ' + shareUrl);
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+// ── 詳細共有 canvas ──
+async function shareVoteDetail() {
+  const boxId = _voteCurrentBoxId;
+  if (!boxId || !_db) return;
+  const shareBtn = document.getElementById('vote-detail-share-btn');
+  const orig = shareBtn.textContent;
+  shareBtn.disabled = true; shareBtn.textContent = '生成中...';
+
+  try {
+    const boxDoc = await _db.collection('vote_boxes').doc(boxId).get();
+    const box = { id: boxDoc.id, ...boxDoc.data() };
+    const ansSnap = await _db.collection('vote_answers').where('boxId', '==', boxId).get();
+    const answers = ansSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    await document.fonts.ready;
+    const W = 720, pad = 36, optH = 54;
+    const counts = _voteOptCounts({ ...box, _answers: answers });
+    const opts = Object.keys(counts);
+    const headerH = 140;
+    const H = headerH + opts.length * optH + 20;
+
+    const canvas = document.createElement('canvas');
+    const dpr = 2;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#21252b'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#528bff'; ctx.fillRect(0, 0, 6, H);
+
+    ctx.fillStyle = '#dde2ec';
+    ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+    ctx.fillText(_truncate(box.title, 32), pad, 44);
+
+    ctx.fillStyle = '#7f848e';
+    ctx.font = "13px 'Noto Sans JP', sans-serif";
+    const meta = [box.authorName || '匿名', box.deadline || '期限なし', `${answers.length}件の回答`].join('　');
+    ctx.fillText(meta, pad, 70);
+
+    ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, 86); ctx.lineTo(W - pad, 86); ctx.stroke();
+
+    const maxCnt = Math.max(1, ...Object.values(counts));
+    let curY = headerH;
+    Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([opt, cnt]) => {
+      const label = opt === '__other__' ? 'その他' : opt;
+      const pct = Math.round(cnt / maxCnt * 100);
+      const barW = Math.round((cnt / maxCnt) * (W - pad * 2 - 60));
+
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "14px 'Noto Sans JP', sans-serif";
+      ctx.fillText(_truncate(label, 28), pad, curY + 18);
+      ctx.fillStyle = '#a0a0a0';
+      ctx.font = "13px 'Noto Sans JP', sans-serif";
+      ctx.fillText(`${cnt}票 (${pct}%)`, W - pad - 70, curY + 18);
+
+      ctx.fillStyle = '#2c313a'; ctx.fillRect(pad, curY + 24, W - pad * 2, 16);
+      ctx.fillStyle = '#528bff'; ctx.fillRect(pad, curY + 24, barW, 16);
+
+      curY += optH;
+    });
+
+    const shareUrl = location.origin + location.pathname + '#vote/' + boxId;
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    const file = new File([blob], 'vote-' + boxId + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: shareUrl }); }
+      catch(e) { if (e.name === 'AbortError') return; }
+    } else {
+      try { await navigator.clipboard.writeText(shareUrl); } catch {}
+      alert('URLをコピーしました: ' + shareUrl);
+    }
+  } finally {
+    shareBtn.disabled = false; shareBtn.textContent = orig;
+  }
+}
+
+function _voteOptCounts(box) {
+  const counts = {};
+  (box.options || []).forEach(o => { counts[o] = 0; });
+  if (box.allowOther) counts['__other__'] = 0;
+  (box._answers || []).forEach(ans => {
+    (ans.selections || []).forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+  });
+  return counts;
+}
+
+function _truncate(str, max) {
+  return str.length > max ? str.slice(0, max) + '…' : str;
+}
+
 // ── 追加フォーム ──
 function openVoteAddForm() {
   _voteShowView('vote-add-view');
@@ -316,6 +558,14 @@ function openVoteAddForm() {
 
   const submitBtn = document.getElementById('vote-add-submit-btn');
   if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '投票箱を作成'; }
+
+  // 管理者のみXポストチェックボックスを表示
+  const xWrap = document.getElementById('vote-x-post-wrap');
+  if (xWrap) {
+    xWrap.style.display = _isAdmin ? '' : 'none';
+    const xCheck = document.getElementById('vote-x-post-check');
+    if (xCheck) xCheck.checked = true;
+  }
 }
 
 function _voteResetOptions() {
@@ -401,8 +651,24 @@ async function submitVoteBox(e) {
     };
     if (_currentUser) payload.uid = _currentUser.uid;
 
-    await _db.collection('vote_boxes').add(payload);
-    // 一覧に戻る
+    const ref = await _db.collection('vote_boxes').add(payload);
+    // X自動ポスト
+    const xCheck = document.getElementById('vote-x-post-check');
+    if (MAKE_VOTE_WEBHOOK_URL && (!_isAdmin || (xCheck && xCheck.checked))) {
+      try {
+        await fetch(MAKE_VOTE_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            authorName,
+            title,
+            options: options.join('、'),
+            deadline: deadline || '期限なし',
+            url: location.origin + location.pathname + '#vote/' + ref.id,
+          })
+        });
+      } catch(e) { console.warn('Make通知失敗:', e); }
+    }
     initVote();
   } catch(err) {
     statusEl.textContent = 'エラー: ' + err.message;

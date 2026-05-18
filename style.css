@@ -1211,7 +1211,11 @@
 .vote-view { display: none; }
 .vote-view.active { display: block; }
 
-.vote-list-header { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.vote-list-header { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.vote-select-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--dim); }
+.vote-card-selectable { cursor: pointer; }
+.vote-card-selected { border-color: var(--accent); background: var(--surface2); }
+.vote-sel-check { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
 
 .vote-card {
   background: var(--surface);
