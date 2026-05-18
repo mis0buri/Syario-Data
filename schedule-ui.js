@@ -265,8 +265,9 @@ async function postToX() {
   }
 
   const dpr = window.devicePixelRatio || 1;
-  const W = 720, pad = 36, rowH = 34;
-  const rsvSectionH = rsvs.length > 0 ? 48 + rsvs.length * rowH : 48;
+  const W = 720, pad = 36, rowH = 34, noteH = 20;
+  const rsvNoteExtra = rsvs.reduce((s, r) => s + (r.note ? noteH : 0), 0);
+  const rsvSectionH = rsvs.length > 0 ? 48 + rsvs.length * rowH + rsvNoteExtra : 48;
   const hasParticipants = joins.length > 0 || interests.length > 0;
   const participantSectionH = hasParticipants
     ? 30 + 24 + joins.length * rowH + (interests.length > 0 ? 16 + 24 + interests.length * rowH : 0) + 20
@@ -327,13 +328,19 @@ async function postToX() {
       ctx.fillStyle = '#dde2ec';
       ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
       ctx.fillText(rsv.name, pad, curY);
-      if (rsv.cats.length) {
+      if (rsv.cats && rsv.cats.length) {
         const nameW = ctx.measureText(rsv.name).width;
         ctx.fillStyle = '#61afef';
         ctx.font = "13px 'Noto Sans JP', sans-serif";
         ctx.fillText('  ' + rsv.cats.join(' / '), pad + nameW, curY);
       }
       curY += rowH;
+      if (rsv.note) {
+        ctx.fillStyle = '#7f848e';
+        ctx.font = "13px 'Noto Sans JP', sans-serif";
+        ctx.fillText('📝 ' + rsv.note, pad + 12, curY);
+        curY += noteH;
+      }
     });
   }
 
@@ -682,7 +689,7 @@ function shareRsvListEmpty() {
 }
 
 async function _generateRsvListCanvas(items) {
-  const W = 720, pad = 36, rowH = 34, SEP = 12;
+  const W = 720, pad = 36, rowH = 34, noteH = 20, SEP = 12;
   const MARK_LABELS = { '◎':'終日営業', '〇':'半日以上', '△':'短時間のみ', '×':'お休み' };
   const MARK_COLORS = { '◎':'#98c379', '〇':'#61afef', '△':'#e5c07b', '×':'#e06c75' };
   await document.fonts.ready;
@@ -714,7 +721,8 @@ async function _generateRsvListCanvas(items) {
   } else {
     // 選択された日付のカード
     const calcH = (rsvs, joins, interests) => {
-      const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH : 48;
+      const rsvNoteEx = rsvs.reduce((s, r) => s + (r.note ? noteH : 0), 0);
+      const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH + rsvNoteEx : 48;
       const pSecH = (joins.length || interests.length)
         ? 30 + 24 + joins.length * rowH + (interests.length ? 16 + 24 + interests.length * rowH : 0) + 20
         : 20;
@@ -778,6 +786,12 @@ async function _generateRsvListCanvas(items) {
             ctx.fillText('  ' + rsv.cats.join(' / '), pad + nw, rY);
           }
           rY += rowH;
+          if (rsv.note) {
+            ctx.fillStyle = '#7f848e';
+            ctx.font = "13px 'Noto Sans JP', sans-serif";
+            ctx.fillText('📝 ' + rsv.note, pad + 12, rY);
+            rY += noteH;
+          }
         });
       }
       rY += 14;
