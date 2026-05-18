@@ -112,8 +112,9 @@ async function openVoteDetail(boxId) {
       return;
     }
     const box = { id: boxDoc.id, ...boxDoc.data() };
-    const ansSnap = await _db.collection('vote_answers').where('boxId', '==', boxId).orderBy('createdAt', 'asc').get();
-    const answers = ansSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const ansSnap = await _db.collection('vote_answers').where('boxId', '==', boxId).get();
+    const answers = ansSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
 
     _renderVoteDetail(box, answers);
   } catch(e) {
