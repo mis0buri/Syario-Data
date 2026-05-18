@@ -32,6 +32,7 @@
     <button data-nav="gallery" onclick="showSection('gallery')">ギャラリー</button>
     <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
+    <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
@@ -527,6 +528,117 @@
     </div>
   </div>
 
+  <!-- 投票箱 -->
+  <div id="sec-vote" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="vote-list-view" class="vote-view active">
+      <div class="vote-list-header">
+        <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openVoteAddForm()">＋ 投票箱を作成</button>
+      </div>
+      <div id="vote-list">
+        <div class="vote-empty">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="vote-detail-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
+        <div class="vote-detail-toggle">
+          <button id="vote-toggle-option" class="vote-toggle-btn active" onclick="toggleVoteDetailMode('option')">選択肢別</button>
+          <button id="vote-toggle-voter" class="vote-toggle-btn" onclick="toggleVoteDetailMode('voter')">解答者別</button>
+        </div>
+      </div>
+      <div class="card">
+        <div id="vote-expired-notice" class="vote-expired-notice" style="display:none;">この投票箱は期限切れのため、回答できません。</div>
+        <h2 id="vote-detail-title" class="vote-detail-title"></h2>
+        <div id="vote-detail-meta" class="vote-detail-meta"></div>
+        <div id="vote-detail-delete-row" style="display:none;margin-bottom:12px;">
+          <button id="vote-detail-delete-btn" class="admin-btn danger sm">投票箱を削除</button>
+        </div>
+        <div id="vote-detail-content"></div>
+      </div>
+      <div class="vote-answer-btn-wrap">
+        <button id="vote-answer-btn" class="rsv-btn primary" style="padding:10px 32px;">解答する</button>
+      </div>
+    </div>
+
+    <!-- 追加フォームビュー -->
+    <div id="vote-add-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title">投票箱を作成</div>
+        <div id="vote-add-login-warn" class="vote-login-warn">
+          ⚠ ログインしていない場合、後から変更・削除できません
+        </div>
+        <form onsubmit="submitVoteBox(event)">
+          <div class="admin-form-group">
+            <label>名前</label>
+            <input type="text" id="vote-add-name" class="admin-input" placeholder="名前を入力">
+          </div>
+          <div class="admin-form-group">
+            <label>質問 <span style="color:var(--red)">*</span></label>
+            <input type="text" id="vote-add-title" class="admin-input" placeholder="質問を入力" required>
+          </div>
+          <div class="admin-form-group">
+            <label>選択肢 <span style="color:var(--red)">*</span>（最低2つ）</label>
+            <div id="vote-options-container"></div>
+            <button type="button" class="admin-btn sm" style="margin-top:6px;" onclick="_voteAddOptionRow()">＋ 選択肢を追加</button>
+          </div>
+          <div class="admin-form-group">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-add-allow-other">
+              「その他（自由入力）」を追加
+            </label>
+          </div>
+          <div class="admin-form-group">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-add-multiple">
+              複数回答を許可
+            </label>
+          </div>
+          <div class="admin-form-group">
+            <label>期限（今日〜最長1ヶ月）</label>
+            <input type="date" id="vote-add-deadline" class="admin-input">
+          </div>
+          <div id="vote-add-status" class="admin-status error"></div>
+          <button type="submit" id="vote-add-submit-btn" class="admin-btn primary" style="width:100%;">投票箱を作成</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 解答フォームビュー -->
+    <div id="vote-answer-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" id="vote-answer-back-btn" onclick="if(_voteCurrentBoxId)openVoteDetail(_voteCurrentBoxId);else initVote()">← 詳細へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title">解答フォーム</div>
+        <div class="vote-answer-box-title" id="vote-answer-box-title"></div>
+        <form onsubmit="submitVoteAnswer(event)">
+          <div class="admin-form-group">
+            <label>名前</label>
+            <input type="text" id="vote-answer-name" class="admin-input" placeholder="匿名">
+          </div>
+          <div class="admin-form-group">
+            <label>選択肢 <span style="color:var(--red)">*</span></label>
+            <div id="vote-answer-choices" class="vote-choices-list"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>備考（任意）</label>
+            <textarea id="vote-answer-note" class="admin-input" rows="3" style="resize:vertical;font-family:'Noto Sans JP',sans-serif;" placeholder="一言メモなど（任意）"></textarea>
+          </div>
+          <div id="vote-answer-status" class="admin-status error"></div>
+          <button type="submit" id="vote-answer-submit-btn" class="admin-btn primary" style="width:100%;">回答する</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
   <!-- 連番募集 -->
   <div id="sec-renban" class="section">
     <div class="renban-header-row" style="flex-direction:column;align-items:flex-end;gap:4px;">
@@ -808,6 +920,7 @@
 <script src="./stats.js"></script>
 <script src="./schedule-ui.js"></script>
 <script src="./board.js"></script>
+<script src="./vote.js"></script>
 <script src="./gallery.js"></script>
 <script src="./renban.js"></script>
 <script src="./boshu.js"></script>

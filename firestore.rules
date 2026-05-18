@@ -79,6 +79,20 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /vote_boxes/{docId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    match /vote_answers/{docId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
     match /{document=**} {
       allow read: if true;
     }

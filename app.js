@@ -138,7 +138,7 @@ const _HASH_TO_SECTION = {
   '': 'top', top: 'top',
   ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
   gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
-  renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp',
+  renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote',
 };
 
 function showSection(id) {
@@ -177,12 +177,13 @@ function showSection(id) {
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='renban'||id==='boshu'||id==='stamp'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
   if (id==='schedule') renderCalendar();
   if (id==='board') initBoard();
+  if (id==='vote') initVote();
   if (id==='renban') initRenban();
   if (id==='boshu') initBoshu();
   if (id==='stamp') initStampCard();
@@ -571,11 +572,13 @@ function _routeHash(hash, isInit) {
   } else if (hash.startsWith('#schedule/')) {
     showSection('schedule');
     renderCalendar().then(() => openDayDetail(hash.slice(10)));
+  } else if (hash.startsWith('#vote/')) {
+    showSection('vote');
+    openVoteDetail(hash.slice(6));
   } else {
-    const key = hash.slice(1); // '#ranking' → 'ranking'
+    const key = hash.slice(1);
     if (_HASH_TO_SECTION[key] !== undefined) {
       showSection(_HASH_TO_SECTION[key]);
-    }
     // hash が空・未知の場合はトップ（初期表示のまま）
   }
 }
