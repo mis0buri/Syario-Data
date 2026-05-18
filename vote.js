@@ -98,8 +98,8 @@ async function _loadVoteList() {
 // ── 詳細 ──
 async function openVoteDetail(boxId) {
   if (!_db) return;
+  if (boxId !== _voteCurrentBoxId) _voteDetailMode = 'option';
   _voteCurrentBoxId = boxId;
-  _voteDetailMode = 'option';
   history.replaceState(null, '', '#vote/' + boxId);
   _voteShowView('vote-detail-view');
 
