@@ -1,5 +1,5 @@
 // ── 投票箱 ──
-const MAKE_VOTE_WEBHOOK_URL = ''; // TODO: atob('...') で設定
+const MAKE_VOTE_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
 
 let _voteCurrentBoxId = null;
 let _voteDetailMode = 'option'; // 'option' | 'voter'
