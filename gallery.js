@@ -695,6 +695,10 @@ async function openWalkDetail(docId) {
         <span>＋ GPXを追加</span>
         <input type="file" accept=".gpx" style="display:none;" onchange="mergeGpxToWalk('${docId}', this)">
       </label>
+      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;margin-left:8px;">
+        <span>↺ 再アップロード</span>
+        <input type="file" accept=".gpx" style="display:none;" onchange="reuploadWalkLog('${docId}', this)">
+      </label>
       <span id="walk-merge-status" style="font-size:12px;color:var(--dim);margin-left:8px;"></span>`;
     mapEl.after(btn);
   }
@@ -899,6 +903,41 @@ function _drawRouteFallback(ctx, points, x0, y0, W, H) {
   ctx.beginPath();
   points.forEach((p, i) => { const [px, py] = toXY(p.lat, p.lon); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
   ctx.stroke();
+}
+
+async function reuploadWalkLog(docId, input) {
+  const statusEl = document.getElementById('walk-merge-status');
+  if (!input.files.length) return;
+  if (!confirm('既存のルートデータを新しいGPXで上書きします。よろしいですか？')) {
+    input.value = '';
+    return;
+  }
+  if (statusEl) statusEl.textContent = '解析中...';
+  try {
+    const text = await input.files[0].text();
+    const parsed = _parseGpx(text);
+    if (!parsed.points.length) { if (statusEl) statusEl.textContent = 'ルートデータが見つかりません'; return; }
+
+    const existing = (await _db.collection('walk_logs').doc(docId).get()).data() || {};
+    const kmMarks = await _geocodeKmMarks(parsed.kmMarks, statusEl);
+    if (statusEl) statusEl.textContent = '保存中...';
+    await _db.collection('walk_logs').doc(docId).update({
+      date: parsed.date,
+      startTime: parsed.startTime,
+      endTime: parsed.endTime,
+      distance: parsed.distance,
+      movingMins: parsed.movingMins,
+      duration: parsed.duration,
+      pace: parsed.pace,
+      points: parsed.points,
+      kmMarks,
+    });
+    if (statusEl) statusEl.textContent = '完了';
+    input.value = '';
+    await openWalkDetail(docId);
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'エラー: ' + e.message;
+  }
 }
 
 async function mergeGpxToWalk(docId, input) {
