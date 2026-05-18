@@ -28,7 +28,7 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 
 1. `schedule.js` — defines `SCHEDULE_DATA` global (must come before app.js)
 2. `app.js` — captures `_SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA)` at parse time
-3. `stats.js`, `schedule-ui.js`, `renban.js`, `boshu.js`, `gallery.js`, `stamp.js`, `board.js`, `admin.js`
+3. `stats.js`, `schedule-ui.js`, `board.js`, `vote.js`, `gallery.js`, `renban.js`, `boshu.js`, `stamp.js`, `admin.js`
 
 ### Module Organization
 
@@ -42,6 +42,7 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 | **boshu.js** | 募集一覧 — combined view of renban events + reservations |
 | **gallery.js** | じゃれ本 — story gallery with Firestore backend |
 | **board.js** | 掲示板 — bulletin board comments |
+| **vote.js** | 投票箱 — poll/voting boxes with options, answers, deadlines |
 | **stamp.js** | Stamp card system |
 | **schedule.js** | Static `SCHEDULE_DATA` object only |
 
@@ -87,7 +88,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 
 ### Hash-Based Routing
 
-`showSection(id)` handles all navigation. Mapping in `_HASH_TO_SECTION` / `_SECTION_TO_HASH`. Deep-link patterns: `#renban/{id}`, `#jare/{id}`, `#schedule/{YYYY-MM-DD}`. Admin section IDs are not reflected in the URL hash.
+`showSection(id)` handles all navigation. Mapping in `_HASH_TO_SECTION` / `_SECTION_TO_HASH`. Deep-link patterns: `#renban/{id}`, `#jare/{id}`, `#schedule/{YYYY-MM-DD}`, `#vote/{id}`. Admin section IDs are not reflected in the URL hash.
 
 ### Firestore Collections
 
@@ -98,6 +99,8 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 | `reservations` | Anyone (own) + Admin |
 | `rsv_participants` | Anyone (own) + Admin |
 | `board_comments` | Anyone; delete own or Admin |
+| `vote_boxes` | Anyone create; update/delete own or Admin |
+| `vote_answers` | Anyone create; update/delete own or Admin |
 | `renban_events` + subcollection `participants` | Anyone; delete own or Admin |
 | `jare_stories` | Admin only |
 | `users` | Own UID only |
