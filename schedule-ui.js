@@ -159,7 +159,7 @@ async function openDayDetail(dateStr) {
     _currentDayRsvData = snap.docs.map(doc => {
       const dta = doc.data();
       const cats = (dta.categories || []).map(c => c === 'その他' && dta.otherText ? `その他(${dta.otherText})` : c);
-      return { name: dta.name || '匿名', cats };
+      return { name: dta.name || '匿名', cats, note: dta.note || '' };
     });
     if (snap.empty) {
       listEl.innerHTML = '<div class="rsv-empty">まだ予約はありません</div>';
