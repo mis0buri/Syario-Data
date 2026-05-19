@@ -544,7 +544,7 @@ function openVoteAddForm() {
 
   // チェックボックスリセット
   const allowOtherEl = document.getElementById('vote-add-allow-other');
-  if (allowOtherEl) allowOtherEl.checked = false;
+  if (allowOtherEl) { allowOtherEl.checked = false; allowOtherEl.onchange = _voteUpdateRemoveBtns; }
   const multiEl = document.getElementById('vote-add-multiple');
   if (multiEl) multiEl.checked = false;
 
@@ -610,7 +610,7 @@ function openVoteEditForm(box) {
   }
 
   const allowOtherEl = document.getElementById('vote-add-allow-other');
-  if (allowOtherEl) allowOtherEl.checked = !!box.allowOther;
+  if (allowOtherEl) { allowOtherEl.checked = !!box.allowOther; allowOtherEl.onchange = _voteUpdateRemoveBtns; }
   const multiEl = document.getElementById('vote-add-multiple');
   if (multiEl) multiEl.checked = !!box.multipleChoice;
 
@@ -665,7 +665,8 @@ function _voteAddOptionRow() {
 function _voteRemoveOption(btn) {
   const container = document.getElementById('vote-options-container');
   const rows = container.querySelectorAll('.vote-opt-row');
-  if (rows.length <= 2) return; // 最低2つ
+  const allowOther = document.getElementById('vote-add-allow-other')?.checked;
+  if (rows.length <= (allowOther ? 1 : 2)) return;
   btn.closest('.vote-opt-row').remove();
   _voteUpdateRemoveBtns();
 }
@@ -674,9 +675,11 @@ function _voteUpdateRemoveBtns() {
   const container = document.getElementById('vote-options-container');
   if (!container) return;
   const rows = container.querySelectorAll('.vote-opt-row');
+  const allowOther = document.getElementById('vote-add-allow-other')?.checked;
+  const minRows = allowOther ? 1 : 2;
   rows.forEach(row => {
     const btn = row.querySelector('.vote-opt-remove-btn');
-    if (btn) btn.disabled = rows.length <= 2;
+    if (btn) btn.disabled = rows.length <= minRows;
   });
 }
 
@@ -703,7 +706,8 @@ async function submitVoteBox(e) {
   const isEdit = !!_voteEditBoxId;
   const btnLabel = isEdit ? '変更を保存' : '投票箱を作成';
   if (!title) { statusEl.textContent = '質問を入力してください'; submitBtn.disabled = false; submitBtn.textContent = btnLabel; return; }
-  if (options.length < 2) { statusEl.textContent = '選択肢を2つ以上入力してください'; submitBtn.disabled = false; submitBtn.textContent = btnLabel; return; }
+  const minOpts = allowOther ? 1 : 2;
+  if (options.length < minOpts) { statusEl.textContent = allowOther ? '選択肢を1つ以上入力してください' : '選択肢を2つ以上入力してください'; submitBtn.disabled = false; submitBtn.textContent = btnLabel; return; }
 
   // 重複チェック
   if (new Set(options).size !== options.length) {
