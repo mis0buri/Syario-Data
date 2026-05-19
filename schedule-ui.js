@@ -1,4 +1,4 @@
-const MAKE_RSV_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS9xN2l1N3Zhb2tqeXdueGlndnYwNGYwYXZobXR3ZXZ6ZQ==');
+const MAKE_RSV_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
 
 // ── 営業予定カレンダー ──
 let calYear  = new Date().getFullYear();
@@ -533,6 +533,7 @@ async function submitReservation() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            type: 'reservation',
             date: dateLabel2,
             name: rsvPendingData.name,
             categories: displayCats2.join('、') || 'なし',

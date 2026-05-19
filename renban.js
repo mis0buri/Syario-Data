@@ -1,5 +1,5 @@
 // ── 連番募集 ──
-const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS9hOGhyZzVrc2E1bnkwa3g5b2p0d3R3Y2RtM3JscGxiZQ==');
+const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
@@ -327,6 +327,7 @@ async function submitRenbanEvent(e) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            type: 'renban',
             owner,
             title,
             dates: datesArr.join('、'),
