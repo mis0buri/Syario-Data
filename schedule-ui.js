@@ -591,7 +591,7 @@ async function openReservationList() {
       const cats = (dta.categories || []).map(c =>
         c === 'その他' && dta.otherText ? `その他(${dta.otherText})` : c);
       if (!byDate[dta.date]) byDate[dta.date] = [];
-      byDate[dta.date].push({ name: dta.name || '匿名', cats });
+      byDate[dta.date].push({ name: dta.name || '匿名', cats, note: dta.note || '' });
     });
     const dates = Object.keys(byDate).sort();
     _rsvListCache = await Promise.all(dates.map(async date => {
