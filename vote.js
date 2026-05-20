@@ -42,30 +42,25 @@ async function _loadVoteList() {
     boxes.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     _voteListCache = boxes;
 
-    listEl.innerHTML = boxes.map(box => {
-      const today = _voteTodayStr();
-      const expired = box.deadline && box.deadline < today;
+    const today = _voteTodayStr();
+    const active  = boxes.filter(b => !b.deadline || b.deadline >= today);
+    const expired = boxes.filter(b =>  b.deadline && b.deadline <  today);
+
+    const renderCard = box => {
+      const isExpired = box.deadline && box.deadline < today;
       const deadlineStr = box.deadline || '期限なし';
 
-      // 選択肢ごとの票数カウント
       const optionCounts = {};
       (box.options || []).forEach(opt => { optionCounts[opt] = 0; });
       if (box.allowOther) optionCounts['__other__'] = 0;
       box._answers.forEach(ans => {
         (ans.selections || []).forEach(sel => {
-          if (sel === '__other__') {
-            optionCounts['__other__'] = (optionCounts['__other__'] || 0) + 1;
-          } else {
-            optionCounts[sel] = (optionCounts[sel] || 0) + 1;
-          }
+          if (sel === '__other__') optionCounts['__other__'] = (optionCounts['__other__'] || 0) + 1;
+          else optionCounts[sel] = (optionCounts[sel] || 0) + 1;
         });
       });
 
-      // 票数多い順 上位2〜3選択肢
-      const sortedOpts = Object.entries(optionCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3);
-
+      const sortedOpts = Object.entries(optionCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
       const topOptsHtml = sortedOpts.map(([opt, cnt]) => {
         const label = opt === '__other__' ? 'その他' : _esc(opt);
         return `<div class="vote-card-opt-row">
@@ -80,7 +75,7 @@ async function _loadVoteList() {
         <div class="vote-card-header">
           ${_voteSelectMode ? `<input type="checkbox" class="vote-sel-check" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleVoteItem('${_escHtml(box.id)}')">` : ''}
           <span class="vote-card-title">${_esc(box.title)}</span>
-          ${expired ? '<span class="vote-expired-badge">期限切れ</span>' : ''}
+          ${isExpired ? '<span class="vote-expired-badge">期限切れ</span>' : ''}
         </div>
         <div class="vote-card-meta">
           <span>👤 ${_esc(box.authorName || '匿名')}</span>
@@ -89,7 +84,18 @@ async function _loadVoteList() {
         </div>
         <div class="vote-card-opts">${topOptsHtml}</div>
       </div>`;
-    }).join('');
+    };
+
+    let html = '';
+    if (active.length) {
+      html += active.map(renderCard).join('');
+    } else {
+      html += '<div class="vote-empty">有効な投票箱はありません</div>';
+    }
+    if (expired.length) {
+      html += `<div class="vote-section-heading">期限切れ</div>` + expired.map(renderCard).join('');
+    }
+    listEl.innerHTML = html;
   } catch(e) {
     listEl.innerHTML = '<div class="vote-empty">読み込みに失敗しました: ' + _esc(e.message) + '</div>';
   }
