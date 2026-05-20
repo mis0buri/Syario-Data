@@ -131,7 +131,7 @@ async function openDayDetail(dateStr) {
      </div>`;
 
   const rsvBtn = document.querySelector('#rsv-detail .rsv-btn.primary');
-  if (rsvBtn) rsvBtn.style.display = mark === '×' ? 'none' : '';
+  if (rsvBtn) rsvBtn.style.display = (mark === '×' && !_isAdmin) ? 'none' : '';
 
   showRsvScreen('rsv-detail');
 
