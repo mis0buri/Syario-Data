@@ -409,7 +409,7 @@ function populateDateSelect() {
     const day = String(d.getDate()).padStart(2,'0');
     const dateStr = `${y}-${m}-${day}`;
     const entry = SCHEDULE_DATA[dateStr];
-    if (!entry || entry.mark === '×') continue;
+    if (!_isAdmin && (!entry || entry.mark === '×')) continue;
     const dayName = DAYNAMES[d.getDay()];
     const mark = entry ? ` ${entry.mark}` : '';
     const opt = document.createElement('option');
