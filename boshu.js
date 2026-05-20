@@ -53,7 +53,7 @@ async function initBoshu() {
       const cats = (r.categories || []).map(c =>
         c === 'その他' && r.otherText ? `その他(${r.otherText})` : c);
       if (!byDate[r.date]) byDate[r.date] = [];
-      byDate[r.date].push({ name: r.name || '匿名', cats });
+      byDate[r.date].push({ name: r.name || '匿名', cats, note: r.note || '' });
     });
     await Promise.all(Object.keys(byDate).map(async date => {
       let joins = [], interests = [];
@@ -277,7 +277,8 @@ async function shareBoshuSelected() {
     return 60 + 50 + 16 + rowsN * rowH + pSecH + 28;
   };
   const calcRsvH = (rsvs, joins, interests) => {
-    const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH : 48;
+    const rsvNoteEx = rsvs.reduce((s, r) => s + (r.note ? noteRowH : 0), 0);
+    const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH + rsvNoteEx : 48;
     const hasPart = joins.length > 0 || interests.length > 0;
     const pSecH   = hasPart
       ? 30 + 24 + joins.length * rowH + (interests.length > 0 ? 16 + 24 + interests.length * rowH : 0) + 20
@@ -439,6 +440,12 @@ async function shareBoshuSelected() {
             ctx.fillStyle = '#61afef';
             ctx.font = "13px 'Noto Sans JP', sans-serif";
             ctx.fillText('  ' + rsv.cats.join(' / '), pad + nw, rY);
+          }
+          if (rsv.note) {
+            ctx.fillStyle = '#7f848e';
+            ctx.font = "13px 'Noto Sans JP', sans-serif";
+            ctx.fillText('📝 ' + rsv.note, pad + 12, rY);
+            rY += noteRowH;
           }
           rY += rowH;
         });
