@@ -298,6 +298,76 @@ function colInsertImage() {
   document.execCommand('insertHTML', false, `<img src="${_escHtml(url)}" style="width:${width};max-width:100%;">`);
 }
 
+// ── 共有 ──
+async function shareColumn() {
+  const id = _colCurrentId;
+  if (!id || !_db) return;
+  const btn = document.getElementById('col-detail-share-btn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+
+  try {
+    const docSnap = await _db.collection('columns').doc(id).get();
+    if (!docSnap.exists) return;
+    const data = { id: docSnap.id, ...docSnap.data() };
+
+    await document.fonts.ready;
+    const W = 720, pad = 36;
+
+    // 本文テキストを抽出（HTMLタグ除去、最大200文字）
+    const tmpDiv = document.createElement('div');
+    tmpDiv.innerHTML = _sanitizeColumnBody(data.body || '');
+    const bodyText = (tmpDiv.textContent || '').replace(/\s+/g, ' ').trim();
+    const snippet = bodyText.length > 160 ? bodyText.slice(0, 160) + '…' : bodyText;
+
+    // スニペットを折り返し（30文字/行）
+    const snippetLines = [];
+    for (let i = 0; i < snippet.length; i += 30) snippetLines.push(snippet.slice(i, i + 30));
+
+    const ts = data.createdAt?.toDate ? data.createdAt.toDate() : null;
+    const dateStr = ts ? ts.toLocaleDateString('ja-JP') : '';
+    const metaStr = [data.authorName || '匿名', dateStr, data.genre].filter(Boolean).join('　');
+
+    const H = 80 + 50 + 30 + 16 + snippetLines.length * 22 + 40;
+    const dpr = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#21252b'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#c8a96e'; ctx.fillRect(0, 0, 6, H);
+
+    ctx.fillStyle = '#dde2ec';
+    ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+    ctx.fillText(_truncate(data.title || '（タイトルなし）', 30), pad, 50);
+
+    ctx.fillStyle = '#7f848e';
+    ctx.font = "13px 'Noto Sans JP', sans-serif";
+    ctx.fillText(metaStr, pad, 78);
+
+    ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, 94); ctx.lineTo(W - pad, 94); ctx.stroke();
+
+    ctx.fillStyle = '#abb2bf';
+    ctx.font = "14px 'Noto Sans JP', sans-serif";
+    snippetLines.forEach((line, i) => { ctx.fillText(line, pad, 118 + i * 22); });
+
+    const shareUrl = location.origin + location.pathname + '#column/' + id;
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    const file = new File([blob], 'column-' + id + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: shareUrl }); }
+      catch(e) { if (e.name === 'AbortError') return; }
+    } else {
+      try { await navigator.clipboard.writeText(shareUrl); } catch {}
+      alert('URLをコピーしました: ' + shareUrl);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
 // ── サニタイズ ──
 function _sanitizeColumnBody(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');

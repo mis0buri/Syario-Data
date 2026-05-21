@@ -694,9 +694,12 @@
       <div class="card">
         <h2 id="col-detail-title" class="col-detail-title"></h2>
         <div id="col-detail-meta" class="col-detail-meta"></div>
-        <div id="col-detail-actions" style="display:none;margin-bottom:12px;gap:8px;">
-          <button id="col-detail-edit-btn" class="admin-btn sm">編集</button>
-          <button id="col-detail-delete-btn" class="admin-btn danger sm">削除</button>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button id="col-detail-share-btn" class="admin-btn sm" onclick="shareColumn()">共有</button>
+          <div id="col-detail-actions" style="display:none;gap:8px;flex-wrap:wrap;">
+            <button id="col-detail-edit-btn" class="admin-btn sm">編集</button>
+            <button id="col-detail-delete-btn" class="admin-btn danger sm">削除</button>
+          </div>
         </div>
         <div id="col-detail-content" class="col-body"></div>
       </div>
