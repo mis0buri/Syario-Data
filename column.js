@@ -4,6 +4,7 @@ const COLUMN_GENRES = ['戦術・戦略', '牌効率', '役・役満', '観戦�
 let _colSortField = 'createdAt';
 let _colSortDir = 'desc';
 let _colMyOnly = false;
+let _colGenre = '';
 let _colCurrentId = null;
 
 // ── ビュー切替 ──
@@ -24,9 +25,11 @@ async function initColumn() {
 function _colRenderSortBar() {
   const fieldEl = document.getElementById('col-sort-field');
   const dirEl = document.getElementById('col-sort-dir');
+  const genreEl = document.getElementById('col-filter-genre');
   const myOnlyEl = document.getElementById('col-my-only');
   if (fieldEl) fieldEl.value = _colSortField;
   if (dirEl) dirEl.value = _colSortDir;
+  if (genreEl) genreEl.value = _colGenre;
   if (myOnlyEl) {
     myOnlyEl.parentElement.style.display = _currentUser ? '' : 'none';
     myOnlyEl.checked = _colMyOnly;
@@ -49,6 +52,9 @@ async function _colLoadList() {
       if (_currentUser && d.authorUid === _currentUser.uid) return true;
       return false;
     });
+
+    // ジャンルフィルタ
+    if (_colGenre) docs = docs.filter(d => d.genre === _colGenre);
 
     // 自分の記事フィルタ
     if (_colMyOnly && _currentUser) {
@@ -111,6 +117,11 @@ function colChangeSortDir(val) {
 
 function colToggleMyOnly(checked) {
   _colMyOnly = checked;
+  _colLoadList();
+}
+
+function colChangeGenre(val) {
+  _colGenre = val;
   _colLoadList();
 }
 

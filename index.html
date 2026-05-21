@@ -723,6 +723,19 @@
           <option value="desc">新しい順</option>
           <option value="asc">古い順</option>
         </select>
+        <select id="col-filter-genre" class="admin-select" onchange="colChangeGenre(this.value)">
+          <option value="">すべてのジャンル</option>
+          <option value="戦術・戦略">戦術・戦略</option>
+          <option value="牌効率">牌効率</option>
+          <option value="役・役満">役・役満</option>
+          <option value="観戦記">観戦記</option>
+          <option value="大会・イベント">大会・イベント</option>
+          <option value="日記・エッセイ">日記・エッセイ</option>
+          <option value="初心者向け">初心者向け</option>
+          <option value="ルール解説">ルール解説</option>
+          <option value="マナー・礼儀">マナー・礼儀</option>
+          <option value="その他">その他</option>
+        </select>
         <label class="col-my-only-label" style="display:none;">
           <input type="checkbox" id="col-my-only" onchange="colToggleMyOnly(this.checked)">
           自分の記事のみ
