@@ -284,10 +284,18 @@ function colFormatColor(color) {
   document.execCommand('foreColor', false, color);
 }
 
+function colFormatAlign(dir) {
+  document.execCommand('justify' + dir);
+}
+
 function colInsertImage() {
   const url = prompt('画像URLを入力してください');
   if (!url) return;
-  document.execCommand('insertImage', false, url);
+  const sizeKey = prompt('サイズを選択してください\n1: 小（25%）\n2: 中（50%）\n3: 大（75%）\n4: 全幅（100%）') || '4';
+  const width = { '1': '25%', '2': '50%', '3': '75%', '4': '100%' }[sizeKey] || '100%';
+  const body = document.getElementById('col-edit-body');
+  if (body) body.focus();
+  document.execCommand('insertHTML', false, `<img src="${_escHtml(url)}" style="width:${width};max-width:100%;">`);
 }
 
 // ── サニタイズ ──
@@ -300,7 +308,7 @@ function _sanitizeColumnBody(html) {
     });
     if (el.style) {
       const safe = {};
-      ['color', 'font-size', 'font-weight', 'font-style', 'text-decoration'].forEach(p => {
+      ['color', 'font-size', 'font-weight', 'font-style', 'text-decoration', 'text-align', 'width', 'max-width'].forEach(p => {
         if (el.style[p]) safe[p] = el.style[p];
       });
       el.removeAttribute('style');

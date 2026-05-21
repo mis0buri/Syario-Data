@@ -1466,6 +1466,7 @@
 }
 .col-toolbar-select { font-size: 12px; padding: 4px 6px; max-width: 110px; }
 .col-color-btns { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.col-align-btns { display: flex; gap: 2px; }
 .col-color-btn {
   width: 18px;
   height: 18px;
