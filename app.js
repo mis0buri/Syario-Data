@@ -356,10 +356,12 @@ async function initTopPage() {
   }
   listEl.innerHTML = '<div class="empty">読み込み中...</div>';
   try {
-    const [rsvSnap, boardSnap, renbanSnap] = await Promise.all([
+    const [rsvSnap, boardSnap, renbanSnap, voteSnap, columnSnap] = await Promise.all([
       _db.collection('reservations').orderBy('createdAt', 'desc').limit(5).get(),
       _db.collection('board_comments').orderBy('ts', 'desc').limit(3).get(),
-      _db.collection('renban_events').orderBy('createdAt', 'desc').limit(3).get()
+      _db.collection('renban_events').orderBy('createdAt', 'desc').limit(3).get(),
+      _db.collection('vote_boxes').orderBy('createdAt', 'desc').limit(3).get(),
+      _db.collection('columns').orderBy('createdAt', 'desc').limit(3).get()
     ]);
     const items = [];
     rsvSnap.docs.forEach(doc => {
@@ -376,6 +378,18 @@ async function initTopPage() {
       const d = doc.data();
       const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
       items.push({ type: 'renban', ts, id: doc.id, title: d.title || '(無題)', owner: d.owner || '匿名' });
+    });
+    voteSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (d.status === 'draft') return;
+      const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
+      items.push({ type: 'vote', ts, id: doc.id, title: d.title || '(無題)', authorName: d.authorName || '匿名' });
+    });
+    columnSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (d.status !== 'published') return;
+      const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
+      items.push({ type: 'column', ts, id: doc.id, title: d.title || '(無題)', authorName: d.authorName || '匿名' });
     });
     items.sort((a, b) => b.ts - a.ts);
     if (!items.length) { listEl.innerHTML = '<div class="empty">更新はありません</div>'; return; }
@@ -396,11 +410,23 @@ async function initTopPage() {
           <span class="top-update-icon">💬</span>
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong>：${_escHtml(preview)}<div class="top-update-time">${timeStr}</div></div>
         </div>`;
-      } else {
+      } else if (item.type === 'renban') {
         const onclick = `showSection('renban');initRenban().then(()=>openRenbanDetail('${item.id}'))`;
         return `<div class="top-update-item top-update-link" onclick="${onclick}">
           <span class="top-update-icon">📢</span>
           <div class="top-update-text"><strong>${_escHtml(item.owner)}</strong> さんが <strong>${_escHtml(item.title)}</strong> の連番を募集しました<div class="top-update-time">${timeStr}</div></div>
+        </div>`;
+      } else if (item.type === 'vote') {
+        const onclick = `openVoteDetail('${_escHtml(item.id)}')`;
+        return `<div class="top-update-item top-update-link" onclick="${onclick}">
+          <span class="top-update-icon">🗳️</span>
+          <div class="top-update-text"><strong>${_escHtml(item.authorName)}</strong> さんが投票箱 <strong>${_escHtml(item.title)}</strong> を作成しました<div class="top-update-time">${timeStr}</div></div>
+        </div>`;
+      } else if (item.type === 'column') {
+        const onclick = `openColumnDetail('${_escHtml(item.id)}')`;
+        return `<div class="top-update-item top-update-link" onclick="${onclick}">
+          <span class="top-update-icon">📝</span>
+          <div class="top-update-text"><strong>${_escHtml(item.authorName)}</strong> さんがコラム <strong>${_escHtml(item.title)}</strong> を投稿しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       }
     }).join('');
