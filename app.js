@@ -168,7 +168,7 @@ function showSection(id) {
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isGallery) {
-    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本',walk:'散歩ログ'};
+    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本',walk:'散歩ログ',column:'コラム'};
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
