@@ -132,7 +132,7 @@ const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
 let _firestoreSchedule = {};
 // セクションID → URLハッシュ のマッピング（異なる場合のみ記載）
-const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery', walk: 'walk', 'walk-detail': 'walk' };
+const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery', walk: 'walk', 'walk-detail': 'walk', column: 'gallery', 'column-detail': 'gallery' };
 // URLハッシュ → セクションID
 const _HASH_TO_SECTION = {
   '': 'top', top: 'top',

@@ -33,7 +33,6 @@
     <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
     <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
-    <button data-nav="column" onclick="showSection('column')">コラム</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
@@ -660,6 +659,9 @@
 
     <!-- 一覧ビュー -->
     <div id="column-list-view" class="column-view active">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="showSection('gallery')">← ギャラリーへ戻る</button>
+      </div>
       <div class="col-list-header">
         <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openColumnNew()">＋ コラムを投稿</button>
         <div id="col-login-hint" class="col-login-hint" style="display:none;">ログインが必要です。<button class="admin-btn sm" onclick="openLoginModal()">ログイン</button></div>
@@ -816,6 +818,7 @@
       <div class="gallery-hub">
         <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本</button>
         <button class="gallery-hub-btn" onclick="showSection('walk')">散歩ログ</button>
+        <button class="gallery-hub-btn" onclick="showSection('column')">コラム</button>
       </div>
     </div>
   </div>
