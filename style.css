@@ -1447,6 +1447,7 @@
 .col-back-row { margin-bottom: 12px; }
 
 .col-detail-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+#col-detail-actions { display: flex; gap: 8px; margin-bottom: 12px; }
 .col-detail-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--dim); margin-bottom: 14px; align-items: center; }
 
 .col-body { font-size: 14px; line-height: 1.8; color: var(--text); word-break: break-word; }
@@ -1498,45 +1499,3 @@
   #col-edit-title, #col-edit-author, #col-edit-genre, .col-editor { font-size: 16px; }
 }
 
-/* ── コラム ── */
-.column-view { display: none; }
-.column-view.active { display: block; }
-
-.col-list-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.col-sort-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.col-my-only-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap; }
-.col-my-only-label input { accent-color: var(--accent); }
-
-.col-login-hint { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--dim); margin-bottom: 12px; flex-wrap: wrap; }
-
-.col-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s; }
-.col-card:hover { border-color: var(--accent); }
-.col-card-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.col-card-title { font-size: 15px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; }
-.col-genre-badge { background: rgba(97,175,239,.15); color: #61afef; border: 1px solid #61afef44; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 2px 8px; white-space: nowrap; }
-.col-draft-badge { background: rgba(229,192,123,.15); color: var(--yellow); border: 1px solid #e5c07b44; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 2px 8px; white-space: nowrap; }
-.col-card-meta { display: flex; gap: 12px; font-size: 12px; color: var(--dim); flex-wrap: wrap; }
-
-.col-back-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.col-detail-title { font-size: 22px; font-weight: 700; color: var(--text); margin: 0 0 10px; }
-.col-detail-meta { display: flex; gap: 12px; font-size: 13px; color: var(--dim); flex-wrap: wrap; margin-bottom: 8px; }
-.col-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-.col-detail-body { font-size: 15px; line-height: 1.8; color: var(--text); word-break: break-word; }
-.col-detail-body img { max-width: 100%; border-radius: 6px; margin: 8px 0; display: block; }
-
-.col-edit-heading { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 18px; }
-.col-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--surface2); border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0; padding: 8px 10px; }
-.col-toolbar-select { width: auto !important; font-size: 13px !important; padding: 4px 6px !important; }
-.col-color-btns { display: flex; gap: 4px; }
-.col-color-btn { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; flex-shrink: 0; }
-.col-color-btn:hover { border-color: var(--text); }
-.col-edit-body { min-height: 200px; background: var(--surface2); border: 1px solid var(--border); border-radius: 0 0 8px 8px; padding: 12px; font-size: 15px; line-height: 1.8; color: var(--text); outline: none; word-break: break-word; }
-.col-edit-body:empty:before { content: attr(placeholder); color: var(--dim); pointer-events: none; }
-.col-edit-body img { max-width: 100%; border-radius: 6px; }
-.col-edit-btns { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-.col-empty { color: var(--dim); font-size: 14px; padding: 24px 0; text-align: center; }
-
-@media (max-width: 640px) {
-  .col-list-header { flex-direction: column; align-items: flex-start; }
-  #col-edit-title, #col-edit-author { font-size: 16px; }
-}
