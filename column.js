@@ -1,5 +1,5 @@
 // ── コラム ──
-const COLUMN_GENRES = ['戦術・戦略', '観戦記', '日記・エッセイ', '初心者向け', 'その他'];
+const COLUMN_GENRES = ['戦術・戦略', '牌効率', '役・役満', '観戦記', '大会・イベント', '日記・エッセイ', '初心者向け', 'ルール解説', 'マナー・礼儀', 'その他'];
 
 let _colSortField = 'createdAt';
 let _colSortDir = 'desc';
