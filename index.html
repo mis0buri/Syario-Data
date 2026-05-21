@@ -33,6 +33,7 @@
     <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
     <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
+    <button data-nav="column" onclick="showSection('column')">コラム</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
@@ -654,6 +655,113 @@
 
   </div>
 
+  <!-- コラム -->
+  <div id="sec-column" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="column-list-view" class="column-view active">
+      <div class="col-list-header">
+        <div class="col-sort-bar">
+          <select id="col-sort-field" class="admin-input" style="width:auto;" onchange="colChangeSortField(this.value)">
+            <option value="createdAt">投稿日時</option>
+            <option value="authorName">投稿者</option>
+            <option value="title">タイトル</option>
+          </select>
+          <select id="col-sort-dir" class="admin-input" style="width:auto;" onchange="colChangeSortDir(this.value)">
+            <option value="desc">新しい順</option>
+            <option value="asc">古い順</option>
+          </select>
+          <label class="col-my-only-label" style="display:none;">
+            <input type="checkbox" id="col-my-only" onchange="colToggleMyOnly(this.checked)">
+            自分のみ
+          </label>
+        </div>
+        <button class="admin-btn primary sm" onclick="openColumnNew()">＋ コラムを追加</button>
+      </div>
+      <div id="col-login-hint" class="col-login-hint" style="display:none;">
+        ⚠ コラムの投稿にはログインが必要です
+        <button class="admin-btn sm" onclick="document.getElementById('mypage-modal').style.display='flex'">ログイン</button>
+      </div>
+      <div id="column-list"></div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="column-detail-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+        <div id="col-detail-actions" style="display:none;">
+          <button id="col-detail-edit-btn" class="admin-btn sm">編集</button>
+          <button id="col-detail-delete-btn" class="admin-btn danger sm">削除</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 id="col-detail-title" class="col-detail-title"></h2>
+        <div id="col-detail-meta" class="col-detail-meta"></div>
+        <hr class="col-divider">
+        <div id="col-detail-content" class="col-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- 編集ビュー -->
+    <div id="column-edit-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="col-edit-heading">コラムを編集</div>
+        <div class="admin-form-group">
+          <label>タイトル <span style="color:var(--red)">*</span></label>
+          <input type="text" id="col-edit-title" class="admin-input" placeholder="タイトルを入力">
+        </div>
+        <div class="admin-form-group">
+          <label>投稿者名</label>
+          <input type="text" id="col-edit-author" class="admin-input" placeholder="投稿者名">
+        </div>
+        <div class="admin-form-group">
+          <label>ジャンル</label>
+          <select id="col-edit-genre" class="admin-input">
+            <option value="">-- 選択 --</option>
+            <option>戦術・戦略</option>
+            <option>観戦記</option>
+            <option>日記・エッセイ</option>
+            <option>初心者向け</option>
+            <option>その他</option>
+          </select>
+        </div>
+        <div class="admin-form-group">
+          <label>本文</label>
+          <div class="col-toolbar">
+            <select class="col-toolbar-select admin-input" onchange="colFormatFontSize(this.value);this.value=''">
+              <option value="">文字サイズ</option>
+              <option value="small">小</option>
+              <option value="normal">普通</option>
+              <option value="large">大</option>
+              <option value="xlarge">特大</option>
+            </select>
+            <div class="col-color-btns">
+              <button type="button" class="col-color-btn" style="background:#dde2ec;" onclick="colFormatColor('#dde2ec')" title="白"></button>
+              <button type="button" class="col-color-btn" style="background:#e06c75;" onclick="colFormatColor('#e06c75')" title="赤"></button>
+              <button type="button" class="col-color-btn" style="background:#e5c07b;" onclick="colFormatColor('#e5c07b')" title="黄"></button>
+              <button type="button" class="col-color-btn" style="background:#98c379;" onclick="colFormatColor('#98c379')" title="緑"></button>
+              <button type="button" class="col-color-btn" style="background:#61afef;" onclick="colFormatColor('#61afef')" title="青"></button>
+              <button type="button" class="col-color-btn" style="background:#c678dd;" onclick="colFormatColor('#c678dd')" title="紫"></button>
+              <button type="button" class="col-color-btn" style="background:#56b6c2;" onclick="colFormatColor('#56b6c2')" title="水色"></button>
+              <button type="button" class="col-color-btn" style="background:#7f848e;" onclick="colFormatColor('#7f848e')" title="グレー"></button>
+            </div>
+            <button type="button" class="admin-btn sm" onclick="colInsertImage()">🖼 画像</button>
+          </div>
+          <div id="col-edit-body" class="col-edit-body" contenteditable="true" placeholder="本文を入力..."></div>
+        </div>
+        <div id="col-edit-status" class="admin-status error"></div>
+        <div class="col-edit-btns">
+          <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>
+          <button type="button" id="col-draft-btn" class="admin-btn" onclick="submitColumn('draft')">下書きとして保存</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
   <!-- 連番募集 -->
   <div id="sec-renban" class="section">
     <div class="renban-header-row" style="flex-direction:column;align-items:flex-end;gap:4px;">
@@ -700,6 +808,112 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- コラム -->
+  <div id="sec-column" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="column-list-view" class="column-view active">
+      <div class="col-list-header">
+        <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openColumnNew()">＋ コラムを投稿</button>
+        <div id="col-login-hint" class="col-login-hint" style="display:none;">ログインが必要です。<button class="admin-btn sm" onclick="openLoginModal()">ログイン</button></div>
+      </div>
+      <div class="col-sort-bar">
+        <select id="col-sort-field" class="admin-select" onchange="colChangeSortField(this.value)">
+          <option value="createdAt">投稿日時</option>
+          <option value="authorName">投稿者</option>
+          <option value="title">タイトル</option>
+        </select>
+        <select id="col-sort-dir" class="admin-select" onchange="colChangeSortDir(this.value)">
+          <option value="desc">新しい順</option>
+          <option value="asc">古い順</option>
+        </select>
+        <label class="col-my-only-label" style="display:none;">
+          <input type="checkbox" id="col-my-only" onchange="colToggleMyOnly(this.checked)">
+          自分の記事のみ
+        </label>
+      </div>
+      <div id="column-list">
+        <div class="col-empty">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="column-detail-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <h2 id="col-detail-title" class="col-detail-title"></h2>
+        <div id="col-detail-meta" class="col-detail-meta"></div>
+        <div id="col-detail-actions" style="display:none;margin-bottom:12px;gap:8px;">
+          <button id="col-detail-edit-btn" class="admin-btn sm">編集</button>
+          <button id="col-detail-delete-btn" class="admin-btn danger sm">削除</button>
+        </div>
+        <div id="col-detail-content" class="col-body"></div>
+      </div>
+    </div>
+
+    <!-- 編集ビュー -->
+    <div id="column-edit-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title" id="col-edit-heading">コラムを投稿</div>
+        <div class="admin-form-group">
+          <label>タイトル <span style="color:var(--red)">*</span></label>
+          <input type="text" id="col-edit-title" class="admin-input" placeholder="タイトルを入力">
+        </div>
+        <div class="admin-form-group">
+          <label>投稿者名</label>
+          <input type="text" id="col-edit-author" class="admin-input" placeholder="名前を入力">
+        </div>
+        <div class="admin-form-group">
+          <label>ジャンル</label>
+          <select id="col-edit-genre" class="admin-input">
+            <option value="">（未選択）</option>
+            <option value="戦術・戦略">戦術・戦略</option>
+            <option value="観戦記">観戦記</option>
+            <option value="日記・エッセイ">日記・エッセイ</option>
+            <option value="初心者向け">初心者向け</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="admin-form-group">
+          <label>本文</label>
+          <div class="col-editor-toolbar">
+            <select class="admin-select col-toolbar-select" onchange="colFormatFontSize(this.value);this.value=''">
+              <option value="">文字サイズ</option>
+              <option value="small">小</option>
+              <option value="normal">普通</option>
+              <option value="large">大</option>
+              <option value="xlarge">特大</option>
+            </select>
+            <div class="col-color-btns">
+              <button type="button" class="col-color-btn" style="background:#e63946" onclick="colFormatColor('#e63946')" title="赤"></button>
+              <button type="button" class="col-color-btn" style="background:#ff7043" onclick="colFormatColor('#ff7043')" title="オレンジ"></button>
+              <button type="button" class="col-color-btn" style="background:#d4c045" onclick="colFormatColor('#d4c045')" title="黄"></button>
+              <button type="button" class="col-color-btn" style="background:#4caf82" onclick="colFormatColor('#4caf82')" title="緑"></button>
+              <button type="button" class="col-color-btn" style="background:#42a5f5" onclick="colFormatColor('#42a5f5')" title="青"></button>
+              <button type="button" class="col-color-btn" style="background:#ab47bc" onclick="colFormatColor('#ab47bc')" title="紫"></button>
+              <button type="button" class="col-color-btn" style="background:#c8a96e" onclick="colFormatColor('#c8a96e')" title="アクセント"></button>
+              <button type="button" class="col-color-btn" style="background:var(--text);border:1px solid var(--border)" onclick="colFormatColor('')" title="デフォルト"></button>
+            </div>
+            <button type="button" class="admin-btn sm" onclick="colInsertImage()">画像</button>
+          </div>
+          <div id="col-edit-body" class="col-editor" contenteditable="true" placeholder="本文を入力してください"></div>
+        </div>
+        <div id="col-edit-status" class="admin-status error"></div>
+        <div class="col-submit-btns">
+          <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>
+          <button type="button" id="col-draft-btn" class="admin-btn" onclick="submitColumn('draft')">下書きとして保存</button>
+          <button type="button" class="admin-btn" onclick="initColumn()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- スタンプカード -->
@@ -936,6 +1150,7 @@
 <script src="./schedule-ui.js"></script>
 <script src="./board.js"></script>
 <script src="./vote.js"></script>
+<script src="./column.js"></script>
 <script src="./gallery.js"></script>
 <script src="./renban.js"></script>
 <script src="./boshu.js"></script>

@@ -138,7 +138,7 @@ const _HASH_TO_SECTION = {
   '': 'top', top: 'top',
   ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
   gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
-  renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote',
+  renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote', column: 'column',
 };
 
 function showSection(id) {
@@ -177,7 +177,7 @@ function showSection(id) {
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -198,6 +198,7 @@ function showSection(id) {
   if (id==='admin-gather') initAdminGather();
   if (id==='admin-score') initAdminScore();
   if (id==='admin-schedule') initAdminSchedule();
+  if (id==='column') initColumn();
 
   // URL ハッシュを更新（管理者セクションは除く）
   if (!_ADMIN.includes(id)) {
@@ -575,6 +576,9 @@ function _routeHash(hash, isInit) {
   } else if (hash.startsWith('#vote/')) {
     showSection('vote');
     openVoteDetail(hash.slice(6));
+  } else if (hash.startsWith('#column/')) {
+    showSection('column');
+    openColumnDetail(hash.slice(8));
   } else {
     const key = hash.slice(1);
     if (_HASH_TO_SECTION[key] !== undefined) {

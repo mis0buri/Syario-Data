@@ -98,6 +98,15 @@ service cloud.firestore {
         (resource.data.uid == request.auth.uid || isAdmin());
     }
 
+    match /columns/{docId} {
+      allow read: if resource.data.status == 'published' ||
+        (request.auth != null && request.auth.uid == resource.data.authorUid) ||
+        isAdmin();
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
     match /{document=**} {
       allow read: if true;
     }
