@@ -805,6 +805,7 @@
             </div>
             <button type="button" class="admin-btn sm" onclick="colInsertImage()">画像</button>
           </div>
+          <input type="file" id="col-img-file" accept="image/*" style="display:none" onchange="colHandleImageFile(this)">
           <div style="position:relative;">
             <div id="col-edit-body" class="col-editor" contenteditable="true" placeholder="本文を入力してください"></div>
             <div id="col-img-picker" style="display:none;" class="col-img-picker">

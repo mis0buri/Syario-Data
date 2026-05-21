@@ -323,13 +323,31 @@ function colFormatAlign(dir) {
 }
 
 function colInsertImage() {
-  const url = prompt('画像URLを入力してください');
-  if (!url) return;
-  const sizeKey = prompt('サイズを選択してください\n1: 小（25%）\n2: 中（50%）\n3: 大（75%）\n4: 全幅（100%）') || '4';
-  const width = { '1': '25%', '2': '50%', '3': '75%', '4': '100%' }[sizeKey] || '100%';
-  const body = document.getElementById('col-edit-body');
-  if (body) body.focus();
-  document.execCommand('insertHTML', false, `<img src="${_escHtml(url)}" style="width:${width};max-width:100%;">`);
+  const input = document.getElementById('col-img-file');
+  if (input) { input.value = ''; input.click(); }
+}
+
+function colHandleImageFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200;
+      const scale = img.width > MAX ? MAX / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const body = document.getElementById('col-edit-body');
+      if (body) body.focus();
+      document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="width:100%;max-width:100%;">`);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // ── 共有 ──
