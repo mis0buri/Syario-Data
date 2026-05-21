@@ -758,8 +758,16 @@
             </div>
             <button type="button" class="admin-btn sm" onclick="colInsertImage()">画像</button>
           </div>
-          <div id="col-edit-body" class="col-editor" contenteditable="true" placeholder="本文を入力してください"></div>
-        </div>
+          <div style="position:relative;">
+            <div id="col-edit-body" class="col-editor" contenteditable="true" placeholder="本文を入力してください"></div>
+            <div id="col-img-picker" style="display:none;" class="col-img-picker">
+              <span class="col-img-picker-label">サイズ:</span>
+              <button type="button" onclick="colResizeSelectedImg('25%')">小</button>
+              <button type="button" onclick="colResizeSelectedImg('50%')">中</button>
+              <button type="button" onclick="colResizeSelectedImg('75%')">大</button>
+              <button type="button" onclick="colResizeSelectedImg('100%')">全幅</button>
+            </div>
+          </div>
         <div id="col-edit-status" class="admin-status error"></div>
         <div class="col-submit-btns">
           <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>

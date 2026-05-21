@@ -190,6 +190,33 @@ function openColumnEdit(data) {
   _colInitEditor(data);
 }
 
+let _colSelectedImg = null;
+
+function _colSetupImgPicker(bodyEl) {
+  bodyEl.onclick = e => {
+    const picker = document.getElementById('col-img-picker');
+    if (e.target.tagName === 'IMG') {
+      _colSelectedImg = e.target;
+      const rect = e.target.getBoundingClientRect();
+      const bodyRect = bodyEl.getBoundingClientRect();
+      picker.style.display = 'flex';
+      picker.style.top = (rect.bottom - bodyRect.top + bodyEl.scrollTop + 4) + 'px';
+      picker.style.left = (rect.left - bodyRect.left) + 'px';
+    } else {
+      _colSelectedImg = null;
+      if (picker) picker.style.display = 'none';
+    }
+  };
+}
+
+function colResizeSelectedImg(width) {
+  if (!_colSelectedImg) return;
+  _colSelectedImg.style.width = width;
+  _colSelectedImg.style.maxWidth = '100%';
+  document.getElementById('col-img-picker').style.display = 'none';
+  _colSelectedImg = null;
+}
+
 function _colInitEditor(data) {
   const titleEl = document.getElementById('col-edit-title');
   if (titleEl) titleEl.value = data ? (data.title || '') : '';
@@ -201,7 +228,14 @@ function _colInitEditor(data) {
   if (genreEl) genreEl.value = data ? (data.genre || '') : '';
 
   const bodyEl = document.getElementById('col-edit-body');
-  if (bodyEl) bodyEl.innerHTML = data ? (data.body || '') : '';
+  if (bodyEl) {
+    bodyEl.innerHTML = data ? (data.body || '') : '';
+    _colSetupImgPicker(bodyEl);
+  }
+
+  const picker = document.getElementById('col-img-picker');
+  if (picker) picker.style.display = 'none';
+  _colSelectedImg = null;
 
   const statusEl = document.getElementById('col-edit-status');
   if (statusEl) statusEl.textContent = '';
