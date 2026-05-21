@@ -654,6 +654,52 @@
 
   </div>
 
+  <!-- 連番募集 -->
+  <div id="sec-renban" class="section">
+    <div class="renban-header-row" style="flex-direction:column;align-items:flex-end;gap:4px;">
+      <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="if(requireLogin())openRenbanForm()">募集を登録する</button>
+      <span id="rb-login-hint" style="font-size:10px;color:var(--dim);opacity:.65;display:none;">※登録にはログインが必要です</span>
+    </div>
+    <div class="card">
+      <div class="card-title">連番募集一覧</div>
+      <div class="renban-list" id="renban-list">
+        <div class="renban-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 募集一覧 -->
+  <div id="sec-boshu" class="section">
+    <div class="card">
+      <div class="card-title">募集一覧</div>
+      <div id="boshu-admin-bar" class="boshu-admin-bar" style="display:none;">
+        <button class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="enterBoshuSelectMode()">まとめて共有</button>
+      </div>
+      <div class="boshu-section">
+        <div class="boshu-section-heading">予約</div>
+        <div class="renban-list" id="boshu-rsv-list">
+          <div class="renban-empty">読み込み中...</div>
+        </div>
+      </div>
+      <div class="boshu-section">
+        <div class="boshu-section-heading">連番募集</div>
+        <div class="renban-list" id="boshu-renban-list">
+          <div class="renban-empty">読み込み中...</div>
+        </div>
+      </div>
+      <div id="boshu-confirm-bar" class="boshu-confirm-bar" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="boshu-select-count" class="boshu-select-count">0件選択中</span>
+          <button id="boshu-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleBoshuSelectAll()">全選択</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="rsv-btn secondary" style="padding:8px 16px;flex:none;" onclick="exitBoshuSelectMode()">キャンセル</button>
+          <button id="boshu-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareBoshuSelected()" disabled>共有する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- コラム -->
   <div id="sec-column" class="section">
 

@@ -125,7 +125,7 @@ function filteredGathers() {
 // ── ナビ ──
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
-const _GALLERY = ['gallery','jare','jare-detail','walk'];
+const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
 const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
