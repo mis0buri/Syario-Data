@@ -263,7 +263,9 @@ function _colInitEditor(data) {
 
 function colConfirmLeave() {
   if (!_colDirty) return true;
-  return confirm('編集中の内容が失われますが、よろしいですか？');
+  const ok = confirm('編集中の内容が失われますが、よろしいですか？');
+  if (ok) _colDirty = false;
+  return ok;
 }
 
 async function submitColumn(saveStatus) {

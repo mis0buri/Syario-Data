@@ -144,7 +144,7 @@ const _HASH_TO_SECTION = {
 function showSection(id) {
   if (typeof _colDirty !== 'undefined' && _colDirty &&
       document.getElementById('column-edit-view') &&
-      document.getElementById('column-edit-view').style.display !== 'none') {
+      document.getElementById('column-edit-view').classList.contains('active')) {
     if (!colConfirmLeave()) return;
   }
   currentSection = id;
