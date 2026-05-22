@@ -6,6 +6,7 @@ let _colSortDir = 'desc';
 let _colMyOnly = false;
 let _colGenre = '';
 let _colCurrentId = null;
+let _colDirty = false;
 
 // ── ビュー切替 ──
 function _colShowView(viewId) {
@@ -179,6 +180,10 @@ function _colRenderDetail(data) {
 // ── 編集ビュー ──
 let _colEditId = null;
 
+window.addEventListener('beforeunload', e => {
+  if (_colDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
 function openColumnNew() {
   if (!_currentUser) {
     const hint = document.getElementById('col-login-hint');
@@ -242,17 +247,27 @@ function _colInitEditor(data) {
   if (bodyEl) {
     bodyEl.innerHTML = data ? (data.body || '') : '';
     _colSetupImgPicker(bodyEl);
+    bodyEl.oninput = () => { _colDirty = true; };
   }
 
   const picker = document.getElementById('col-img-picker');
   if (picker) picker.style.display = 'none';
   _colSelectedImg = null;
+  _colDirty = false;
+
+  document.getElementById('col-edit-title').oninput = () => { _colDirty = true; };
 
   const statusEl = document.getElementById('col-edit-status');
   if (statusEl) statusEl.textContent = '';
 }
 
+function colConfirmLeave() {
+  if (!_colDirty) return true;
+  return confirm('編集中の内容が失われますが、よろしいですか？');
+}
+
 async function submitColumn(saveStatus) {
+  _colDirty = false;
   if (!_db || !_currentUser) return;
   const statusEl = document.getElementById('col-edit-status');
   const publishBtn = document.getElementById('col-publish-btn');

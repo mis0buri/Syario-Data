@@ -768,7 +768,7 @@
     <!-- 編集ビュー -->
     <div id="column-edit-view" class="column-view">
       <div class="col-back-row">
-        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+        <button class="vote-back-btn" onclick="if(colConfirmLeave())initColumn()">← 一覧へ戻る</button>
       </div>
       <div class="card">
         <div class="vote-form-title" id="col-edit-heading">コラムを投稿</div>
@@ -839,7 +839,7 @@
         <div class="col-submit-btns">
           <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>
           <button type="button" id="col-draft-btn" class="admin-btn" onclick="submitColumn('draft')">下書きとして保存</button>
-          <button type="button" class="admin-btn" onclick="initColumn()">キャンセル</button>
+          <button type="button" class="admin-btn" onclick="if(colConfirmLeave())initColumn()">キャンセル</button>
         </div>
       </div>
     </div>

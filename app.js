@@ -142,6 +142,11 @@ const _HASH_TO_SECTION = {
 };
 
 function showSection(id) {
+  if (typeof _colDirty !== 'undefined' && _colDirty &&
+      document.getElementById('column-edit-view') &&
+      document.getElementById('column-edit-view').style.display !== 'none') {
+    if (!colConfirmLeave()) return;
+  }
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
