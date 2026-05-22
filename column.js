@@ -7,12 +7,14 @@ let _colMyOnly = false;
 let _colGenre = '';
 let _colCurrentId = null;
 let _colDirty = false;
+let _colEditActive = false;
 
 // ── ビュー切替 ──
 function _colShowView(viewId) {
   document.querySelectorAll('#sec-column .column-view').forEach(v => v.classList.remove('active'));
   const el = document.getElementById(viewId);
   if (el) el.classList.add('active');
+  _colEditActive = (viewId === 'column-edit-view');
 }
 
 // ── 一覧 ──
