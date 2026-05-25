@@ -21,7 +21,7 @@ async function shareRenbanEvent() {
 
   // ── canvas画像生成 ──
   const dpr = window.devicePixelRatio || 1;
-  const W = 720, pad = 36, rowH = 32, pRowH = 28;
+  const W = 720, pad = 36, rowH = 32, pRowH = 28, noteRowH = 20;
   const dateDisplay = (evDates.length ? evDates : (ev.date ? [ev.date] : [])).join(', ');
   const rows = [
     ...(ev.owner ? [['募集者', ev.owner]] : []),
@@ -32,18 +32,11 @@ async function shareRenbanEvent() {
     ['参加 / 興味', `✅ ${joinCount}人　👀 ${interestCount}人`],
   ];
 
-  // 参加者リスト（参加→興味あり順、最大5人）
-  const noteRowH = 20;
-  const allP = [
-    ...joins.map(p => ({ name: p.name || '匿名', note: p.note || '', t: 'join' })),
-    ...interests.map(p => ({ name: p.name || '匿名', note: p.note || '', t: 'interest' })),
-  ].slice(0, 5);
-  const totalP = joinCount + interestCount;
-  const hasMore = totalP > 5;
-  const pTotalH = allP.reduce((sum, p) => sum + pRowH + (p.note ? noteRowH : 0), 0);
-  const pSectionH = allP.length > 0
-    ? (16 + 22 + pTotalH + (hasMore ? pRowH : 0) + 12)
-    : 0;
+  const joinPs = joins.map(p => ({ name: p.name || '匿名', note: p.note || '' }));
+  const interestPs = interests.map(p => ({ name: p.name || '匿名', note: p.note || '' }));
+  const psRowsH = ps => ps.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0);
+  const psSectionH = ps => ps.length ? 8 + 20 + (pRowH - 2) + psRowsH(ps) + 12 : 0;
+  const pSectionH = psSectionH(joinPs) + psSectionH(interestPs);
 
   const H = 60 + 50 + 16 + rows.length * rowH + pSectionH + 28;
   const canvas = document.createElement('canvas');
@@ -92,42 +85,39 @@ async function shareRenbanEvent() {
     y += rowH;
   });
 
-  // 参加者セクション
-  if (allP.length > 0) {
+  // 参加者セクション描画ヘルパー
+  const drawPs = (ps, icon, label, color) => {
+    if (!ps.length) return;
     y += 8;
     ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
     y += 20;
-    ctx.fillStyle = '#7f848e';
+    ctx.fillStyle = color;
     ctx.font = "12px 'Noto Sans JP', sans-serif";
-    ctx.fillText('参加者', pad, y);
+    ctx.fillText(`${icon} ${label}`, pad, y);
     y += pRowH - 2;
-    allP.forEach(p => {
-      const icon = p.t === 'join' ? '✅' : '👀';
+    ps.forEach(p => {
       ctx.fillStyle = '#dde2ec';
       ctx.font = "14px 'Noto Sans JP', sans-serif";
-      let nameStr = p.name;
-      while (ctx.measureText(icon + ' ' + nameStr + '…').width > W - pad * 2 - 20 && nameStr.length > 0) nameStr = nameStr.slice(0, -1);
-      if (nameStr !== p.name) nameStr += '…';
-      ctx.fillText(`${icon} ${nameStr}`, pad + 16, y);
+      let nm = p.name;
+      while (ctx.measureText(nm + '…').width > W - pad * 2 - 20 && nm.length > 0) nm = nm.slice(0, -1);
+      if (nm !== p.name) nm += '…';
+      ctx.fillText(nm, pad + 16, y);
       y += pRowH;
       if (p.note) {
         ctx.fillStyle = '#7f848e';
         ctx.font = "12px 'Noto Sans JP', sans-serif";
-        let noteStr = p.note;
-        const maxNoteW = W - pad * 2 - 36;
-        while (ctx.measureText(noteStr + '…').width > maxNoteW && noteStr.length > 0) noteStr = noteStr.slice(0, -1);
-        if (noteStr !== p.note) noteStr += '…';
-        ctx.fillText(noteStr, pad + 32, y);
+        let nt = p.note;
+        while (ctx.measureText(nt + '…').width > W - pad * 2 - 36 && nt.length > 0) nt = nt.slice(0, -1);
+        if (nt !== p.note) nt += '…';
+        ctx.fillText(nt, pad + 32, y);
         y += noteRowH;
       }
     });
-    if (hasMore) {
-      ctx.fillStyle = '#7f848e';
-      ctx.font = "12px 'Noto Sans JP', sans-serif";
-      ctx.fillText(`… 他 ${totalP - 5} 人`, pad + 16, y);
-    }
-  }
+  };
+
+  drawPs(joinPs, '✅', '参加', '#4caf82');
+  drawPs(interestPs, '👀', '興味あり', '#61afef');
 
   canvas.toBlob(async blob => {
     const file = new File([blob], `renban-${eventId}.png`, { type: 'image/png' });
