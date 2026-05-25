@@ -403,11 +403,10 @@ async function openRenbanDetail(eventId) {
       }).join('');
     };
 
-    const joinsHtml     = joins.length     ? renderGrouped(joins)     : '<div class="rb-no-participants">まだいません</div>';
-    const interestsHtml = interests.length ? renderGrouped(interests) : '<div class="rb-no-participants">まだいません</div>';
+    const joinSection     = joins.length     ? `<div class="rb-ps-group-header" style="color:var(--green,#4caf82);font-size:12px;font-weight:bold;margin:8px 0 4px;">✅ 参加</div>${renderGrouped(joins)}` : '';
+    const interestSection = interests.length ? `<div class="rb-ps-group-header" style="color:#61afef;font-size:12px;font-weight:bold;margin:12px 0 4px;">👀 興味あり</div>${renderGrouped(interests)}` : '';
     document.getElementById('rb-all-participants').innerHTML =
-      `<div class="rb-ps-group-header" style="color:var(--green,#4caf82);font-size:12px;font-weight:bold;margin:8px 0 4px;">✅ 参加</div>${joinsHtml}` +
-      `<div class="rb-ps-group-header" style="color:#61afef;font-size:12px;font-weight:bold;margin:12px 0 4px;">👀 興味あり</div>${interestsHtml}`;
+      (joinSection || interestSection) ? joinSection + interestSection : '<div class="rb-no-participants">まだいません</div>';
     const uniqueJoins    = _countUniqueParticipants(joins);
     const uniqueInterests = _countUniqueParticipants(interests);
     const countSummary = document.getElementById('rb-count-summary');
