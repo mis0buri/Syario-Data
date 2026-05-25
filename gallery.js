@@ -1070,6 +1070,7 @@ function showAllWalkCurrentLocation() {
         radius: 8, color: '#fff', weight: 2,
         fillColor: '#2979FF', fillOpacity: 1
       }).addTo(_walkAllMap);
+      _walkAllMap.setView([lat, lng], 15);
       if (btn) btn.textContent = '現在地';
     },
     () => {
