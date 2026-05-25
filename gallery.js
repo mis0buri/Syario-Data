@@ -995,6 +995,7 @@ function walkJumpTo(lat, lon) {
 }
 
 let _walkAllMap = null;
+let _walkAllLocationMarker = null;
 
 // 半期ごとの色パレット（順番に循環）
 const _HALF_YEAR_COLORS = ['#00E5FF','#FF6B6B','#69DB7C','#FFD43B','#CC5DE8','#FF922B','#4DABF7','#F783AC'];
@@ -1056,9 +1057,33 @@ async function showAllWalkRoutes() {
   }
 }
 
+function showAllWalkCurrentLocation() {
+  if (!_walkAllMap) return;
+  if (!navigator.geolocation) { alert('この端末では位置情報を取得できません'); return; }
+  const btn = document.getElementById('walk-all-location-btn');
+  if (btn) btn.textContent = '取得中…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      if (_walkAllLocationMarker) _walkAllLocationMarker.remove();
+      _walkAllLocationMarker = L.circleMarker([lat, lng], {
+        radius: 8, color: '#fff', weight: 2,
+        fillColor: '#2979FF', fillOpacity: 1
+      }).addTo(_walkAllMap);
+      if (btn) btn.textContent = '現在地';
+    },
+    () => {
+      if (btn) btn.textContent = '現在地';
+      alert('位置情報の取得に失敗しました');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
 function closeAllWalkRoutes() {
   document.getElementById('walk-all-routes').style.display = 'none';
   document.getElementById('walk-list').parentElement.style.display = '';
+  if (_walkAllLocationMarker) { _walkAllLocationMarker.remove(); _walkAllLocationMarker = null; }
   if (_walkAllMap) { _walkAllMap.remove(); _walkAllMap = null; }
 }
 
