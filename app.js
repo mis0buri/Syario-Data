@@ -325,6 +325,15 @@ async function generateScheduleCanvas() {
   const upcoming = Object.keys(SCHEDULE_DATA).sort()
     .filter(d => d >= todayStr && SCHEDULE_DATA[d].mark !== '×').slice(0, 5);
 
+  // 予約件数を取得
+  const counts = {};
+  if (_db && upcoming.length) {
+    try {
+      const snaps = await Promise.all(upcoming.map(d => _db.collection('reservations').where('date', '==', d).get()));
+      upcoming.forEach((d, i) => { counts[d] = snaps[i].size; });
+    } catch(e) {}
+  }
+
   const headerH = 64;
   const totalH = headerH + Math.max(upcoming.length, 1) * rowH + 20;
   await document.fonts.ready;
@@ -354,17 +363,29 @@ async function generateScheduleCanvas() {
       const dow = DOW[new Date(Date.UTC(y, mo - 1, day)).getUTCDay()];
       const label = `${mo}月${day}日（${dow}）`;
       const yp = headerH + i * rowH + 26;
+
       ctx.fillStyle = MARK_COLORS[entry.mark] || '#dde2ec';
       ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
       ctx.fillText(entry.mark, pad, yp);
+
       ctx.fillStyle = '#dde2ec';
       ctx.font = "15px 'Noto Sans JP', sans-serif";
       ctx.fillText(label, pad + 28, yp);
+
       if (entry.note) {
         const lw = ctx.measureText(label).width;
         ctx.fillStyle = '#5c6370';
         ctx.font = "12px 'Noto Sans JP', sans-serif";
         ctx.fillText(entry.note, pad + 28 + lw + 10, yp);
+      }
+
+      const cnt = counts[d];
+      if (cnt != null) {
+        const cntText = cnt > 0 ? `予約${cnt}件` : '予約なし';
+        ctx.fillStyle = cnt > 0 ? '#98c379' : '#5c6370';
+        ctx.font = "12px 'Noto Sans JP', sans-serif";
+        const tw = ctx.measureText(cntText).width;
+        ctx.fillText(cntText, W - pad - tw, yp);
       }
     });
   }

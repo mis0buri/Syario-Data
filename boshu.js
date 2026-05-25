@@ -441,13 +441,13 @@ async function shareBoshuSelected() {
             ctx.font = "13px 'Noto Sans JP', sans-serif";
             ctx.fillText('  ' + rsv.cats.join(' / '), pad + nw, rY);
           }
+          rY += rowH;
           if (rsv.note) {
             ctx.fillStyle = '#7f848e';
             ctx.font = "13px 'Noto Sans JP', sans-serif";
             ctx.fillText('📝 ' + rsv.note, pad + 12, rY);
             rY += noteRowH;
           }
-          rY += rowH;
         });
       }
       rY += 14;
