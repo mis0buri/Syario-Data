@@ -270,10 +270,8 @@ async function shareBoshuSelected() {
   // 各カード高さ計算
   const calcRenbanH = (ev, joins, interests) => {
     const rowsN = 4 + (ev.owner ? 1 : 0) + (ev.note ? 1 : 0);
-    const allP  = [...joins, ...interests].slice(0, 5);
-    const hasMore = (joins.length + interests.length) > 5;
-    const pTotal  = allP.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0);
-    const pSecH   = allP.length ? 16 + 22 + pTotal + (hasMore ? pRowH : 0) + 12 : 0;
+    const psSecH = ps => ps.length ? 8 + 18 + 18 + ps.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0) + 12 : 0;
+    const pSecH = psSecH(joins) + psSecH(interests);
     return 60 + 50 + 16 + rowsN * rowH + pSecH + 28;
   };
   const calcRsvH = (rsvs, joins, interests) => {
@@ -352,27 +350,22 @@ async function shareBoshuSelected() {
         ctx.fillText(vs, vx, y);
         y += rowH;
       });
-      const allP = [
-        ...joins.map(p => ({ name: p.name||'匿名', note: p.note||'', t:'join' })),
-        ...interests.map(p => ({ name: p.name||'匿名', note: p.note||'', t:'interest' })),
-      ].slice(0, 5);
-      const totalP = joins.length + interests.length;
-      if (allP.length) {
+      const drawRenbanPs = (ps, icon, label, color) => {
+        if (!ps.length) return;
         y += 8;
         ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W-pad, y); ctx.stroke();
-        y += 20;
-        ctx.fillStyle = '#7f848e';
-        ctx.font = "12px 'Noto Sans JP', sans-serif";
-        ctx.fillText('参加者', pad, y);
-        y += pRowH - 2;
-        allP.forEach(p => {
-          const icon = p.t === 'join' ? '✅' : '👀';
+        y += 18;
+        ctx.fillStyle = color;
+        ctx.font = "11px 'Noto Sans JP', sans-serif";
+        ctx.fillText(label, pad, y);
+        y += 18;
+        ps.forEach(p => {
           ctx.fillStyle = '#dde2ec';
           ctx.font = "14px 'Noto Sans JP', sans-serif";
-          let nm = p.name;
+          let nm = p.name||'匿名';
           while (ctx.measureText(`${icon} ${nm}…`).width > W-pad*2-20 && nm.length) nm = nm.slice(0,-1);
-          if (nm !== p.name) nm += '…';
+          if (nm !== (p.name||'匿名')) nm += '…';
           ctx.fillText(`${icon} ${nm}`, pad+16, y);
           y += pRowH;
           if (p.note) {
@@ -385,12 +378,9 @@ async function shareBoshuSelected() {
             y += noteRowH;
           }
         });
-        if (totalP > 5) {
-          ctx.fillStyle = '#7f848e';
-          ctx.font = "12px 'Noto Sans JP', sans-serif";
-          ctx.fillText(`… 他 ${totalP-5} 人`, pad+16, y);
-        }
-      }
+      };
+      drawRenbanPs(joins,     '✅', '参加',    '#4caf82');
+      drawRenbanPs(interests, '👀', '興味あり', '#61afef');
 
     } else {
       // ── 予約カード ──
