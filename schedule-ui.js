@@ -833,19 +833,28 @@ async function _generateRsvListCanvas(items) {
   const shareUrl  = location.origin + location.pathname + '#schedule';
   const shareText = `予約一覧\n${shareUrl}`;
   const filename  = items.length ? 'rsv-list.png' : 'rsv-nashi.png';
-  canvas.toBlob(async blob => {
-    const file = new File([blob], filename, { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], text: shareText }); return; }
-      catch(e) { if (e.name === 'AbortError') return; }
-    }
-    const url = URL.createObjectURL(blob);
+  const includeSchedule = document.getElementById('rsv-include-schedule')?.checked;
+
+  const toBlob = c => new Promise(resolve => c.toBlob(resolve, 'image/png'));
+  const mainBlob = await toBlob(canvas);
+  const schedBlob = includeSchedule ? await toBlob(await generateScheduleCanvas()) : null;
+
+  const files = [new File([mainBlob], filename, { type: 'image/png' })];
+  if (schedBlob) files.push(new File([schedBlob], 'schedule.png', { type: 'image/png' }));
+
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, text: shareText }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  files.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-    try { await navigator.clipboard.writeText(shareText); } catch {}
-    _boshuToast(items.length ? '画像をダウンロード・URLをコピーしました' : '画像をダウンロードしました');
-  }, 'image/png');
+    a.href = url; a.download = f.name;
+    if (i > 0) setTimeout(() => { a.click(); URL.revokeObjectURL(url); }, i * 300);
+    else { a.click(); URL.revokeObjectURL(url); }
+  });
+  try { await navigator.clipboard.writeText(shareText); } catch {}
+  _boshuToast(items.length ? '画像をダウンロード・URLをコピーしました' : '画像をダウンロードしました');
 }
 
 // ── 予約一覧 選択モード ──

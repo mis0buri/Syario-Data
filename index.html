@@ -694,6 +694,7 @@
           <button id="boshu-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleBoshuSelectAll()">全選択</button>
         </div>
         <div style="display:flex;gap:8px;">
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="boshu-include-schedule"> 今後の予定を追加</label>
           <button class="rsv-btn secondary" style="padding:8px 16px;flex:none;" onclick="exitBoshuSelectMode()">キャンセル</button>
           <button id="boshu-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareBoshuSelected()" disabled>共有する</button>
         </div>
@@ -1214,6 +1215,7 @@
           <span id="rsv-list-select-count" class="boshu-select-count">0件選択中</span>
           <button id="rsv-list-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleRsvListSelectAll()">全選択</button>
         </div>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="rsv-include-schedule"> 今後の予定を追加</label>
         <button id="rsv-list-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareRsvListSelected()" disabled>共有する</button>
       </div>
       <div id="rsv-list-content"></div>

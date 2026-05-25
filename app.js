@@ -317,6 +317,60 @@ async function renderTopSchedule() {
   }
 }
 
+async function generateScheduleCanvas() {
+  const W = 720, pad = 36, rowH = 44;
+  const MARK_COLORS = { '◎':'#98c379', '〇':'#61afef', '△':'#e5c07b', '×':'#e06c75' };
+  const DOW = ['日','月','火','水','木','金','土'];
+  const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Tokyo'});
+  const upcoming = Object.keys(SCHEDULE_DATA).sort()
+    .filter(d => d >= todayStr && SCHEDULE_DATA[d].mark !== '×').slice(0, 5);
+
+  const headerH = 64;
+  const totalH = headerH + Math.max(upcoming.length, 1) * rowH + 20;
+  await document.fonts.ready;
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = W * dpr; canvas.height = totalH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#21252b'; ctx.fillRect(0, 0, W, totalH);
+  ctx.fillStyle = '#528bff'; ctx.fillRect(0, 0, 6, totalH);
+
+  ctx.fillStyle = '#dde2ec';
+  ctx.font = "bold 20px 'Noto Sans JP', sans-serif";
+  ctx.fillText('今後の予定', pad, 40);
+  ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, 56); ctx.lineTo(W - pad, 56); ctx.stroke();
+
+  if (!upcoming.length) {
+    ctx.fillStyle = '#5c6370';
+    ctx.font = "16px 'Noto Sans JP', sans-serif";
+    ctx.fillText('予定なし', pad, headerH + 22);
+  } else {
+    upcoming.forEach((d, i) => {
+      const entry = SCHEDULE_DATA[d];
+      const [y, mo, day] = d.split('-').map(Number);
+      const dow = DOW[new Date(Date.UTC(y, mo - 1, day)).getUTCDay()];
+      const label = `${mo}月${day}日（${dow}）`;
+      const yp = headerH + i * rowH + 26;
+      ctx.fillStyle = MARK_COLORS[entry.mark] || '#dde2ec';
+      ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
+      ctx.fillText(entry.mark, pad, yp);
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "15px 'Noto Sans JP', sans-serif";
+      ctx.fillText(label, pad + 28, yp);
+      if (entry.note) {
+        const lw = ctx.measureText(label).width;
+        ctx.fillStyle = '#5c6370';
+        ctx.font = "12px 'Noto Sans JP', sans-serif";
+        ctx.fillText(entry.note, pad + 28 + lw + 10, yp);
+      }
+    });
+  }
+  return canvas;
+}
+
 let _topJareDocId = null;
 
 function goToTopJare() {
