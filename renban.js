@@ -35,7 +35,7 @@ async function shareRenbanEvent() {
   const joinPs = joins.map(p => ({ name: p.name || '匿名', note: p.note || '' }));
   const interestPs = interests.map(p => ({ name: p.name || '匿名', note: p.note || '' }));
   const psRowsH = ps => ps.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0);
-  const psSectionH = ps => ps.length ? 8 + 20 + (pRowH - 2) + psRowsH(ps) + 12 : 0;
+  const psSectionH = ps => ps.length ? 8 + 18 + 18 + psRowsH(ps) + 12 : 0;
   const pSectionH = psSectionH(joinPs) + psSectionH(interestPs);
 
   const H = 60 + 50 + 16 + rows.length * rowH + pSectionH + 28;
@@ -91,18 +91,18 @@ async function shareRenbanEvent() {
     y += 8;
     ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
-    y += 20;
+    y += 18;
     ctx.fillStyle = color;
-    ctx.font = "12px 'Noto Sans JP', sans-serif";
-    ctx.fillText(`${icon} ${label}`, pad, y);
-    y += pRowH - 2;
+    ctx.font = "11px 'Noto Sans JP', sans-serif";
+    ctx.fillText(label, pad, y);
+    y += 18;
     ps.forEach(p => {
       ctx.fillStyle = '#dde2ec';
       ctx.font = "14px 'Noto Sans JP', sans-serif";
       let nm = p.name;
-      while (ctx.measureText(nm + '…').width > W - pad * 2 - 20 && nm.length > 0) nm = nm.slice(0, -1);
+      while (ctx.measureText(`${icon} ${nm}…`).width > W - pad * 2 - 20 && nm.length > 0) nm = nm.slice(0, -1);
       if (nm !== p.name) nm += '…';
-      ctx.fillText(nm, pad + 16, y);
+      ctx.fillText(`${icon} ${nm}`, pad + 16, y);
       y += pRowH;
       if (p.note) {
         ctx.fillStyle = '#7f848e';
@@ -403,7 +403,11 @@ async function openRenbanDetail(eventId) {
       }).join('');
     };
 
-    document.getElementById('rb-all-participants').innerHTML = renderGrouped(participants);
+    const joinsHtml     = joins.length     ? renderGrouped(joins)     : '<div class="rb-no-participants">まだいません</div>';
+    const interestsHtml = interests.length ? renderGrouped(interests) : '<div class="rb-no-participants">まだいません</div>';
+    document.getElementById('rb-all-participants').innerHTML =
+      `<div class="rb-ps-group-header" style="color:var(--green,#4caf82);font-size:12px;font-weight:bold;margin:8px 0 4px;">✅ 参加</div>${joinsHtml}` +
+      `<div class="rb-ps-group-header" style="color:#61afef;font-size:12px;font-weight:bold;margin:12px 0 4px;">👀 興味あり</div>${interestsHtml}`;
     const uniqueJoins    = _countUniqueParticipants(joins);
     const uniqueInterests = _countUniqueParticipants(interests);
     const countSummary = document.getElementById('rb-count-summary');
