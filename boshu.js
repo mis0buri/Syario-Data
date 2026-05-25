@@ -151,7 +151,7 @@ function _boshuRender() {
         ? `<span style="color:#4caf82;margin-left:8px;">✅ ${jCnt}</span><span style="color:#61afef;margin-left:6px;">👀 ${iCnt}</span>`
         : '';
       const entries    = rsvs.map(r => {
-        const cats = r.cats.filter(c => !/^その他/.test(c)).join('・') || '';
+        const cats = r.cats.filter(c => c !== 'その他').join('・') || '';
         return `<div class="boshu-rsv-entry">
           <span>👤 ${escHtml(r.name)}</span>
           ${cats ? `<span class="boshu-rsv-cats">${escHtml(cats)}</span>` : ''}
