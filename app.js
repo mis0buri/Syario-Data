@@ -414,19 +414,19 @@ async function initTopPage() {
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong>：${_escHtml(preview)}<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       } else if (item.type === 'renban') {
-        const onclick = `showSection('renban');initRenban().then(()=>openRenbanDetail('${item.id}'))`;
+        const onclick = `showSection('renban');openRenbanDetail('${item.id}')`;
         return `<div class="top-update-item top-update-link" onclick="${onclick}">
           <span class="top-update-icon">📢</span>
           <div class="top-update-text"><strong>${_escHtml(item.owner)}</strong> さんが <strong>${_escHtml(item.title)}</strong> の連番を募集しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       } else if (item.type === 'vote') {
-        const onclick = `openVoteDetail('${_escHtml(item.id)}')`;
+        const onclick = `showSection('vote');openVoteDetail('${_escHtml(item.id)}')`;
         return `<div class="top-update-item top-update-link" onclick="${onclick}">
           <span class="top-update-icon">🗳️</span>
           <div class="top-update-text"><strong>${_escHtml(item.authorName)}</strong> さんが投票箱 <strong>${_escHtml(item.title)}</strong> を作成しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       } else if (item.type === 'column') {
-        const onclick = `openColumnDetail('${_escHtml(item.id)}')`;
+        const onclick = `showSection('column');openColumnDetail('${_escHtml(item.id)}')`;
         return `<div class="top-update-item top-update-link" onclick="${onclick}">
           <span class="top-update-icon">📝</span>
           <div class="top-update-text"><strong>${_escHtml(item.authorName)}</strong> さんがコラム <strong>${_escHtml(item.title)}</strong> を投稿しました<div class="top-update-time">${timeStr}</div></div>
