@@ -546,6 +546,7 @@ async function submitReservation() {
         });
       } catch(e) { console.warn('Make通知失敗:', e); }
     }
+    btn.disabled = false;
     const ds = _editMode ? rsvCurrentDate : null;
     const wasEdit = _editMode;
     closeRsvModal();
