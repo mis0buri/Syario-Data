@@ -1295,7 +1295,7 @@ async function refetchWalkAddresses(docId) {
   const btn = document.querySelector('.walk-refetch-btn');
   const statusEl = document.getElementById('walk-refetch-status');
   if (btn) btn.disabled = true;
-
+  try {
   const doc = await _db.collection('walk_logs').doc(docId).get();
   if (!doc.exists) { if (btn) btn.disabled = false; return; }
   const marks = doc.data().kmMarks || [];
@@ -1321,6 +1321,10 @@ async function refetchWalkAddresses(docId) {
     title.nextSibling && [...kmListEl.querySelectorAll('.walk-km-item')].forEach(el => el.remove());
     title.insertAdjacentHTML('afterend', newItems);
     if (statusEl) statusEl.textContent = '完了';
+  }
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'エラー: ' + e.message;
+    if (btn) btn.disabled = false;
   }
 }
 
