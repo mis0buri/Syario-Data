@@ -444,12 +444,21 @@ async function initAdminSchedule() {
   _renderAdminScheduleList();
 }
 
+let _adminSchSortAsc = true;
+
+function toggleAdminSchSort() {
+  _adminSchSortAsc = !_adminSchSortAsc;
+  _renderAdminScheduleList();
+}
+
 function _renderAdminScheduleList() {
   const listEl = document.getElementById('admin-schedule-list');
   if (!listEl) return;
-  // Show all dates from SCHEDULE_DATA (schedule.js base + Firestore overrides merged)
   const today = new Date().toISOString().slice(0, 10);
-  const entries = Object.entries(SCHEDULE_DATA).filter(([d]) => d >= today).sort(([a],[b]) => a.localeCompare(b));
+  const entries = Object.entries(SCHEDULE_DATA).filter(([d]) => d >= today)
+    .sort(([a],[b]) => _adminSchSortAsc ? a.localeCompare(b) : b.localeCompare(a));
+  const sortBtn = document.getElementById('admin-sch-sort-btn');
+  if (sortBtn) sortBtn.textContent = _adminSchSortAsc ? '↑ 昇順' : '↓ 降順';
   if (!entries.length) {
     listEl.innerHTML = '<div class="admin-empty">スケジュールデータがありません</div>';
     return;
@@ -479,6 +488,12 @@ function _renderAdminScheduleList() {
       </div>
     </div>`;
   }).join('');
+}
+
+function openAdminScheduleEdit(date) {
+  closeRsvModal();
+  showSection('admin-schedule');
+  editAdminScheduleEntry(date);
 }
 
 function editAdminScheduleEntry(date) {
@@ -512,10 +527,6 @@ async function saveAdminScheduleEntry() {
   try {
     await _db.collection('admin_config').doc('schedule').set({ dates: _firestoreSchedule });
     statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
-    // フォームリセット
-    document.getElementById('admin-sch-date').value = '';
-    document.getElementById('admin-sch-note').value = '';
-    document.querySelector('input[name="admin-sch-mark"][value="×"]').checked = true;
     _renderAdminScheduleList();
     if (currentSection === 'schedule') renderCalendar();
     if (currentSection === 'top') renderTopSchedule();

@@ -1069,7 +1069,10 @@
       <div id="admin-status-schedule" class="admin-status"></div>
       <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleEntry()">保存する</button>
       <hr class="admin-divider">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
+        <button id="admin-sch-sort-btn" class="admin-btn sm" onclick="toggleAdminSchSort()">↑ 昇順</button>
+      </div>
       <div id="admin-schedule-list" class="admin-gather-list">
         <div class="admin-empty">読み込み中...</div>
       </div>
@@ -1101,6 +1104,9 @@
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
       <div id="rsv-detail-info" class="rsv-date-info"></div>
+      <div id="rsv-detail-admin-btn-wrap" style="display:none;margin-bottom:8px;">
+        <button class="admin-btn sm" onclick="openAdminScheduleEdit(rsvCurrentDate)">営業予定を編集</button>
+      </div>
       <div class="rsv-section-title">登録済み予約</div>
       <div id="rsv-detail-list"></div>
       <div class="rb-btn-row" style="margin-top:12px;margin-bottom:2px;">

@@ -133,6 +133,9 @@ async function openDayDetail(dateStr) {
   const rsvBtn = document.querySelector('#rsv-detail .rsv-btn.primary');
   if (rsvBtn) rsvBtn.style.display = (mark === '×' && !_isAdmin) ? 'none' : '';
 
+  const adminBtnWrap = document.getElementById('rsv-detail-admin-btn-wrap');
+  if (adminBtnWrap) adminBtnWrap.style.display = _isAdmin ? '' : 'none';
+
   showRsvScreen('rsv-detail');
 
   const listEl = document.getElementById('rsv-detail-list');
