@@ -5,6 +5,7 @@ let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
 let _rbDatePicker = null;
 let _rbDeadlinePicker = null;
+let _rbEditMode = false;
 
 function openRbModal() {
   document.getElementById('rb-overlay').classList.add('open');
@@ -245,6 +246,8 @@ function renderRenbanList(events) {
 }
 
 function openRenbanForm() {
+  _rbEditMode = false;
+  document.querySelector('#rb-form-screen .rb-title').textContent = '募集を登録する';
   document.getElementById('rb-event-owner').value = _registeredName || '';
   document.getElementById('rb-event-title').value = '';
   document.getElementById('rb-event-max').value = '';
@@ -265,11 +268,35 @@ function openRenbanForm() {
   openRbModal();
 }
 
+function openRenbanEditForm() {
+  if (!_rbCurrentEvent) return;
+  const { ev, dates } = _rbCurrentEvent;
+  _rbEditMode = true;
+  document.querySelector('#rb-form-screen .rb-title').textContent = '募集を編集する';
+  document.getElementById('rb-event-owner').value = ev.owner || '';
+  document.getElementById('rb-event-title').value = ev.title || '';
+  document.getElementById('rb-event-max').value = ev.maxPeople || '';
+  document.getElementById('rb-event-note').value = ev.note || '';
+  document.getElementById('rb-form-status').textContent = '';
+
+  const fpOpts = { locale: 'ja', dateFormat: 'Y-m-d', disableMobile: true };
+  if (_rbDatePicker) _rbDatePicker.destroy();
+  if (_rbDeadlinePicker) _rbDeadlinePicker.destroy();
+  _rbDatePicker = flatpickr('#rb-event-date', { ...fpOpts, mode: 'multiple', conjunction: ', ', defaultDate: dates.length ? dates : null });
+  _rbDeadlinePicker = flatpickr('#rb-event-deadline', { ...fpOpts, defaultDate: ev.deadline || null });
+
+  const btn = document.getElementById('rb-form-submit-btn');
+  btn.disabled = false; btn.textContent = '保存する';
+  const xWrap = document.getElementById('rb-x-post-wrap');
+  if (xWrap) xWrap.style.display = 'none';
+  rbShowScreen('rb-form-screen');
+}
+
 async function submitRenbanEvent(e) {
   e.preventDefault();
   if (!_db) return;
   const btn = document.getElementById('rb-form-submit-btn');
-  btn.disabled = true; btn.textContent = '登録中...';
+  btn.disabled = true; btn.textContent = _rbEditMode ? '保存中...' : '登録中...';
   document.getElementById('rb-form-status').textContent = '';
   const owner = document.getElementById('rb-event-owner').value.trim();
   const title = document.getElementById('rb-event-title').value.trim();
@@ -279,7 +306,7 @@ async function submitRenbanEvent(e) {
   }).sort() : [];
   if (!datesArr.length) {
     document.getElementById('rb-form-status').textContent = '日付を選択してください';
-    btn.disabled = false; btn.textContent = '登録する'; return;
+    btn.disabled = false; btn.textContent = _rbEditMode ? '保存する' : '登録する'; return;
   }
   const date = datesArr[0]; // 最早日付をソート用に保存
   const maxRaw = document.getElementById('rb-event-max').value.trim();
@@ -287,53 +314,59 @@ async function submitRenbanEvent(e) {
   const note = document.getElementById('rb-event-note').value.trim();
   const maxPeople = maxRaw ? parseInt(maxRaw) : null;
   try {
-    const rbPayload = {
-      owner, title, date, dates: datesArr, maxPeople, deadline, note,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if (_currentUser) rbPayload.uid = _currentUser.uid;
-    const rbRef = await _db.collection('renban_events').add(rbPayload);
-    try {
-      const dateDisplay = datesArr.join(', ');
-      const lines = [
-        `📢 **連番募集が登録されました**`,
-        `👤 **登録者**: ${owner}`,
-        `🎫 **イベント名**: ${title}`,
-        `📅 **日付**: ${dateDisplay}`,
-        `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
-        `⏰ **期限**: ${deadline || '期限なし'}`,
-        note ? `📝 **備考**: ${note}` : null,
-      ].filter(Boolean).join('\n');
-      await fetch('https://discord.com/api/webhooks/1486240216544051210/afDq63OkXXpy-E-JAh2XbGdanIfymsKHHbMX4IBi6baaV86YiXdHX9LaMo5fdtonNRn4', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: lines })
-      });
-    } catch(e) { console.warn('Discord通知失敗:', e); }
-    const xPostCheck = document.getElementById('rb-x-post-check');
-    if (MAKE_RENBAN_WEBHOOK_URL && (!_isAdmin || xPostCheck.checked)) {
+    if (_rbEditMode && _rbCurrentEventId) {
+      await _db.collection('renban_events').doc(_rbCurrentEventId).update({ owner, title, date, dates: datesArr, maxPeople, deadline, note });
+      btn.disabled = false;
+      await openRenbanDetail(_rbCurrentEventId);
+    } else {
+      const rbPayload = {
+        owner, title, date, dates: datesArr, maxPeople, deadline, note,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (_currentUser) rbPayload.uid = _currentUser.uid;
+      const rbRef = await _db.collection('renban_events').add(rbPayload);
       try {
-        await fetch(MAKE_RENBAN_WEBHOOK_URL, {
+        const dateDisplay = datesArr.join(', ');
+        const lines = [
+          `📢 **連番募集が登録されました**`,
+          `👤 **登録者**: ${owner}`,
+          `🎫 **イベント名**: ${title}`,
+          `📅 **日付**: ${dateDisplay}`,
+          `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
+          `⏰ **期限**: ${deadline || '期限なし'}`,
+          note ? `📝 **備考**: ${note}` : null,
+        ].filter(Boolean).join('\n');
+        await fetch('https://discord.com/api/webhooks/1486240216544051210/afDq63OkXXpy-E-JAh2XbGdanIfymsKHHbMX4IBi6baaV86YiXdHX9LaMo5fdtonNRn4', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'renban',
-            owner,
-            title,
-            dates: datesArr.join('、'),
-            maxPeople: maxPeople ? maxPeople + '人まで' : '上限なし',
-            deadline: deadline || '期限なし',
-            note: note || '',
-            url: location.origin + location.pathname + '#renban/' + rbRef.id,
-          })
+          body: JSON.stringify({ content: lines })
         });
-      } catch(e) { console.warn('Make通知失敗:', e); }
+      } catch(e) { console.warn('Discord通知失敗:', e); }
+      const xPostCheck = document.getElementById('rb-x-post-check');
+      if (MAKE_RENBAN_WEBHOOK_URL && (!_isAdmin || xPostCheck.checked)) {
+        try {
+          await fetch(MAKE_RENBAN_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'renban',
+              owner,
+              title,
+              dates: datesArr.join('、'),
+              maxPeople: maxPeople ? maxPeople + '人まで' : '上限なし',
+              deadline: deadline || '期限なし',
+              note: note || '',
+              url: location.origin + location.pathname + '#renban/' + rbRef.id,
+            })
+          });
+        } catch(e) { console.warn('Make通知失敗:', e); }
+      }
+      closeRbModal();
+      initRenban();
     }
-    closeRbModal();
-    initRenban();
   } catch(err) {
     document.getElementById('rb-form-status').textContent = 'エラー: ' + err.message;
-    btn.disabled = false; btn.textContent = '登録する';
+    btn.disabled = false; btn.textContent = _rbEditMode ? '保存する' : '登録する';
   }
 }
 
@@ -415,12 +448,14 @@ async function openRenbanDetail(eventId) {
     }
     _rbCurrentEvent = { ev, dates, isMultiDate, joinCount: uniqueJoins, interestCount: uniqueInterests, joins, interests, participants };
 
-    // イベント削除ボタン（本人/管理者のみ）
-    const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
+    // イベント編集・削除ボタン（本人/管理者のみ）
+    const canManageEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
     const deleteRow = document.getElementById('rb-detail-delete-row');
-    if (deleteRow) deleteRow.style.display = canDeleteEvent ? '' : 'none';
+    if (deleteRow) deleteRow.style.display = canManageEvent ? 'flex' : 'none';
     const deleteBtn = document.getElementById('rb-detail-delete-btn');
     if (deleteBtn) deleteBtn.onclick = () => deleteRenbanEvent(eventId);
+    const editBtn = document.getElementById('rb-detail-edit-btn');
+    if (editBtn) editBtn.onclick = () => openRenbanEditForm();
 
     // 参加ボタンの制御
     const isCreator = _currentUser && ev.uid && ev.uid === _currentUser.uid;
