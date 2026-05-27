@@ -557,12 +557,20 @@ async function deleteAdminScheduleEntry(date) {
 }
 
 async function copyPublicScheduleUrl() {
-  const url = location.origin + location.pathname + '?public=1';
+  const fullUrl = location.origin + location.pathname + '?public=1';
   const btn = document.getElementById('admin-copy-public-url-btn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+  let copyUrl = fullUrl;
   try {
-    await navigator.clipboard.writeText(url);
-    if (btn) { const orig = btn.textContent; btn.textContent = 'コピーしました！'; setTimeout(() => { btn.textContent = orig; }, 2000); }
+    const res = await fetch('https://is.gd/create.php?format=simple&url=' + encodeURIComponent(fullUrl));
+    if (res.ok) copyUrl = (await res.text()).trim();
+  } catch { /* 失敗時はフルURLをそのままコピー */ }
+  try {
+    await navigator.clipboard.writeText(copyUrl);
+    if (btn) { btn.disabled = false; btn.textContent = 'コピーしました！'; setTimeout(() => { btn.textContent = orig; }, 2000); }
   } catch {
-    prompt('以下のURLをコピーしてください', url);
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    prompt('以下のURLをコピーしてください', copyUrl);
   }
 }
