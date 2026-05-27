@@ -2,6 +2,7 @@ const DATA_URL = './data.json';
 const COLORS = ['#c8a96e','#e63946','#4caf82','#42a5f5','#ab47bc','#ff7043','#26c6da','#d4e157','#ec407a','#26a69a'];
 const COL_KEYS = ['総成績','4麻成績','3麻成績','総半荘数','4麻半荘数','3麻半荘数','総チップ','4麻チップ','3麻チップ','4麻飛び','3麻飛び','連対率','1着率','プレイ時間','来店回数','総収支'];
 const COL_LABELS = {'総成績':'総成績','4麻成績':'4麻成績','3麻成績':'3麻成績','総半荘数':'半荘数(全)','4麻半荘数':'半荘数(4)','3麻半荘数':'半荘数(3)','総チップ':'チップ(全)','4麻チップ':'チップ(4)','3麻チップ':'チップ(3)','4麻飛び':'飛び(4)','3麻飛び':'飛び(3)','連対率':'連対率(4)','1着率':'1着率(3)','プレイ時間':'プレイ時間','来店回数':'来店','総収支':'収支'};
+const _isPublicMode = new URLSearchParams(location.search).get('public') === '1';
 
 let DATA = null;
 let filterStart = null;
@@ -142,6 +143,7 @@ const _HASH_TO_SECTION = {
 };
 
 function showSection(id) {
+  if (_isPublicMode && id !== 'schedule') return;
   if (typeof _colEditActive !== 'undefined' && _colEditActive && _colDirty) {
     if (!colConfirmLeave()) return;
   }
@@ -663,6 +665,7 @@ function initFirebase() {
 }
 
 function _routeHash(hash, isInit) {
+  if (_isPublicMode) { showSection('schedule'); return; }
   if (hash.startsWith('#renban/')) {
     showSection('renban');
     initRenban().then(() => openRenbanDetail(hash.slice(8)));
@@ -996,6 +999,7 @@ function toggleBgPreview() {
   if (btn) btn.classList.toggle('active', _bgPreview);
 }
 document.addEventListener('DOMContentLoaded', () => {
+  if (_isPublicMode) document.body.classList.add('public-mode');
   document.querySelector('header').addEventListener('click', () => {
     if (_bgPreview) toggleBgPreview();
   });

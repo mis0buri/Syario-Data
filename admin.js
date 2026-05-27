@@ -555,3 +555,14 @@ async function deleteAdminScheduleEntry(date) {
     alert('削除に失敗しました: ' + e.message);
   }
 }
+
+async function copyPublicScheduleUrl() {
+  const url = location.origin + location.pathname + '?public=1';
+  const btn = document.getElementById('admin-copy-public-url-btn');
+  try {
+    await navigator.clipboard.writeText(url);
+    if (btn) { const orig = btn.textContent; btn.textContent = 'コピーしました！'; setTimeout(() => { btn.textContent = orig; }, 2000); }
+  } catch {
+    prompt('以下のURLをコピーしてください', url);
+  }
+}

@@ -1069,6 +1069,14 @@
       <div id="admin-status-schedule" class="admin-status"></div>
       <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleEntry()">保存する</button>
       <hr class="admin-divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">外部公開用URL</div>
+          <div style="font-size:11px;color:var(--dim);margin-top:2px;">ヘッダーなし・営業予定のみ表示</div>
+        </div>
+        <button class="admin-btn" onclick="copyPublicScheduleUrl()" id="admin-copy-public-url-btn">URLをコピー</button>
+      </div>
+      <hr class="admin-divider">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div style="font-size:13px;font-weight:700;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
         <button id="admin-sch-sort-btn" class="admin-btn sm" onclick="toggleAdminSchSort()">↑ 昇順</button>

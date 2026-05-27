@@ -1510,3 +1510,9 @@
   #col-edit-title, #col-edit-author, #col-edit-genre, .col-editor { font-size: 16px; }
 }
 
+/* ── 外部公開モード ── */
+body.public-mode header,
+body.public-mode .subnav,
+body.public-mode .period-bar { display: none !important; }
+body.public-mode main { padding-top: 20px; }
+
