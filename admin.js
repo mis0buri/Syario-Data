@@ -582,14 +582,14 @@ let _aiDiscCurrentDoc = null;
 let _aiDiscMode = 'new'; // 'new' | 'continue'
 let _aiDiscNovaText = null; // Geminiが生成した「ノヴァ」の意見（手動モード用、未取得時はnull）
 let _aiDiscGuardText = null; // Groqが生成した「ガード」の意見（手動モード用、未取得時はnull）
-let _aiDiscAutoOutput = null; // Claudeキー設定時に自動生成された議論（保存待ち）
+let _aiDiscAutoOutput = null; // Groqキー設定時に自動生成された議論（保存待ち）
 
-let _aiDiscApiKeys = { gemini: '', groq: '', claude: '' };
+let _aiDiscApiKeys = { gemini: '', groq: '' };
 
 const _AI_DISC_PERSONAS = {
-  logic: { name: 'ロジック', emoji: '🔵', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。' },
-  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。' },
-  guard: { name: 'ガード',   emoji: '🟢', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。' },
+  logic: { name: 'ロジック', emoji: '🔵', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。', groqModel: 'openai/gpt-oss-120b' },
+  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: 'openai/gpt-oss-120b' },
+  guard: { name: 'ガード',   emoji: '🟢', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', groqModel: 'llama-3.3-70b-versatile' },
 };
 
 async function initAdminAiDiscuss() {
@@ -600,7 +600,7 @@ async function initAdminAiDiscuss() {
 }
 
 function _updateAiDiscButtonLabels() {
-  const auto = !!_aiDiscApiKeys.claude;
+  const auto = !!_aiDiscApiKeys.groq;
   const genBtn = document.getElementById('ai-disc-gen-btn');
   const genContinueBtn = document.getElementById('ai-disc-gen-continue-btn');
   if (genBtn) genBtn.textContent = auto ? '議論を実行' : 'プロンプトを生成';
@@ -619,16 +619,14 @@ async function _loadAiDiscApiKeys() {
   if (!_db) return;
   try {
     const doc = await _db.collection('admin_secrets').doc('api_keys').get();
-    _aiDiscApiKeys = doc.exists ? { gemini: '', groq: '', claude: '', ...doc.data() } : { gemini: '', groq: '', claude: '' };
+    _aiDiscApiKeys = doc.exists ? { gemini: '', groq: '', ...doc.data() } : { gemini: '', groq: '' };
   } catch(e) {
-    _aiDiscApiKeys = { gemini: '', groq: '', claude: '' };
+    _aiDiscApiKeys = { gemini: '', groq: '' };
   }
   const geminiInput = document.getElementById('ai-disc-gemini-key');
   const groqInput = document.getElementById('ai-disc-groq-key');
-  const claudeInput = document.getElementById('ai-disc-claude-key');
   if (geminiInput) geminiInput.value = _aiDiscApiKeys.gemini || '';
   if (groqInput) groqInput.value = _aiDiscApiKeys.groq || '';
-  if (claudeInput) claudeInput.value = _aiDiscApiKeys.claude || '';
 }
 
 async function saveAiDiscApiKeys() {
@@ -636,13 +634,12 @@ async function saveAiDiscApiKeys() {
   const statusEl = document.getElementById('ai-disc-keys-status');
   const gemini = document.getElementById('ai-disc-gemini-key').value.trim();
   const groq = document.getElementById('ai-disc-groq-key').value.trim();
-  const claude = document.getElementById('ai-disc-claude-key').value.trim();
   statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
   try {
     await _db.collection('admin_secrets').doc('api_keys').set({
-      gemini, groq, claude, openai: firebase.firestore.FieldValue.delete(),
+      gemini, groq, openai: firebase.firestore.FieldValue.delete(), claude: firebase.firestore.FieldValue.delete(),
     }, { merge: true });
-    _aiDiscApiKeys = { gemini, groq, claude };
+    _aiDiscApiKeys = { gemini, groq };
     _updateAiDiscButtonLabels();
     statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
   } catch(e) {
@@ -735,40 +732,17 @@ async function _callGeminiApi(prompt) {
   return text;
 }
 
-async function _callGroqApi(prompt) {
+async function _callGroqApi(prompt, model) {
   const key = _aiDiscApiKeys.groq;
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: model || 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] })
   });
   if (!res.ok) await _throwApiError(res, 'Groq');
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || '';
   if (!text) throw new Error('Groqからの応答が空です');
-  return text;
-}
-
-async function _callClaudeApi(prompt) {
-  const key = _aiDiscApiKeys.claude;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    })
-  });
-  if (!res.ok) await _throwApiError(res, 'Claude');
-  const data = await res.json();
-  const text = (data?.content || []).map(p => p.text || '').join('');
-  if (!text) throw new Error('Claudeからの応答が空です');
   return text;
 }
 
@@ -789,19 +763,6 @@ async function _testGroqKey(key) {
   throw new Error(`エラー (${res.status})`);
 }
 
-async function _testClaudeKey(key) {
-  const res = await fetch('https://api.anthropic.com/v1/models', {
-    headers: {
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    }
-  });
-  if (res.ok) return;
-  if (res.status === 401) throw new Error('キーが正しくありません');
-  throw new Error(`エラー (${res.status})`);
-}
-
 async function testAiDiscApiKey(provider) {
   const inputId = `ai-disc-${provider}-key`;
   const statusEl = document.getElementById(`ai-disc-${provider}-test-status`);
@@ -810,8 +771,7 @@ async function testAiDiscApiKey(provider) {
   statusEl.textContent = '確認中...'; statusEl.className = 'admin-status';
   try {
     if (provider === 'gemini') await _testGeminiKey(key);
-    else if (provider === 'groq') await _testGroqKey(key);
-    else await _testClaudeKey(key);
+    else await _testGroqKey(key);
     statusEl.textContent = '接続できました ✓'; statusEl.className = 'admin-status ok';
   } catch(e) {
     statusEl.textContent = '接続できませんでした: ' + e.message; statusEl.className = 'admin-status error';
@@ -897,25 +857,19 @@ async function _generateAiDiscPromptCommon(topic, previousRounds) {
   _aiDiscGuardText = null;
 
   const hasGemini = !!_aiDiscApiKeys.gemini;
-  const hasGroq = !!_aiDiscApiKeys.groq;
   const warnings = [];
 
-  if (hasGemini || hasGroq) {
+  if (hasGemini) {
     genBtns.forEach(b => b.disabled = true);
     promptArea.style.display = 'none';
-    statusEl.textContent = 'Gemini / Groq の意見を取得中...';
+    statusEl.textContent = 'Gemini の意見を取得中...';
     statusEl.className = 'admin-status';
 
-    const [novaResult, guardResult] = await Promise.allSettled([
-      hasGemini ? _callGeminiApi(_buildNovaPrompt(topic, previousRounds)) : Promise.resolve(null),
-      hasGroq ? _callGroqApi(_buildGuardPrompt(topic, previousRounds)) : Promise.resolve(null),
-    ]);
-
-    if (novaResult.status === 'fulfilled') _aiDiscNovaText = novaResult.value;
-    else if (hasGemini) warnings.push('Gemini: ' + novaResult.reason.message);
-
-    if (guardResult.status === 'fulfilled') _aiDiscGuardText = guardResult.value;
-    else if (hasGroq) warnings.push('Groq: ' + guardResult.reason.message);
+    try {
+      _aiDiscNovaText = await _callGeminiApi(_buildNovaPrompt(topic, previousRounds));
+    } catch(e) {
+      warnings.push('Gemini: ' + e.message);
+    }
 
     genBtns.forEach(b => b.disabled = false);
   }
@@ -929,7 +883,7 @@ async function _generateAiDiscPromptCommon(topic, previousRounds) {
     statusEl.textContent = '一部のAI取得に失敗しました（' + warnings.join(' / ') + '）。Claudeにその分も担当してもらいます。';
     statusEl.className = 'admin-status error';
   } else if (_aiDiscNovaText || _aiDiscGuardText) {
-    statusEl.textContent = 'Gemini/Groqの意見を取得しました。続けてClaudeのプロンプトをコピーしてください。';
+    statusEl.textContent = 'Geminiの意見を取得しました。続けてClaudeのプロンプトをコピーしてください。';
     statusEl.className = 'admin-status ok';
   } else {
     statusEl.textContent = '';
@@ -941,14 +895,14 @@ async function _generateAiDiscPromptCommon(topic, previousRounds) {
 async function generateAiDiscussionPrompt() {
   const topic = document.getElementById('ai-disc-topic-input').value.trim();
   if (!topic) { alert('議題を入力してください'); return; }
-  if (_aiDiscApiKeys.claude) await runAiDiscussionAuto(topic, null);
+  if (_aiDiscApiKeys.groq) await runAiDiscussionAuto(topic, null);
   else await _generateAiDiscPromptCommon(topic, null);
 }
 
 async function generateAiDiscussionContinuePrompt() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
-  if (_aiDiscApiKeys.claude) await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
+  if (_aiDiscApiKeys.groq) await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
   else await _generateAiDiscPromptCommon(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
@@ -989,14 +943,12 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
 }
 
 async function _callPersonaApi(personaKey, prompt) {
-  try {
-    if (personaKey === 'nova' && _aiDiscApiKeys.gemini) return await _callGeminiApi(prompt);
-    if (personaKey === 'guard' && _aiDiscApiKeys.groq) return await _callGroqApi(prompt);
-    return await _callClaudeApi(prompt);
-  } catch(e) {
-    if (personaKey === 'logic') throw e;
-    return await _callClaudeApi(prompt); // Gemini/Groqが失敗した場合はClaudeが代行
+  const persona = _AI_DISC_PERSONAS[personaKey];
+  if (personaKey === 'nova' && _aiDiscApiKeys.gemini) {
+    try { return await _callGeminiApi(prompt); }
+    catch(e) { return await _callGroqApi(prompt, persona.groqModel); } // Gemini失敗時はGroqが代行
   }
+  return await _callGroqApi(prompt, persona.groqModel);
 }
 
 function _composeAiDiscAutoOutput(round1All, round2All, conclusion) {
@@ -1043,7 +995,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     const round2All = { logic: logic2, nova: nova2, guard: guard2 };
 
     statusEl.textContent = '結論をまとめています...(3/3)';
-    const conclusion = await _callClaudeApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All));
+    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel);
 
     _aiDiscAutoOutput = _composeAiDiscAutoOutput(round1All, round2All, conclusion);
     document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(_aiDiscAutoOutput);

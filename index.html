@@ -1115,15 +1115,7 @@
             </div>
             <div id="ai-disc-groq-test-status" class="admin-status"></div>
           </div>
-          <div class="admin-form-group">
-            <label>Claude APIキー</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="ai-disc-claude-key" class="admin-input" placeholder="sk-ant-..." autocomplete="off" style="flex:1;">
-              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('claude')">確認</button>
-            </div>
-            <div id="ai-disc-claude-test-status" class="admin-status"></div>
-          </div>
-          <p style="font-size:12px;color:var(--dim);">Claude APIキーを設定すると、議題の入力だけで議論を自動実行できます（未設定の場合は手動でClaudeに貼り付ける従来方式になります）。</p>
+          <p style="font-size:12px;color:var(--dim);">Groq APIキーを設定すると、議題の入力だけで議論を自動実行できます（未設定の場合は手動でClaudeに貼り付ける従来方式になります）。</p>
           <div id="ai-disc-keys-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
         </div>
