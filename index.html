@@ -1108,13 +1108,22 @@
             <div id="ai-disc-gemini-test-status" class="admin-status"></div>
           </div>
           <div class="admin-form-group">
-            <label>OpenAI APIキー</label>
+            <label>Groq APIキー</label>
             <div style="display:flex;gap:8px;">
-              <input type="password" id="ai-disc-openai-key" class="admin-input" placeholder="sk-..." autocomplete="off" style="flex:1;">
-              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('openai')">確認</button>
+              <input type="password" id="ai-disc-groq-key" class="admin-input" placeholder="gsk_..." autocomplete="off" style="flex:1;">
+              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('groq')">確認</button>
             </div>
-            <div id="ai-disc-openai-test-status" class="admin-status"></div>
+            <div id="ai-disc-groq-test-status" class="admin-status"></div>
           </div>
+          <div class="admin-form-group">
+            <label>Claude APIキー</label>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="ai-disc-claude-key" class="admin-input" placeholder="sk-ant-..." autocomplete="off" style="flex:1;">
+              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('claude')">確認</button>
+            </div>
+            <div id="ai-disc-claude-test-status" class="admin-status"></div>
+          </div>
+          <p style="font-size:12px;color:var(--dim);">Claude APIキーを設定すると、議題の入力だけで議論を自動実行できます（未設定の場合は手動でClaudeに貼り付ける従来方式になります）。</p>
           <div id="ai-disc-keys-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
         </div>
@@ -1151,6 +1160,8 @@
           <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-continue-btn" onclick="generateAiDiscussionContinuePrompt()">続きのプロンプトを生成</button>
         </div>
 
+        <div id="ai-disc-status" class="admin-status" style="margin-top:12px;"></div>
+
         <div id="ai-disc-prompt-area" style="display:none;margin-top:16px;">
           <p style="font-size:12px;color:var(--dim);margin-bottom:8px;">① 下のプロンプトをコピーして <a href="https://claude.ai" target="_blank" style="color:var(--accent)">claude.ai</a> に送信<br>② 返ってきた回答をそのまま下に貼り付けて保存</p>
           <div class="jare-prompt-box">
@@ -1161,8 +1172,14 @@
             <label>AIの回答を貼り付け</label>
             <textarea id="ai-disc-response-input" class="admin-textarea" rows="8" placeholder="ここに回答を貼り付け"></textarea>
           </div>
-          <div id="ai-disc-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" id="ai-disc-save-btn" onclick="saveAiDiscussion()">保存する</button>
+        </div>
+
+        <div id="ai-disc-auto-area" style="display:none;margin-top:16px;">
+          <div class="ai-disc-round">
+            <div id="ai-disc-auto-preview" class="ai-disc-round-output"></div>
+          </div>
+          <button class="admin-btn primary" style="width:100%;margin-top:12px;" id="ai-disc-auto-save-btn" onclick="saveAiDiscussionAuto()">保存する</button>
         </div>
       </div>
     </div>
