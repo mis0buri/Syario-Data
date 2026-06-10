@@ -709,6 +709,18 @@ function closeAiDiscussionDetail() {
 }
 
 // ── Gemini / Groq / Claude 呼び出し ──
+// レスポンスがエラーの場合、本文から詳細メッセージを抽出して例外を投げる
+async function _throwApiError(res, label) {
+  let detail = '';
+  try {
+    const data = await res.json();
+    detail = data?.error?.message || JSON.stringify(data);
+  } catch(e) {
+    try { detail = await res.text(); } catch(e2) {}
+  }
+  throw new Error(`${label} API エラー (${res.status})${detail ? ': ' + detail : ''}`);
+}
+
 async function _callGeminiApi(prompt) {
   const key = _aiDiscApiKeys.gemini;
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
@@ -716,7 +728,7 @@ async function _callGeminiApi(prompt) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
   });
-  if (!res.ok) throw new Error(`Gemini API エラー (${res.status})`);
+  if (!res.ok) await _throwApiError(res, 'Gemini');
   const data = await res.json();
   const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
   if (!text) throw new Error('Geminiからの応答が空です');
@@ -730,7 +742,7 @@ async function _callGroqApi(prompt) {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
     body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] })
   });
-  if (!res.ok) throw new Error(`Groq API エラー (${res.status})`);
+  if (!res.ok) await _throwApiError(res, 'Groq');
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || '';
   if (!text) throw new Error('Groqからの応答が空です');
@@ -753,7 +765,7 @@ async function _callClaudeApi(prompt) {
       messages: [{ role: 'user', content: prompt }],
     })
   });
-  if (!res.ok) throw new Error(`Claude API エラー (${res.status})`);
+  if (!res.ok) await _throwApiError(res, 'Claude');
   const data = await res.json();
   const text = (data?.content || []).map(p => p.text || '').join('');
   if (!text) throw new Error('Claudeからの応答が空です');
