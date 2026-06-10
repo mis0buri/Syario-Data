@@ -1092,6 +1092,26 @@
     <div class="card">
       <div class="admin-section-title">AI議論</div>
 
+      <!-- APIキー設定 -->
+      <div class="admin-form-group" style="margin-bottom:16px;">
+        <button type="button" class="admin-btn" style="width:100%;display:flex;justify-content:space-between;align-items:center;" onclick="toggleAiDiscKeysPanel()">
+          <span>APIキー設定</span>
+          <span id="ai-disc-keys-arrow">▼</span>
+        </button>
+        <div id="ai-disc-keys-body" style="display:none;margin-top:10px;">
+          <div class="admin-form-group">
+            <label>Gemini APIキー</label>
+            <input type="password" id="ai-disc-gemini-key" class="admin-input" placeholder="AIza..." autocomplete="off">
+          </div>
+          <div class="admin-form-group">
+            <label>OpenAI APIキー</label>
+            <input type="password" id="ai-disc-openai-key" class="admin-input" placeholder="sk-..." autocomplete="off">
+          </div>
+          <div id="ai-disc-keys-status" class="admin-status"></div>
+          <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
+        </div>
+      </div>
+
       <!-- 一覧画面 -->
       <div id="ai-disc-list-screen" class="admin-sub-screen active">
         <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="openNewAiDiscussion()">新しい議論を始める</button>

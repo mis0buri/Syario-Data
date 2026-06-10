@@ -112,8 +112,9 @@ service cloud.firestore {
         (resource.data.authorUid == request.auth.uid || isAdmin());
     }
 
-    match /{document=**} {
-      allow read: if true;
+    // APIキーなどの管理者専用シークレット（管理者のみ読み書き可）
+    match /admin_secrets/{docId} {
+      allow read, write: if isAdmin();
     }
   }
 }

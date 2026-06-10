@@ -612,9 +612,49 @@ let _aiDiscCurrentId = null;
 let _aiDiscCurrentDoc = null;
 let _aiDiscMode = 'new'; // 'new' | 'continue'
 
+let _aiDiscApiKeys = { gemini: '', openai: '' };
+
 async function initAdminAiDiscuss() {
   if (!_isAdmin || !_db) return;
+  await _loadAiDiscApiKeys();
   await _refreshAiDiscList();
+}
+
+function toggleAiDiscKeysPanel() {
+  const body = document.getElementById('ai-disc-keys-body');
+  const arrow = document.getElementById('ai-disc-keys-arrow');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  arrow.textContent = open ? '▼' : '▲';
+}
+
+async function _loadAiDiscApiKeys() {
+  if (!_db) return;
+  try {
+    const doc = await _db.collection('admin_secrets').doc('api_keys').get();
+    _aiDiscApiKeys = doc.exists ? { gemini: '', openai: '', ...doc.data() } : { gemini: '', openai: '' };
+  } catch(e) {
+    _aiDiscApiKeys = { gemini: '', openai: '' };
+  }
+  const geminiInput = document.getElementById('ai-disc-gemini-key');
+  const openaiInput = document.getElementById('ai-disc-openai-key');
+  if (geminiInput) geminiInput.value = _aiDiscApiKeys.gemini || '';
+  if (openaiInput) openaiInput.value = _aiDiscApiKeys.openai || '';
+}
+
+async function saveAiDiscApiKeys() {
+  if (!_isAdmin || !_db) return;
+  const statusEl = document.getElementById('ai-disc-keys-status');
+  const gemini = document.getElementById('ai-disc-gemini-key').value.trim();
+  const openai = document.getElementById('ai-disc-openai-key').value.trim();
+  statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
+  try {
+    await _db.collection('admin_secrets').doc('api_keys').set({ gemini, openai }, { merge: true });
+    _aiDiscApiKeys = { gemini, openai };
+    statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
+  }
 }
 
 async function _refreshAiDiscList() {
