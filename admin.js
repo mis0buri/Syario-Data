@@ -576,41 +576,12 @@ async function copyPublicScheduleUrl() {
 }
 
 // ── AI議論 ──
-const AI_DISCUSSION_SYSTEM_PROMPT = `あなたは「マルチAI議論シミュレーター」です。 ユーザーから質問や相談を受けたら、性格の異なる3人のAIが議論する形式で回答してください。形式とは書いていますが、全ての意見に対して、各々の立場で再検証するようにしてください。
-【登場するAI】
-🔵 ロジック（分析派AI）: データと論理を重視。客観的・体系的に分析する。
-🟠 ノヴァ（革新派AI）: 楽観的で創造的。新しい可能性やアイデアを提示する。
-🟢 ガード（慎重派AI）: リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視。
-【出力形式】
-Markdown形式で、以下の構成にしてください。
-## 🔵 ロジック （200〜300字程度の見解）
-## 🟠 ノヴァ （200〜300字程度の見解）
-## 🟢 ガード （200〜300字程度の見解）
----
-## 第2ラウンド：相互の意見への反論・補足
-### 🔵 ロジック （150〜250字。他の2人の意見を踏まえて）
-### 🟠 ノヴァ （150〜250字。他の2人の意見を踏まえて）
-### 🟢 ガード （150〜250字。他の2人の意見を踏まえて）
----
-## 📋 結論
-**合意点：** （箇条書き）
-**相違点：** （箇条書き）
-**総合回答：** （まとめ）
-【追加条件・追加質問への対応】
-ユーザーが会話の続きで追加の条件や情報を送ってきた場合は、以下のように対応してください。
-- 前回の議論内容を踏まえた上で、3人のAIに再度議論させる
-- 各AIが「前回の見解からどう変わったか／変わらないか」に必ず言及する
-- 出力形式は同じ構成（ラウンド1→ラウンド2→結論）を維持する
-- 結論部分の冒頭に、今回追加された条件を一文で明記する
-【その他の注意】
-- 各AIの個性（ロジック=論理的・データ重視、ノヴァ=前向き・アイデア重視、ガード=リスク重視・批判的）を一貫させる
-- 質問の分野（恋愛、ビジネス、健康、ギャンブル、技術選定など）を問わず、必ずこの3者議論形式で回答する
-- 結論は読み手が実際に判断・行動しやすい具体的な内容にする`;
-
 let _aiDiscList = [];
 let _aiDiscCurrentId = null;
 let _aiDiscCurrentDoc = null;
 let _aiDiscMode = 'new'; // 'new' | 'continue'
+let _aiDiscNovaText = null; // Geminiが生成した「ノヴァ」の意見（未取得時はnull）
+let _aiDiscGuardText = null; // OpenAIが生成した「ガード」の意見（未取得時はnull）
 
 let _aiDiscApiKeys = { gemini: '', openai: '' };
 
@@ -696,6 +667,8 @@ function openNewAiDiscussion() {
   _aiDiscCurrentId = null;
   _aiDiscCurrentDoc = null;
   _aiDiscMode = 'new';
+  _aiDiscNovaText = null;
+  _aiDiscGuardText = null;
   document.getElementById('ai-disc-topic-input').value = '';
   document.getElementById('ai-disc-rounds').innerHTML = '';
   document.getElementById('ai-disc-new-form').style.display = '';
@@ -711,44 +684,165 @@ function closeAiDiscussionDetail() {
   _aiDiscShowScreen('ai-disc-list-screen');
 }
 
-function _buildAiDiscussionPrompt(topic, previousRounds) {
-  let prompt = AI_DISCUSSION_SYSTEM_PROMPT + '\n\n';
+// ── Gemini / OpenAI 呼び出し ──
+async function _callGeminiApi(prompt) {
+  const key = _aiDiscApiKeys.gemini;
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  if (!res.ok) throw new Error(`Gemini API エラー (${res.status})`);
+  const data = await res.json();
+  const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+  if (!text) throw new Error('Geminiからの応答が空です');
+  return text;
+}
+
+async function _callOpenAiApi(prompt) {
+  const key = _aiDiscApiKeys.openai;
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!res.ok) throw new Error(`OpenAI API エラー (${res.status})`);
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content || '';
+  if (!text) throw new Error('OpenAIからの応答が空です');
+  return text;
+}
+
+// ── プロンプト組み立て ──
+function _aiDiscContextBlock(topic, previousRounds) {
   if (previousRounds && previousRounds.length) {
-    prompt += '【これまでの議論】\n\n';
+    let block = '【これまでの議論】\n\n';
     previousRounds.forEach((r, i) => {
-      prompt += `▼ ${i === 0 ? '初回の議題' : `追加条件${i}`}: ${r.input}\n\n${r.output}\n\n`;
+      block += `▼ ${i === 0 ? '初回の議題' : `追加条件${i}`}: ${r.input}\n\n${r.output}\n\n`;
     });
-    prompt += `【追加の条件・質問】\n${topic}`;
-  } else {
-    prompt += `【質問・相談内容】\n${topic}`;
+    block += `【追加の条件・質問】\n${topic}\n`;
+    return block;
+  }
+  return `【テーマ】\n${topic}\n`;
+}
+
+function _buildPersonaSoloPrompt(name, emoji, desc, topic, previousRounds) {
+  let prompt = `あなたは「${name}」という名前のAIです。${desc}\n\n`;
+  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += `以下の構成でMarkdown形式で回答してください。\n\n`;
+  prompt += `## ${emoji} ${name}\n（200〜300字程度。テーマに対するあなたの見解）\n\n`;
+  prompt += `---\n\n### ${emoji} ${name}（第2ラウンド）\n（150〜250字。「ロジック」（論理的・データ重視のAI）と、もう一人の異なる視点のAIが同じ議論に参加している前提で、彼らから出されそうな指摘も意識しつつ、自分の意見を補足・深掘りしてください）`;
+  if (previousRounds && previousRounds.length) {
+    prompt += `\n\n前回の自分の見解からどう変わったか／変わらないかにも触れてください。`;
   }
   return prompt;
 }
 
-function generateAiDiscussionPrompt() {
-  const topic = document.getElementById('ai-disc-topic-input').value.trim();
-  if (!topic) { alert('議題を入力してください'); return; }
-  const prompt = _buildAiDiscussionPrompt(topic, null);
-  document.getElementById('ai-disc-prompt-text').textContent = prompt;
+function _buildNovaPrompt(topic, previousRounds) {
+  return _buildPersonaSoloPrompt('ノヴァ', '🟠', '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', topic, previousRounds);
+}
+
+function _buildGuardPrompt(topic, previousRounds) {
+  return _buildPersonaSoloPrompt('ガード', '🟢', 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', topic, previousRounds);
+}
+
+function _buildClaudeDiscussionPrompt(topic, previousRounds, novaText, guardText) {
+  const writeNova = !novaText;
+  const writeGuard = !guardText;
+  let prompt = 'あなたは「マルチAI議論シミュレーター」のロジック（分析派AI：データと論理を重視し、客観的・体系的に分析する）担当として、議論を作成します。\n\n';
+
+  const provided = [];
+  if (novaText) provided.push(`【ノヴァ（革新派AI・楽観的で創造的）の意見】\n${novaText}`);
+  if (guardText) provided.push(`【ガード（慎重派AI・リスク重視で批判的）の意見】\n${guardText}`);
+  if (provided.length) {
+    prompt += '別のAIがすでに以下の意見を述べています。\n\n' + provided.join('\n\n') + '\n\n';
+  }
+
+  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+
+  prompt += '以下の構成でMarkdown形式で出力してください。\n\n';
+  prompt += '## 🔵 ロジック\n（200〜300字程度の見解）\n\n';
+  if (writeNova) prompt += '## 🟠 ノヴァ\n（200〜300字程度の見解。革新派AI＝楽観的で創造的、新しい可能性やアイデアを提示）\n\n';
+  if (writeGuard) prompt += '## 🟢 ガード\n（200〜300字程度の見解。慎重派AI＝リスクや問題点を指摘、現実的な制約を重視）\n\n';
+  prompt += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
+  prompt += '### 🔵 ロジック\n（150〜250字。他の2人の意見を踏まえて）\n\n';
+  if (writeNova) prompt += '### 🟠 ノヴァ\n（150〜250字。他の2人の意見を踏まえて）\n\n';
+  if (writeGuard) prompt += '### 🟢 ガード\n（150〜250字。他の2人の意見を踏まえて）\n\n';
+  prompt += '---\n\n## 📋 結論\n**合意点：** （箇条書き）\n**相違点：** （箇条書き）\n**総合回答：** （まとめ）\n';
+
+  if (previousRounds && previousRounds.length) {
+    prompt += `\n結論部分の冒頭に、今回追加された条件「${topic}」を一文で明記してください。各AIが前回の見解からどう変わったか／変わらないかにも言及してください。`;
+  }
+  return prompt;
+}
+
+function _composeAiDiscOutput(claudeText, novaText, guardText) {
+  const parts = [claudeText.trim()];
+  if (novaText) parts.push(`## 🟠 ノヴァ\n\n${novaText.trim()}`);
+  if (guardText) parts.push(`## 🟢 ガード\n\n${guardText.trim()}`);
+  return parts.join('\n\n---\n\n');
+}
+
+async function _generateAiDiscPromptCommon(topic, previousRounds) {
   const promptArea = document.getElementById('ai-disc-prompt-area');
+  const statusEl = document.getElementById('ai-disc-status');
+  const genBtns = ['ai-disc-gen-btn', 'ai-disc-gen-continue-btn'].map(id => document.getElementById(id)).filter(Boolean);
+
+  _aiDiscNovaText = null;
+  _aiDiscGuardText = null;
+
+  const hasGemini = !!_aiDiscApiKeys.gemini;
+  const hasOpenai = !!_aiDiscApiKeys.openai;
+  const warnings = [];
+
+  if (hasGemini || hasOpenai) {
+    genBtns.forEach(b => b.disabled = true);
+    promptArea.style.display = 'none';
+    statusEl.textContent = 'Gemini / ChatGPT の意見を取得中...';
+    statusEl.className = 'admin-status';
+
+    const [novaResult, guardResult] = await Promise.allSettled([
+      hasGemini ? _callGeminiApi(_buildNovaPrompt(topic, previousRounds)) : Promise.resolve(null),
+      hasOpenai ? _callOpenAiApi(_buildGuardPrompt(topic, previousRounds)) : Promise.resolve(null),
+    ]);
+
+    if (novaResult.status === 'fulfilled') _aiDiscNovaText = novaResult.value;
+    else if (hasGemini) warnings.push('Gemini: ' + novaResult.reason.message);
+
+    if (guardResult.status === 'fulfilled') _aiDiscGuardText = guardResult.value;
+    else if (hasOpenai) warnings.push('ChatGPT: ' + guardResult.reason.message);
+
+    genBtns.forEach(b => b.disabled = false);
+  }
+
+  const prompt = _buildClaudeDiscussionPrompt(topic, previousRounds, _aiDiscNovaText, _aiDiscGuardText);
+  document.getElementById('ai-disc-prompt-text').textContent = prompt;
   promptArea.style.display = '';
   document.getElementById('ai-disc-response-input').value = '';
-  const statusEl = document.getElementById('ai-disc-status');
-  statusEl.textContent = ''; statusEl.className = 'admin-status';
+
+  if (warnings.length) {
+    statusEl.textContent = '一部のAI取得に失敗しました（' + warnings.join(' / ') + '）。Claudeにその分も担当してもらいます。';
+    statusEl.className = 'admin-status error';
+  } else if (_aiDiscNovaText || _aiDiscGuardText) {
+    statusEl.textContent = 'Gemini/ChatGPTの意見を取得しました。続けてClaudeのプロンプトをコピーしてください。';
+    statusEl.className = 'admin-status ok';
+  } else {
+    statusEl.textContent = '';
+    statusEl.className = 'admin-status';
+  }
   promptArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function generateAiDiscussionContinuePrompt() {
+async function generateAiDiscussionPrompt() {
+  const topic = document.getElementById('ai-disc-topic-input').value.trim();
+  if (!topic) { alert('議題を入力してください'); return; }
+  await _generateAiDiscPromptCommon(topic, null);
+}
+
+async function generateAiDiscussionContinuePrompt() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
-  const prompt = _buildAiDiscussionPrompt(addCond, _aiDiscCurrentDoc?.rounds || []);
-  document.getElementById('ai-disc-prompt-text').textContent = prompt;
-  const promptArea = document.getElementById('ai-disc-prompt-area');
-  promptArea.style.display = '';
-  document.getElementById('ai-disc-response-input').value = '';
-  const statusEl = document.getElementById('ai-disc-status');
-  statusEl.textContent = ''; statusEl.className = 'admin-status';
-  promptArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  await _generateAiDiscPromptCommon(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
 function copyAiDiscussionPrompt() {
@@ -771,6 +865,8 @@ async function openAiDiscussionDetail(id) {
   if (!_db) return;
   _aiDiscCurrentId = id;
   _aiDiscMode = 'continue';
+  _aiDiscNovaText = null;
+  _aiDiscGuardText = null;
   document.getElementById('ai-disc-new-form').style.display = 'none';
   document.getElementById('ai-disc-rounds').innerHTML = '<div class="admin-empty">読み込み中...</div>';
   document.getElementById('ai-disc-continue-form').style.display = 'none';
@@ -840,9 +936,10 @@ async function saveAiDiscussion() {
   btn.disabled = true;
   statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
   try {
+    const output = _composeAiDiscOutput(response, _aiDiscNovaText, _aiDiscGuardText);
     if (_aiDiscMode === 'continue' && _aiDiscCurrentId) {
       const addCond = document.getElementById('ai-disc-continue-input').value.trim();
-      const round = { input: addCond, output: response, createdAt: new Date().toISOString() };
+      const round = { input: addCond, output, createdAt: new Date().toISOString() };
       const rounds = [...(_aiDiscCurrentDoc.rounds || []), round];
       await _db.collection('ai_discussions').doc(_aiDiscCurrentId).update({
         rounds, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -850,13 +947,15 @@ async function saveAiDiscussion() {
       _aiDiscCurrentDoc.rounds = rounds;
       document.getElementById('ai-disc-prompt-area').style.display = 'none';
       document.getElementById('ai-disc-continue-input').value = '';
+      _aiDiscNovaText = null;
+      _aiDiscGuardText = null;
       _renderAiDiscussionRounds();
       _refreshAiDiscList();
     } else {
       const topic = document.getElementById('ai-disc-topic-input').value.trim();
       if (!topic) { statusEl.textContent = '議題を入力してください'; statusEl.className = 'admin-status error'; btn.disabled = false; return; }
       const title = topic.length > 30 ? topic.slice(0, 30) + '…' : topic;
-      const round = { input: topic, output: response, createdAt: new Date().toISOString() };
+      const round = { input: topic, output, createdAt: new Date().toISOString() };
       const ref = await _db.collection('ai_discussions').add({
         topic, title, rounds: [round],
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
