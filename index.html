@@ -68,6 +68,7 @@
   <button onclick="showSection('admin-gather')">対局登録</button>
   <button onclick="showSection('admin-score')">スコア入力</button>
   <button onclick="showSection('admin-schedule')">スケジュール</button>
+  <button onclick="showSection('admin-ai-discuss')">AI議論</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -1083,6 +1084,58 @@
       </div>
       <div id="admin-schedule-list" class="admin-gather-list">
         <div class="admin-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-admin-ai-discuss" class="section">
+    <div class="card">
+      <div class="admin-section-title">AI議論</div>
+
+      <!-- 一覧画面 -->
+      <div id="ai-disc-list-screen" class="admin-sub-screen active">
+        <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="openNewAiDiscussion()">新しい議論を始める</button>
+        <div id="ai-disc-list" class="admin-gather-list">
+          <div class="admin-empty">読み込み中...</div>
+        </div>
+      </div>
+
+      <!-- 詳細・新規画面 -->
+      <div id="ai-disc-detail-screen" class="admin-sub-screen">
+        <button class="admin-btn sm" style="margin-bottom:12px;" onclick="closeAiDiscussionDetail()">← 一覧に戻る</button>
+
+        <div id="ai-disc-new-form">
+          <div class="admin-form-group">
+            <label>議題・質問・条件</label>
+            <textarea id="ai-disc-topic-input" class="admin-textarea" rows="4" placeholder="議論したいテーマや質問を入力してください"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%;" onclick="generateAiDiscussionPrompt()">プロンプトを生成</button>
+        </div>
+
+        <div id="ai-disc-rounds"></div>
+
+        <div id="ai-disc-continue-form" style="display:none;margin-top:16px;">
+          <hr class="admin-divider">
+          <div class="admin-form-group">
+            <label>追加の条件・質問</label>
+            <textarea id="ai-disc-continue-input" class="admin-textarea" rows="3" placeholder="追加の条件や質問を入力してください"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%;" onclick="generateAiDiscussionContinuePrompt()">続きのプロンプトを生成</button>
+        </div>
+
+        <div id="ai-disc-prompt-area" style="display:none;margin-top:16px;">
+          <p style="font-size:12px;color:var(--dim);margin-bottom:8px;">① 下のプロンプトをコピーして <a href="https://claude.ai" target="_blank" style="color:var(--accent)">claude.ai</a> に送信<br>② 返ってきた回答をそのまま下に貼り付けて保存</p>
+          <div class="jare-prompt-box">
+            <div class="jare-prompt-text" id="ai-disc-prompt-text"></div>
+            <button type="button" class="jare-prompt-copy-btn" onclick="copyAiDiscussionPrompt()">コピー</button>
+          </div>
+          <div class="admin-form-group" style="margin-top:12px;">
+            <label>AIの回答を貼り付け</label>
+            <textarea id="ai-disc-response-input" class="admin-textarea" rows="8" placeholder="ここに回答を貼り付け"></textarea>
+          </div>
+          <div id="ai-disc-status" class="admin-status"></div>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-save-btn" onclick="saveAiDiscussion()">保存する</button>
+        </div>
       </div>
     </div>
   </div>

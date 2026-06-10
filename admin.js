@@ -574,3 +574,260 @@ async function copyPublicScheduleUrl() {
     prompt('以下のURLをコピーしてください', copyUrl);
   }
 }
+
+// ── AI議論 ──
+const AI_DISCUSSION_SYSTEM_PROMPT = `あなたは「マルチAI議論シミュレーター」です。 ユーザーから質問や相談を受けたら、性格の異なる3人のAIが議論する形式で回答してください。形式とは書いていますが、全ての意見に対して、各々の立場で再検証するようにしてください。
+【登場するAI】
+🔵 ロジック（分析派AI）: データと論理を重視。客観的・体系的に分析する。
+🟠 ノヴァ（革新派AI）: 楽観的で創造的。新しい可能性やアイデアを提示する。
+🟢 ガード（慎重派AI）: リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視。
+【出力形式】
+Markdown形式で、以下の構成にしてください。
+## 🔵 ロジック （200〜300字程度の見解）
+## 🟠 ノヴァ （200〜300字程度の見解）
+## 🟢 ガード （200〜300字程度の見解）
+---
+## 第2ラウンド：相互の意見への反論・補足
+### 🔵 ロジック （150〜250字。他の2人の意見を踏まえて）
+### 🟠 ノヴァ （150〜250字。他の2人の意見を踏まえて）
+### 🟢 ガード （150〜250字。他の2人の意見を踏まえて）
+---
+## 📋 結論
+**合意点：** （箇条書き）
+**相違点：** （箇条書き）
+**総合回答：** （まとめ）
+【追加条件・追加質問への対応】
+ユーザーが会話の続きで追加の条件や情報を送ってきた場合は、以下のように対応してください。
+- 前回の議論内容を踏まえた上で、3人のAIに再度議論させる
+- 各AIが「前回の見解からどう変わったか／変わらないか」に必ず言及する
+- 出力形式は同じ構成（ラウンド1→ラウンド2→結論）を維持する
+- 結論部分の冒頭に、今回追加された条件を一文で明記する
+【その他の注意】
+- 各AIの個性（ロジック=論理的・データ重視、ノヴァ=前向き・アイデア重視、ガード=リスク重視・批判的）を一貫させる
+- 質問の分野（恋愛、ビジネス、健康、ギャンブル、技術選定など）を問わず、必ずこの3者議論形式で回答する
+- 結論は読み手が実際に判断・行動しやすい具体的な内容にする`;
+
+let _aiDiscList = [];
+let _aiDiscCurrentId = null;
+let _aiDiscCurrentDoc = null;
+let _aiDiscMode = 'new'; // 'new' | 'continue'
+
+async function initAdminAiDiscuss() {
+  if (!_isAdmin || !_db) return;
+  await _refreshAiDiscList();
+}
+
+async function _refreshAiDiscList() {
+  const listEl = document.getElementById('ai-disc-list');
+  if (listEl) listEl.innerHTML = '<div class="admin-empty">読み込み中...</div>';
+  try {
+    const snap = await _db.collection('ai_discussions').orderBy('updatedAt', 'desc').get();
+    _aiDiscList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    _renderAiDiscussionList();
+  } catch(e) {
+    if (listEl) listEl.innerHTML = `<div class="admin-empty">読み込みに失敗しました: ${_esc(e.message)}</div>`;
+  }
+}
+
+function _renderAiDiscussionList() {
+  const listEl = document.getElementById('ai-disc-list');
+  if (!listEl) return;
+  if (!_aiDiscList.length) {
+    listEl.innerHTML = '<div class="admin-empty">まだ議論がありません</div>';
+    return;
+  }
+  listEl.innerHTML = _aiDiscList.map(d => {
+    const date = d.updatedAt?.toDate ? d.updatedAt.toDate() : (d.createdAt?.toDate ? d.createdAt.toDate() : null);
+    const dateStr = date ? `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()}` : '';
+    const roundCount = (d.rounds || []).length;
+    return `<div class="admin-gather-card" onclick="openAiDiscussionDetail('${d.id}')">
+      <div class="admin-gather-date">${_esc(d.title || d.topic || '(無題)')}</div>
+      <div class="admin-gather-meta">${dateStr}　全${roundCount}ラウンド</div>
+    </div>`;
+  }).join('');
+}
+
+function _aiDiscShowScreen(id) {
+  document.querySelectorAll('#sec-admin-ai-discuss .admin-sub-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function openNewAiDiscussion() {
+  _aiDiscCurrentId = null;
+  _aiDiscCurrentDoc = null;
+  _aiDiscMode = 'new';
+  document.getElementById('ai-disc-topic-input').value = '';
+  document.getElementById('ai-disc-rounds').innerHTML = '';
+  document.getElementById('ai-disc-new-form').style.display = '';
+  document.getElementById('ai-disc-continue-form').style.display = 'none';
+  document.getElementById('ai-disc-prompt-area').style.display = 'none';
+  document.getElementById('ai-disc-response-input').value = '';
+  const statusEl = document.getElementById('ai-disc-status');
+  statusEl.textContent = ''; statusEl.className = 'admin-status';
+  _aiDiscShowScreen('ai-disc-detail-screen');
+}
+
+function closeAiDiscussionDetail() {
+  _aiDiscShowScreen('ai-disc-list-screen');
+}
+
+function _buildAiDiscussionPrompt(topic, previousRounds) {
+  let prompt = AI_DISCUSSION_SYSTEM_PROMPT + '\n\n';
+  if (previousRounds && previousRounds.length) {
+    prompt += '【これまでの議論】\n\n';
+    previousRounds.forEach((r, i) => {
+      prompt += `▼ ${i === 0 ? '初回の議題' : `追加条件${i}`}: ${r.input}\n\n${r.output}\n\n`;
+    });
+    prompt += `【追加の条件・質問】\n${topic}`;
+  } else {
+    prompt += `【質問・相談内容】\n${topic}`;
+  }
+  return prompt;
+}
+
+function generateAiDiscussionPrompt() {
+  const topic = document.getElementById('ai-disc-topic-input').value.trim();
+  if (!topic) { alert('議題を入力してください'); return; }
+  const prompt = _buildAiDiscussionPrompt(topic, null);
+  document.getElementById('ai-disc-prompt-text').textContent = prompt;
+  const promptArea = document.getElementById('ai-disc-prompt-area');
+  promptArea.style.display = '';
+  document.getElementById('ai-disc-response-input').value = '';
+  const statusEl = document.getElementById('ai-disc-status');
+  statusEl.textContent = ''; statusEl.className = 'admin-status';
+  promptArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function generateAiDiscussionContinuePrompt() {
+  const addCond = document.getElementById('ai-disc-continue-input').value.trim();
+  if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
+  const prompt = _buildAiDiscussionPrompt(addCond, _aiDiscCurrentDoc?.rounds || []);
+  document.getElementById('ai-disc-prompt-text').textContent = prompt;
+  const promptArea = document.getElementById('ai-disc-prompt-area');
+  promptArea.style.display = '';
+  document.getElementById('ai-disc-response-input').value = '';
+  const statusEl = document.getElementById('ai-disc-status');
+  statusEl.textContent = ''; statusEl.className = 'admin-status';
+  promptArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyAiDiscussionPrompt() {
+  const text = document.getElementById('ai-disc-prompt-text').textContent;
+  const btn = document.querySelector('#ai-disc-prompt-area .jare-prompt-copy-btn');
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'コピー済み';
+    setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'コピー済み';
+    setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
+  });
+}
+
+async function openAiDiscussionDetail(id) {
+  if (!_db) return;
+  _aiDiscCurrentId = id;
+  _aiDiscMode = 'continue';
+  document.getElementById('ai-disc-new-form').style.display = 'none';
+  document.getElementById('ai-disc-rounds').innerHTML = '<div class="admin-empty">読み込み中...</div>';
+  document.getElementById('ai-disc-continue-form').style.display = 'none';
+  document.getElementById('ai-disc-prompt-area').style.display = 'none';
+  _aiDiscShowScreen('ai-disc-detail-screen');
+  try {
+    const doc = await _db.collection('ai_discussions').doc(id).get();
+    if (!doc.exists) {
+      document.getElementById('ai-disc-rounds').innerHTML = '<div class="admin-empty">見つかりませんでした</div>';
+      return;
+    }
+    _aiDiscCurrentDoc = { id: doc.id, ...doc.data() };
+    _renderAiDiscussionRounds();
+    document.getElementById('ai-disc-continue-input').value = '';
+    document.getElementById('ai-disc-continue-form').style.display = '';
+  } catch(e) {
+    document.getElementById('ai-disc-rounds').innerHTML = `<div class="admin-empty">読み込みに失敗しました: ${_esc(e.message)}</div>`;
+  }
+}
+
+function _renderAiDiscussionRounds() {
+  const rounds = _aiDiscCurrentDoc?.rounds || [];
+  const html = rounds.map((r, i) => {
+    return `<div class="ai-disc-round">
+      <div class="ai-disc-round-label">${i === 0 ? '議題' : `追加条件 ${i + 1}`}</div>
+      <div class="ai-disc-round-input">${_esc(r.input)}</div>
+      <div class="ai-disc-round-output">${_renderAiDiscMarkdown(r.output)}</div>
+    </div>`;
+  }).join('<hr class="ai-disc-hr">');
+  document.getElementById('ai-disc-rounds').innerHTML = html;
+}
+
+function _inlineMd(s) {
+  return _esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+function _renderAiDiscMarkdown(text) {
+  const lines = (text || '').split('\n');
+  let html = '';
+  let inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { closeList(); continue; }
+    let m;
+    if (/^---+$/.test(line)) { closeList(); html += '<hr class="ai-disc-hr">'; continue; }
+    if ((m = line.match(/^####\s*(.+)$/)) || (m = line.match(/^###\s*(.+)$/))) { closeList(); html += `<h4>${_inlineMd(m[1])}</h4>`; continue; }
+    if ((m = line.match(/^##\s*(.+)$/))) { closeList(); html += `<h3>${_inlineMd(m[1])}</h3>`; continue; }
+    if ((m = line.match(/^[-*]\s+(.+)$/))) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${_inlineMd(m[1])}</li>`;
+      continue;
+    }
+    closeList();
+    html += `<p>${_inlineMd(line)}</p>`;
+  }
+  closeList();
+  return html;
+}
+
+async function saveAiDiscussion() {
+  if (!_db) return;
+  const statusEl = document.getElementById('ai-disc-status');
+  const response = document.getElementById('ai-disc-response-input').value.trim();
+  if (!response) { statusEl.textContent = 'AIの回答を貼り付けてください'; statusEl.className = 'admin-status error'; return; }
+  const btn = document.getElementById('ai-disc-save-btn');
+  btn.disabled = true;
+  statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
+  try {
+    if (_aiDiscMode === 'continue' && _aiDiscCurrentId) {
+      const addCond = document.getElementById('ai-disc-continue-input').value.trim();
+      const round = { input: addCond, output: response, createdAt: new Date().toISOString() };
+      const rounds = [...(_aiDiscCurrentDoc.rounds || []), round];
+      await _db.collection('ai_discussions').doc(_aiDiscCurrentId).update({
+        rounds, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      _aiDiscCurrentDoc.rounds = rounds;
+      document.getElementById('ai-disc-prompt-area').style.display = 'none';
+      document.getElementById('ai-disc-continue-input').value = '';
+      _renderAiDiscussionRounds();
+      _refreshAiDiscList();
+    } else {
+      const topic = document.getElementById('ai-disc-topic-input').value.trim();
+      if (!topic) { statusEl.textContent = '議題を入力してください'; statusEl.className = 'admin-status error'; btn.disabled = false; return; }
+      const title = topic.length > 30 ? topic.slice(0, 30) + '…' : topic;
+      const round = { input: topic, output: response, createdAt: new Date().toISOString() };
+      const ref = await _db.collection('ai_discussions').add({
+        topic, title, rounds: [round],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await openAiDiscussionDetail(ref.id);
+      _refreshAiDiscList();
+    }
+    statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
+  }
+  btn.disabled = false;
+}

@@ -1206,6 +1206,23 @@
   }
   .admin-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .admin-empty { color: var(--dim); font-size: 13px; text-align: center; padding: 24px; }
+  .admin-textarea { display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; line-height: 1.6; padding: 8px 12px; border-radius: 6px; resize: vertical; }
+  .admin-textarea:focus { outline: none; border-color: var(--accent); }
+  @media (max-width: 640px) {
+    .admin-textarea { font-size: 16px; /* iOSズーム防止 */ }
+  }
+
+  /* ── AI議論 ── */
+  .ai-disc-round { margin-bottom: 12px; }
+  .ai-disc-round-label { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+  .ai-disc-round-input { font-size: 13px; color: var(--dim); background: var(--surface2); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; white-space: pre-wrap; word-break: break-word; }
+  .ai-disc-round-output h3 { font-size: 14px; margin: 14px 0 6px; color: var(--text); }
+  .ai-disc-round-output h4 { font-size: 13px; margin: 10px 0 4px; color: var(--text); }
+  .ai-disc-round-output p { font-size: 13px; line-height: 1.7; margin: 6px 0; }
+  .ai-disc-round-output ul { margin: 4px 0 8px 20px; padding: 0; font-size: 13px; line-height: 1.7; }
+  .ai-disc-round-output li { margin-bottom: 2px; }
+  .ai-disc-round-output strong { color: var(--accent); }
+  .ai-disc-hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 
 /* ── 投票箱 ── */
 .vote-view { display: none; }

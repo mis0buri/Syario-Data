@@ -127,7 +127,7 @@ function filteredGathers() {
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
 const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
-const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
@@ -177,7 +177,7 @@ function showSection(id) {
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
@@ -203,6 +203,7 @@ function showSection(id) {
   if (id==='admin-gather') initAdminGather();
   if (id==='admin-score') initAdminScore();
   if (id==='admin-schedule') initAdminSchedule();
+  if (id==='admin-ai-discuss') initAdminAiDiscuss();
   if (id==='column') initColumn();
 
   // URL ハッシュを更新（管理者セクションは除く）
