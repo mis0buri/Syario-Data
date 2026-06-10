@@ -588,7 +588,7 @@ let _aiDiscApiKeys = { gemini: '', groq: '' };
 
 const _AI_DISC_PERSONAS = {
   logic: { name: 'ロジック', emoji: '🔵', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。', groqModel: 'openai/gpt-oss-120b' },
-  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: 'openai/gpt-oss-120b' },
+  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: 'openai/gpt-oss-20b' },
   guard: { name: 'ガード',   emoji: '🟢', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', groqModel: 'llama-3.3-70b-versatile' },
 };
 
@@ -732,14 +732,28 @@ async function _callGeminiApi(prompt) {
   return text;
 }
 
-async function _callGroqApi(prompt, model) {
+async function _callGroqApi(prompt, model, maxTokens, _retried) {
   const key = _aiDiscApiKeys.groq;
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({ model: model || 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({
+      model: model || 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens || 700,
+    })
   });
-  if (!res.ok) await _throwApiError(res, 'Groq');
+  if (!res.ok) {
+    // レート制限(429)の場合は、エラー文中の待機秒数だけ待って一度だけ再試行する
+    if (res.status === 429 && !_retried) {
+      const detail = await res.text();
+      const m = detail.match(/try again in ([\d.]+)s/i);
+      const waitMs = Math.min(m ? parseFloat(m[1]) : 5, 30) * 1000 + 500;
+      await new Promise(r => setTimeout(r, waitMs));
+      return _callGroqApi(prompt, model, maxTokens, true);
+    }
+    await _throwApiError(res, 'Groq');
+  }
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || '';
   if (!text) throw new Error('Groqからの応答が空です');
@@ -942,13 +956,13 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
   return prompt;
 }
 
-async function _callPersonaApi(personaKey, prompt) {
+async function _callPersonaApi(personaKey, prompt, maxTokens) {
   const persona = _AI_DISC_PERSONAS[personaKey];
   if (personaKey === 'nova' && _aiDiscApiKeys.gemini) {
     try { return await _callGeminiApi(prompt); }
-    catch(e) { return await _callGroqApi(prompt, persona.groqModel); } // Gemini失敗時はGroqが代行
+    catch(e) { return await _callGroqApi(prompt, persona.groqModel, maxTokens); } // Gemini失敗時はGroqが代行
   }
-  return await _callGroqApi(prompt, persona.groqModel);
+  return await _callGroqApi(prompt, persona.groqModel, maxTokens);
 }
 
 function _composeAiDiscAutoOutput(round1All, round2All, conclusion) {
@@ -980,22 +994,22 @@ async function runAiDiscussionAuto(topic, previousRounds) {
   try {
     statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
     const [logic1, nova1, guard1] = await Promise.all([
-      _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds)),
-      _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds)),
-      _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds)),
+      _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500),
+      _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500),
+      _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500),
     ]);
     const round1All = { logic: logic1, nova: nova1, guard: guard1 };
 
     statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
     const [logic2, nova2, guard2] = await Promise.all([
-      _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All)),
-      _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All)),
-      _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All)),
+      _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400),
+      _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400),
+      _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400),
     ]);
     const round2All = { logic: logic2, nova: nova2, guard: guard2 };
 
     statusEl.textContent = '結論をまとめています...(3/3)';
-    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel);
+    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel, 800);
 
     _aiDiscAutoOutput = _composeAiDiscAutoOutput(round1All, round2All, conclusion);
     document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(_aiDiscAutoOutput);
