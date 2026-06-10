@@ -982,6 +982,13 @@ function _composeAiDiscAutoOutput(round1All, round2All, conclusion) {
   return out;
 }
 
+// 各呼び出しの開始時刻を少しずつずらして発火する（同時バーストによる429を緩和）
+function _staggeredAll(thunks, delayMs) {
+  return Promise.all(thunks.map((thunk, i) =>
+    new Promise(resolve => setTimeout(resolve, i * delayMs)).then(thunk)
+  ));
+}
+
 async function runAiDiscussionAuto(topic, previousRounds) {
   const statusEl = document.getElementById('ai-disc-status');
   const promptArea = document.getElementById('ai-disc-prompt-area');
@@ -996,19 +1003,19 @@ async function runAiDiscussionAuto(topic, previousRounds) {
 
   try {
     statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
-    const [logic1, nova1, guard1] = await Promise.all([
-      _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500),
-      _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500),
-      _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500),
-    ]);
+    const [logic1, nova1, guard1] = await _staggeredAll([
+      () => _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500),
+      () => _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500),
+      () => _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500),
+    ], 1500);
     const round1All = { logic: logic1, nova: nova1, guard: guard1 };
 
     statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
-    const [logic2, nova2, guard2] = await Promise.all([
-      _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400),
-      _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400),
-      _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400),
-    ]);
+    const [logic2, nova2, guard2] = await _staggeredAll([
+      () => _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400),
+      () => _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400),
+      () => _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400),
+    ], 1500);
     const round2All = { logic: logic2, nova: nova2, guard: guard2 };
 
     statusEl.textContent = '結論をまとめています...(3/3)';
