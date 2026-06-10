@@ -734,14 +734,17 @@ async function _callGeminiApi(prompt) {
 
 async function _callGroqApi(prompt, model, maxTokens, _retried) {
   const key = _aiDiscApiKeys.groq;
+  const body = {
+    model: model || 'llama-3.3-70b-versatile',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: maxTokens || 700,
+  };
+  // gpt-ossは推論モデルのため、reasoningにmax_tokensを使い切って本文が空になるのを防ぐ
+  if (body.model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({
-      model: model || 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: maxTokens || 700,
-    })
+    body: JSON.stringify(body)
   });
   if (!res.ok) {
     // レート制限(429)の場合は、エラー文中の待機秒数だけ待って一度だけ再試行する
