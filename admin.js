@@ -713,6 +713,38 @@ async function _callOpenAiApi(prompt) {
   return text;
 }
 
+// ── APIキー疎通確認 ──
+async function _testGeminiKey(key) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+  if (res.ok) return;
+  if (res.status === 400 || res.status === 403) throw new Error('キーが正しくありません');
+  throw new Error(`エラー (${res.status})`);
+}
+
+async function _testOpenAiKey(key) {
+  const res = await fetch('https://api.openai.com/v1/models', {
+    headers: { 'Authorization': `Bearer ${key}` }
+  });
+  if (res.ok) return;
+  if (res.status === 401) throw new Error('キーが正しくありません');
+  throw new Error(`エラー (${res.status})`);
+}
+
+async function testAiDiscApiKey(provider) {
+  const inputId = provider === 'gemini' ? 'ai-disc-gemini-key' : 'ai-disc-openai-key';
+  const statusEl = document.getElementById(`ai-disc-${provider}-test-status`);
+  const key = document.getElementById(inputId).value.trim();
+  if (!key) { statusEl.textContent = 'キーを入力してください'; statusEl.className = 'admin-status error'; return; }
+  statusEl.textContent = '確認中...'; statusEl.className = 'admin-status';
+  try {
+    if (provider === 'gemini') await _testGeminiKey(key);
+    else await _testOpenAiKey(key);
+    statusEl.textContent = '接続できました ✓'; statusEl.className = 'admin-status ok';
+  } catch(e) {
+    statusEl.textContent = '接続できませんでした: ' + e.message; statusEl.className = 'admin-status error';
+  }
+}
+
 // ── プロンプト組み立て ──
 function _aiDiscContextBlock(topic, previousRounds) {
   if (previousRounds && previousRounds.length) {

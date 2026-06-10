@@ -1101,11 +1101,19 @@
         <div id="ai-disc-keys-body" style="display:none;margin-top:10px;">
           <div class="admin-form-group">
             <label>Gemini APIキー</label>
-            <input type="password" id="ai-disc-gemini-key" class="admin-input" placeholder="AIza..." autocomplete="off">
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="ai-disc-gemini-key" class="admin-input" placeholder="AIza..." autocomplete="off" style="flex:1;">
+              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('gemini')">確認</button>
+            </div>
+            <div id="ai-disc-gemini-test-status" class="admin-status"></div>
           </div>
           <div class="admin-form-group">
             <label>OpenAI APIキー</label>
-            <input type="password" id="ai-disc-openai-key" class="admin-input" placeholder="sk-..." autocomplete="off">
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="ai-disc-openai-key" class="admin-input" placeholder="sk-..." autocomplete="off" style="flex:1;">
+              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('openai')">確認</button>
+            </div>
+            <div id="ai-disc-openai-test-status" class="admin-status"></div>
           </div>
           <div id="ai-disc-keys-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
