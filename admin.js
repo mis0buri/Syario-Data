@@ -906,7 +906,7 @@ async function generateAiDiscussionContinuePrompt() {
   else await _generateAiDiscPromptCommon(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
-// ── 自動実行（Claudeキー設定時）: 第1ラウンド→第2ラウンド→結論の3段階で全AIが順に意見を交わす ──
+// ── 自動実行（Groqキー設定時）: 第1ラウンド→第2ラウンド→結論の3段階で全AIが順に意見を交わす ──
 function _buildRound1Prompt(persona, topic, previousRounds) {
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
   prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
