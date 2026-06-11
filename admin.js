@@ -600,18 +600,28 @@ const _AI_DISC_MAGI_PERSONAS = {
   nova:  { name: 'MAGI-3 カスパー', emoji: '🟡', role: '現実主義AI', desc: '感情・直感・本音を代弁する現実主義AIです。建前や理屈を一旦置いて、「実際それをやりたいか」「人の気持ちはどう動くか」という人間心理の観点で切り込みます。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
 };
 
-let _aiDiscDiscussMode = 'default'; // 'default' | 'magi'
-function _P() { return _aiDiscDiscussMode === 'magi' ? _AI_DISC_MAGI_PERSONAS : _AI_DISC_PERSONAS; }
+// 麻雀格言モード用ペルソナ。キー(logic/nova/guard)ごとのモデル設定は他モードと共通で適用される
+const _AI_DISC_MAHJONG_PERSONAS = {
+  logic: { name: 'デジタル派', emoji: '📊', role: '効率重視AI', desc: '牌効率と期待値計算を重視するデジタル派の雀士AIです。感覚や経験則よりも、数字とセオリーに基づいて合理的に判断します。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: '攻め師',     emoji: '⚔️', role: '攻撃重視AI', desc: '「押してナンボ」の精神を持つ攻撃重視の雀士AIです。鳴き・仕掛けを駆使し、リスクを取ってでも和了に向かう姿勢を重視します。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: '降り師',     emoji: '🛡️', role: '守備重視AI', desc: '「降りるが勝ち」を信条とする守備重視の雀士AIです。放銃を避け、局全体・半荘全体の収支を見据えたベタオリ判断を重視します。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+};
+
+let _aiDiscDiscussMode = 'default'; // 'default' | 'magi' | 'mahjong'
+function _P() {
+  if (_aiDiscDiscussMode === 'magi') return _AI_DISC_MAGI_PERSONAS;
+  if (_aiDiscDiscussMode === 'mahjong') return _AI_DISC_MAHJONG_PERSONAS;
+  return _AI_DISC_PERSONAS;
+}
 // 表示順（MAGIはMAGI-1→2→3の順）
 function _P_ORDER() { return _aiDiscDiscussMode === 'magi' ? ['logic', 'guard', 'nova'] : ['logic', 'nova', 'guard']; }
 
 function _applyAiDiscModels() {
   const models = _aiDiscApiKeys.models || {};
-  Object.keys(_AI_DISC_PERSONAS).forEach(k => {
-    _AI_DISC_PERSONAS[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
-  });
-  Object.keys(_AI_DISC_MAGI_PERSONAS).forEach(k => {
-    _AI_DISC_MAGI_PERSONAS[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
+  [_AI_DISC_PERSONAS, _AI_DISC_MAGI_PERSONAS, _AI_DISC_MAHJONG_PERSONAS].forEach(personas => {
+    Object.keys(personas).forEach(k => {
+      personas[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
+    });
   });
 }
 
@@ -928,6 +938,12 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
 **総合回答：**（まとめ）
 
 議題が賛否を問える形式でない場合は、各MAGIの判定と決議を省略し、**総合回答：**のみを出力してください。`;
+  } else if (_aiDiscDiscussMode === 'mahjong') {
+    openingLine = `あなたは「麻雀格言会議」の進行役です。以下は3人の雀士AI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**各雀士の結論：**（箇条書きで3行。「デジタル派: 一言でまとめた立場」の形式）
+**総合回答：**（まとめ。可能であれば麻雀の格言を一つ引用して締めくくってください）`;
   } else {
     openingLine = `あなたは「マルチAI議論シミュレーター」の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
     outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
