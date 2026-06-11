@@ -1228,7 +1228,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
 
     statusEl.textContent = '結論をまとめています...(4/4)';
     const P = _P();
-    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All, contention), P.logic.groqModel, 800,
+    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All, contention), P.logic.groqModel, 1400,
         t => _renderAiDiscAutoPartialThrottled(round1All, round2All, t));
 
     _renderAiDiscAutoPartial(round1All, round2All, conclusion);
