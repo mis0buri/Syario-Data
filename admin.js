@@ -607,18 +607,56 @@ const _AI_DISC_MAHJONG_PERSONAS = {
   guard: { name: '降り師',     emoji: '🛡️', role: '守備重視AI', desc: '「降りるが勝ち」を信条とする守備重視の雀士AIです。放銃を避け、局全体・半荘全体の収支を見据えたベタオリ判断を重視します。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
 };
 
-let _aiDiscDiscussMode = 'default'; // 'default' | 'magi' | 'mahjong'
-function _P() {
-  if (_aiDiscDiscussMode === 'magi') return _AI_DISC_MAGI_PERSONAS;
-  if (_aiDiscDiscussMode === 'mahjong') return _AI_DISC_MAHJONG_PERSONAS;
-  return _AI_DISC_PERSONAS;
+// 戦国軍議モード用ペルソナ
+const _AI_DISC_SENGOKU_PERSONAS = {
+  logic: { name: '軍師 玄洲', emoji: '🪶', role: '知将AI', desc: '戦国の軍議に侍る軍師AIです。地勢・兵站・敵味方の力関係を読み、策をもって勝ちを拾うことを信条とします。時代劇の軍師らしい口調（「〜でござる」「〜と心得まする」など）で話してください。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: '猛将 紅丸', emoji: '🔥', role: '猛将AI', desc: '先陣を切ることしか頭にない猛将AIです。細かい理屈より勢いと士気を重んじ、「やってみねば分からぬ」が信条。豪快な武人口調で話してください。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: '家老 静庵', emoji: '🏯', role: '家老AI', desc: '御家の存続を第一に考える年配の家老AIです。家中の和、民への負担、敗れた時の傷の深さを案じます。落ち着いた老臣の口調で話してください。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+};
+
+// 時間軸モード用ペルソナ（性格ではなく時間軸で視点を分ける）
+const _AI_DISC_JIKAN_PERSONAS = {
+  logic: { name: 'クロニカ', emoji: '📜', role: '歴史家AI', desc: '過去の類似事例・前例から学ぶ歴史家AIです。「同じような話は過去にもあった」という視点で、歴史や世間の成功例・失敗例を引きながら語ります。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: 'フォーサイト', emoji: '🔭', role: '未来学者AI', desc: '5年後・10年後の変化を描く未来学者AIです。技術や社会の流れを踏まえ、「この選択が将来どう効いてくるか」を大胆に予測します。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: 'プラグマ', emoji: '⚙️', role: '実務家AI', desc: '今ここにある現実的制約（資金・時間・人手）を直視する実務家AIです。「明日から実際に回るのか」という観点で具体的に詰めます。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+};
+
+// 悪魔の代弁者モード用ペルソナ（1人を徹底反対役に固定して議論を白熱させる）
+const _AI_DISC_DEVIL_PERSONAS = {
+  logic: { name: 'テーゼ', emoji: '⚖️', role: '推進派AI', desc: '議題を実現する前提で、最も筋の良い進め方を組み立てる推進派AIです。賛成論を論理的に構築し、反対論には正面から答えます。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: 'ジンテーゼ', emoji: '🌉', role: '調停者AI', desc: '賛成論と反対論の両方から良いところを拾い、対立を乗り越える第三の道を探す調停者AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: '悪魔の代弁者', emoji: '😈', role: '反対論者AI', desc: 'どんな議題に対しても、あえて最強の反対論を構築する「悪魔の代弁者」AIです。本心がどうであれ、考えうる最も鋭い反論・リスク・落とし穴を容赦なく突きつけるのが役目です。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+};
+
+// 大喜利モード用ペルソナ（議論ではなく笑いを競う）
+const _AI_DISC_OGIRI_PERSONAS = {
+  nova:  { name: 'ボケ太', emoji: '🤪', role: 'ボケ担当AI', desc: '勢いと発想の飛距離で笑いを取るボケ担当AIです。お題に対して予想の斜め上の回答を全力で繰り出します。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: 'シュール男爵', emoji: '🎩', role: 'シュール担当AI', desc: 'シュールで知的な笑いを担当するAIです。静かで上品な口調のまま、じわじわ来る回答を差し出します。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+  logic: { name: '座布団', emoji: '🎤', role: 'ツッコミ兼司会AI', desc: '大喜利の司会とツッコミを兼ねるAIです。お題を整理しつつ他の回答に鋭くツッコミを入れ、自分でも一つ気の利いた回答を出します。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+};
+
+const _AI_DISC_MODE_PERSONAS = {
+  default: _AI_DISC_PERSONAS,
+  magi: _AI_DISC_MAGI_PERSONAS,
+  mahjong: _AI_DISC_MAHJONG_PERSONAS,
+  sengoku: _AI_DISC_SENGOKU_PERSONAS,
+  jikan: _AI_DISC_JIKAN_PERSONAS,
+  devil: _AI_DISC_DEVIL_PERSONAS,
+  ogiri: _AI_DISC_OGIRI_PERSONAS,
+};
+
+let _aiDiscDiscussMode = 'default'; // _AI_DISC_MODE_PERSONAS のいずれかのキー
+function _P() { return _AI_DISC_MODE_PERSONAS[_aiDiscDiscussMode] || _AI_DISC_PERSONAS; }
+// 表示順（MAGIはMAGI-1→2→3の順、大喜利はボケ2人→司会の順で締める）
+function _P_ORDER() {
+  if (_aiDiscDiscussMode === 'magi') return ['logic', 'guard', 'nova'];
+  if (_aiDiscDiscussMode === 'ogiri') return ['nova', 'guard', 'logic'];
+  return ['logic', 'nova', 'guard'];
 }
-// 表示順（MAGIはMAGI-1→2→3の順）
-function _P_ORDER() { return _aiDiscDiscussMode === 'magi' ? ['logic', 'guard', 'nova'] : ['logic', 'nova', 'guard']; }
 
 function _applyAiDiscModels() {
   const models = _aiDiscApiKeys.models || {};
-  [_AI_DISC_PERSONAS, _AI_DISC_MAGI_PERSONAS, _AI_DISC_MAHJONG_PERSONAS].forEach(personas => {
+  Object.values(_AI_DISC_MODE_PERSONAS).forEach(personas => {
     Object.keys(personas).forEach(k => {
       personas[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
     });
@@ -901,7 +939,11 @@ async function continueAiDiscussion() {
 function _buildRound1Prompt(persona, topic, previousRounds) {
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
   prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
-  prompt += '上記について、あなたの第1ラウンドの意見を200〜300字程度で述べてください。最初の一文であなたの結論を端的に述べ、そのあとに理由を続けてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+  if (_aiDiscDiscussMode === 'ogiri') {
+    prompt += '上記を大喜利のお題として扱い、あなたのキャラクターで回答してください（回答は1〜3個、合計200字程度）。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+  } else {
+    prompt += '上記について、あなたの第1ラウンドの意見を200〜300字程度で述べてください。最初の一文であなたの結論を端的に述べ、そのあとに理由を続けてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+  }
   return prompt;
 }
 
@@ -909,13 +951,18 @@ function _buildRound1Prompt(persona, topic, previousRounds) {
 function _buildContentionPrompt(topic, previousRounds, round1All) {
   const P = _P();
   const order = _P_ORDER();
-  let prompt = 'あなたは3人のAIによる議論の司会者です。\n\n';
+  const isOgiri = _aiDiscDiscussMode === 'ogiri';
+  let prompt = isOgiri ? 'あなたは大喜利の司会者です。\n\n' : 'あなたは3人のAIによる議論の司会者です。\n\n';
   prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
-  prompt += '【第1ラウンドでの各AIの意見】\n\n';
+  prompt += `【第1ラウンドでの各AIの${isOgiri ? '回答' : '意見'}】\n\n`;
   order.forEach(k => {
     prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
   });
-  prompt += '3人の意見を比較し、実際に見解が対立・相違している争点を2〜3個抽出してください。「- 争点1: …」の形式の箇条書きのみを出力し、前置きや解説は付けないでください。明確な対立がない場合は、結論を出すために掘り下げるべき論点を挙げてください。';
+  if (isOgiri) {
+    prompt += '3人の回答を見て、第2ラウンドでさらに膨らませると面白くなりそうな切り口を2〜3個、「- …」の形式の箇条書きのみで出力してください。前置きや解説は付けないでください。';
+  } else {
+    prompt += '3人の意見を比較し、実際に見解が対立・相違している争点を2〜3個抽出してください。「- 争点1: …」の形式の箇条書きのみを出力し、前置きや解説は付けないでください。明確な対立がない場合は、結論を出すために掘り下げるべき論点を挙げてください。';
+  }
   return prompt;
 }
 
@@ -928,6 +975,13 @@ function _buildRound2Prompt(persona, topic, previousRounds, round1All, contentio
   order.forEach(k => {
     prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
   });
+  if (_aiDiscDiscussMode === 'ogiri') {
+    if (contention) prompt += `【司会者が挙げた切り口】\n${contention}\n\n`;
+    prompt += '他の2人の回答に乗っかったりツッコミを入れたりしながら、第2ラウンドの回答を150〜250字程度で出してください。';
+    if (contention) prompt += '司会者が挙げた切り口も活かしてください。';
+    prompt += '前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+    return prompt;
+  }
   if (contention) {
     prompt += `【司会者が整理した争点】\n${contention}\n\n`;
   }
@@ -959,6 +1013,41 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, con
 **次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）
 
 議題が賛否を問える形式でない場合は、各MAGIの判定と決議を省略し、**総合回答：**以降のみを出力してください。`;
+  } else if (_aiDiscDiscussMode === 'sengoku') {
+    openingLine = `あなたは戦国の軍議をまとめる主君です。以下は3人の家臣（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの軍議の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で裁定をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**各将の進言：**（箇条書きで3行。「軍師 玄洲: 一言でまとめた献策」の形式）
+**軍議の沙汰：**（主君としての決定。時代劇の沙汰らしい言い回しで）
+**勝機：**（うまくいくための条件を箇条書き）
+**懸念：**（負け筋・注意すべき点を箇条書き）
+**次の一手：**（明日からなすべきことを1〜3個の箇条書き）`;
+  } else if (_aiDiscDiscussMode === 'jikan') {
+    openingLine = `あなたは「時間軸会議」の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**過去からの教訓：**（歴史・前例から言えることを箇条書き）
+**現在の制約：**（今の現実的な制約を箇条書き）
+**未来への影響：**（この選択が将来どう効いてくるかを箇条書き）
+**総合回答：**（まとめ）
+**次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）`;
+  } else if (_aiDiscDiscussMode === 'devil') {
+    openingLine = `あなたは「悪魔の代弁者方式」の議論の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。悪魔の代弁者は役目としてあえて反対論を述べている点に留意してください。`;
+    outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**合意点：**（箇条書き）
+**悪魔の代弁者の最強の反論：**（最も鋭かった反論を箇条書きで2〜3個）
+**反対論への回答：**（それらの反論に最終的にどう答えるか）
+**総合回答：**（まとめ）
+**前提条件：**（この結論が成り立つための条件・仮定を箇条書き）
+**次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）`;
+  } else if (_aiDiscDiscussMode === 'ogiri') {
+    openingLine = `あなたは大喜利の審査員です。以下は3人の回答者（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの大喜利の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で結果発表をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**今日のハイライト：**（特に面白かった回答を箇条書きで2〜3個引用し、それぞれ一言講評）
+**今日の優勝：**（3人のうち1人を選び、理由を一言）
+**審査員より締めの一言：**（お題に絡めた気の利いた締め）`;
   } else if (_aiDiscDiscussMode === 'mahjong') {
     openingLine = `あなたは「麻雀格言会議」の進行役です。以下は3人の雀士AI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
     outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
@@ -990,7 +1079,9 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, con
     prompt += `▼ ${P[k].name}\n${round2All[k]}\n\n`;
   });
   prompt += outputFormat;
-  prompt += '\n\n第2ラウンドで固有名詞・用語・事実関係の誤りが指摘・訂正されている場合は、訂正後の正しい情報を前提として総合回答をまとめてください。';
+  if (_aiDiscDiscussMode !== 'ogiri') {
+    prompt += '\n\n第2ラウンドで固有名詞・用語・事実関係の誤りが指摘・訂正されている場合は、訂正後の正しい情報を前提として総合回答をまとめてください。';
+  }
   if (previousRounds && previousRounds.length) {
     prompt += `\n\n冒頭に、今回追加された条件「${topic}」を一文で明記してください。`;
   }
@@ -1018,13 +1109,14 @@ function _composeAiDiscMd(round1All, round2All, conclusion) {
     if (round1All && round1All[k]) out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
   });
   if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
-    out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
-    if (_aiDiscAutoContention) out += `### 🎙️ 司会者による争点整理\n${_aiDiscAutoContention.trim()}\n\n`;
+    const isOgiri = _aiDiscDiscussMode === 'ogiri';
+    out += isOgiri ? '---\n\n## 第2ラウンド：乗っかり・ツッコミ\n\n' : '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
+    if (_aiDiscAutoContention) out += `### 🎙️ ${isOgiri ? '司会者が挙げた切り口' : '司会者による争点整理'}\n${_aiDiscAutoContention.trim()}\n\n`;
     order.forEach(k => {
       if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
     });
   }
-  const conclusionHeading = _aiDiscDiscussMode === 'magi' ? '決議' : '結論';
+  const conclusionHeading = { magi: '決議', sengoku: '軍議の沙汰', ogiri: '結果発表' }[_aiDiscDiscussMode] || '結論';
   if (conclusion) out += `---\n\n## 📋 ${conclusionHeading}\n${conclusion.trim()}\n`;
   return out;
 }
@@ -1116,7 +1208,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     }
 
     if (!contention) {
-      statusEl.textContent = '司会者が争点を整理中...(2/4)';
+      statusEl.textContent = _aiDiscDiscussMode === 'ogiri' ? '司会者が切り口を整理中...(2/4)' : '司会者が争点を整理中...(2/4)';
       contention = await _callGroqApi(_buildContentionPrompt(topic, previousRounds, round1All), _P().logic.groqModel, 300);
       _aiDiscAutoContention = contention;
       _aiDiscAutoProgress.contention = contention;
