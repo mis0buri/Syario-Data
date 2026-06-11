@@ -901,11 +901,25 @@ async function continueAiDiscussion() {
 function _buildRound1Prompt(persona, topic, previousRounds) {
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
   prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
-  prompt += '上記について、あなたの第1ラウンドの意見を200〜300字程度で述べてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+  prompt += '上記について、あなたの第1ラウンドの意見を200〜300字程度で述べてください。最初の一文であなたの結論を端的に述べ、そのあとに理由を続けてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
   return prompt;
 }
 
-function _buildRound2Prompt(persona, topic, previousRounds, round1All) {
+// 第1ラウンドの3意見から、第2ラウンドで掘り下げるべき争点を司会者役に抽出させる
+function _buildContentionPrompt(topic, previousRounds, round1All) {
+  const P = _P();
+  const order = _P_ORDER();
+  let prompt = 'あなたは3人のAIによる議論の司会者です。\n\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += '【第1ラウンドでの各AIの意見】\n\n';
+  order.forEach(k => {
+    prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
+  });
+  prompt += '3人の意見を比較し、実際に見解が対立・相違している争点を2〜3個抽出してください。「- 争点1: …」の形式の箇条書きのみを出力し、前置きや解説は付けないでください。明確な対立がない場合は、結論を出すために掘り下げるべき論点を挙げてください。';
+  return prompt;
+}
+
+function _buildRound2Prompt(persona, topic, previousRounds, round1All, contention) {
   const P = _P();
   const order = _P_ORDER();
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
@@ -914,7 +928,12 @@ function _buildRound2Prompt(persona, topic, previousRounds, round1All) {
   order.forEach(k => {
     prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
   });
-  prompt += '上記の他の2人の意見を踏まえ、反論や補足を含めたあなたの第2ラウンドの意見を150〜250字程度で述べてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+  if (contention) {
+    prompt += `【司会者が整理した争点】\n${contention}\n\n`;
+  }
+  prompt += '上記の他の2人の意見を踏まえ、反論や補足を含めたあなたの第2ラウンドの意見を200〜300字程度で述べてください。';
+  if (contention) prompt += '司会者が整理した各争点に対して、あなたの立場を明確にしてください。';
+  prompt += '最初の一文で現時点のあなたの結論を端的に述べ、最後に「どのような事実や条件が示されれば自分の立場を変えるか」を一つ挙げてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
   prompt += '\n\nまた、他の2人の発言の中に固有名詞・用語・事実関係などで明らかな誤認識や間違いがあれば、必ず指摘し正しい情報を示してください（誤りがなければ無理に指摘する必要はありません）。';
   if (previousRounds && previousRounds.length) {
     prompt += '\n\n前回（追加条件適用前）の自分の見解からどう変わったか／変わらないかにも触れてください。';
@@ -922,7 +941,7 @@ function _buildRound2Prompt(persona, topic, previousRounds, round1All) {
   return prompt;
 }
 
-function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
+function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, contention) {
   const P = _P();
   const order = _P_ORDER();
   const isMagi = _aiDiscDiscussMode === 'magi';
@@ -936,21 +955,27 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
 **各MAGIの判定：**（箇条書きで3行。「MAGI-1 メルキオール: 賛成／否決／条件付 — 一言理由」の形式）
 **決議：**（「可決（全会一致）」「可決（2対1）」「否決（2対1）」「否決（全会一致）」のいずれか）
 **総合回答：**（まとめ）
+**前提条件：**（この決議が成り立つための条件・仮定を箇条書き）
+**次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）
 
-議題が賛否を問える形式でない場合は、各MAGIの判定と決議を省略し、**総合回答：**のみを出力してください。`;
+議題が賛否を問える形式でない場合は、各MAGIの判定と決議を省略し、**総合回答：**以降のみを出力してください。`;
   } else if (_aiDiscDiscussMode === 'mahjong') {
     openingLine = `あなたは「麻雀格言会議」の進行役です。以下は3人の雀士AI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
     outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
 
 **各雀士の結論：**（箇条書きで3行。「デジタル派: 一言でまとめた立場」の形式）
-**総合回答：**（まとめ。可能であれば麻雀の格言を一つ引用して締めくくってください）`;
+**総合回答：**（まとめ。可能であれば麻雀の格言を一つ引用して締めくくってください）
+**前提条件：**（この結論が成り立つための条件・仮定を箇条書き）
+**次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）`;
   } else {
     openingLine = `あなたは「マルチAI議論シミュレーター」の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
     outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
 
 **合意点：**（箇条書き）
-**相違点：**（箇条書き）
-**総合回答：**（まとめ）`;
+**相違点：**（箇条書き。司会者が整理した争点ごとに、最終的に誰がどの立場だったかが分かるように）
+**総合回答：**（まとめ）
+**前提条件：**（この結論が成り立つための条件・仮定を箇条書き）
+**次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）`;
   }
 
   let prompt = openingLine + '\n\n';
@@ -959,6 +984,7 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
   order.forEach(k => {
     prompt += `▼ ${P[k].name}\n${round1All[k]}\n\n`;
   });
+  if (contention) prompt += `【司会者による争点整理】\n${contention}\n\n`;
   prompt += `【第2ラウンド】\n`;
   order.forEach(k => {
     prompt += `▼ ${P[k].name}\n${round2All[k]}\n\n`;
@@ -980,6 +1006,9 @@ async function _callPersonaApi(personaKey, prompt, maxTokens, onDelta) {
   return await _callGroqApi(prompt, persona.groqModel, maxTokens, onDelta);
 }
 
+// 自動実行中の争点整理テキスト（プレビュー組成と保存Markdownの両方で参照する）
+let _aiDiscAutoContention = null;
+
 function _composeAiDiscMd(round1All, round2All, conclusion) {
   // 議論全体のMarkdownを組み立てる（未完了の部分は省略されるため、生成途中のプレビューにも使える）
   const P = _P();
@@ -990,6 +1019,7 @@ function _composeAiDiscMd(round1All, round2All, conclusion) {
   });
   if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
     out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
+    if (_aiDiscAutoContention) out += `### 🎙️ 司会者による争点整理\n${_aiDiscAutoContention.trim()}\n\n`;
     order.forEach(k => {
       if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
     });
@@ -1061,16 +1091,20 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     // 再開時に前のステージの結果を再利用
     let round1All = null;
     let round2All = null;
+    let contention = null;
     if (_aiDiscAutoProgress && _aiDiscAutoProgress.key === progressKey) {
       round1All = _aiDiscAutoProgress.round1All;
       round2All = _aiDiscAutoProgress.round2All;
+      contention = _aiDiscAutoProgress.contention || null;
+      _aiDiscAutoContention = contention;
       if (round1All) _renderAiDiscAutoPartial(round1All, round2All, null);
     } else {
+      _aiDiscAutoContention = null;
       document.getElementById('ai-disc-auto-preview').innerHTML = '';
     }
 
     if (!round1All) {
-      statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
+      statusEl.textContent = '第1ラウンドの意見を取得中...(1/4)';
       const round1All_obj = { logic: null, nova: null, guard: null };
       const P = _P();
       const order = _P_ORDER();
@@ -1078,30 +1112,37 @@ async function runAiDiscussionAuto(topic, previousRounds) {
         personaThunk(k, _buildRound1Prompt(P[k], topic, previousRounds), 500, round1All_obj, null)
       ), 1500);
       round1All = round1All_obj;
-      _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null };
+      _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null, contention: null };
+    }
+
+    if (!contention) {
+      statusEl.textContent = '司会者が争点を整理中...(2/4)';
+      contention = await _callGroqApi(_buildContentionPrompt(topic, previousRounds, round1All), _P().logic.groqModel, 300);
+      _aiDiscAutoContention = contention;
+      _aiDiscAutoProgress.contention = contention;
     }
 
     if (!round2All) {
-      statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
+      statusEl.textContent = '第2ラウンドの意見を取得中...(3/4)';
       const round2All_obj = { logic: null, nova: null, guard: null };
       const P = _P();
       const order = _P_ORDER();
       await _staggeredAll(order.map(k =>
-        personaThunk(k, _buildRound2Prompt(P[k], topic, previousRounds, round1All), 400, round2All_obj, round1All)
+        personaThunk(k, _buildRound2Prompt(P[k], topic, previousRounds, round1All, contention), 500, round2All_obj, round1All)
       ), 1500);
       round2All = round2All_obj;
       _aiDiscAutoProgress.round2All = round2All;
     }
 
-    statusEl.textContent = '結論をまとめています...(3/3)';
+    statusEl.textContent = '結論をまとめています...(4/4)';
     const P = _P();
-    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), P.logic.groqModel, 800,
+    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All, contention), P.logic.groqModel, 800,
         t => _renderAiDiscAutoPartialThrottled(round1All, round2All, t));
 
     _renderAiDiscAutoPartial(round1All, round2All, conclusion);
     _aiDiscAutoOutput = {
       output: _composeAiDiscMd(round1All, round2All, conclusion),
-      detail: { round1: round1All, round2: round2All, conclusion },
+      detail: { round1: round1All, round2: round2All, contention, conclusion },
     };
     saveBtn.style.display = '';
     _aiDiscAutoProgress = null;
