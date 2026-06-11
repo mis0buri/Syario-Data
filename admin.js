@@ -835,6 +835,7 @@ function _buildRound2Prompt(persona, topic, previousRounds, round1All) {
   prompt += `▼ ${P.nova.name}（革新派AI）\n${round1All.nova}\n\n`;
   prompt += `▼ ${P.guard.name}（慎重派AI）\n${round1All.guard}\n\n`;
   prompt += '上記の他の2人の意見を踏まえ、反論や補足を含めたあなたの第2ラウンドの意見を150〜250字程度で述べてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
+  prompt += '\n\nまた、他の2人の発言の中に固有名詞・用語・事実関係などで明らかな誤認識や間違いがあれば、必ず指摘し正しい情報を示してください（誤りがなければ無理に指摘する必要はありません）。';
   if (previousRounds && previousRounds.length) {
     prompt += '\n\n前回（追加条件適用前）の自分の見解からどう変わったか／変わらないかにも触れてください。';
   }
@@ -848,6 +849,7 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
   prompt += `【第1ラウンド】\n▼ ${P.logic.name}\n${round1All.logic}\n\n▼ ${P.nova.name}\n${round1All.nova}\n\n▼ ${P.guard.name}\n${round1All.guard}\n\n`;
   prompt += `【第2ラウンド】\n▼ ${P.logic.name}\n${round2All.logic}\n\n▼ ${P.nova.name}\n${round2All.nova}\n\n▼ ${P.guard.name}\n${round2All.guard}\n\n`;
   prompt += 'これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。\n\n**合意点：**（箇条書き）\n**相違点：**（箇条書き）\n**総合回答：**（まとめ）';
+  prompt += '\n\n第2ラウンドで固有名詞・用語・事実関係の誤りが指摘・訂正されている場合は、訂正後の正しい情報を前提として総合回答をまとめてください。';
   if (previousRounds && previousRounds.length) {
     prompt += `\n\n冒頭に、今回追加された条件「${topic}」を一文で明記してください。`;
   }
