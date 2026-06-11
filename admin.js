@@ -744,10 +744,34 @@ function _renderAiDiscussionList() {
     const dateStr = date ? `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()}` : '';
     const roundCount = (d.rounds || []).length;
     return `<div class="admin-gather-card" onclick="openAiDiscussionDetail('${d.id}')">
-      <div class="admin-gather-date">${_esc(d.title || d.topic || '(無題)')}</div>
-      <div class="admin-gather-meta">${dateStr}　全${roundCount}ラウンド</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="min-width:0">
+          <div class="admin-gather-date">${_esc(d.title || d.topic || '(無題)')}</div>
+          <div class="admin-gather-meta">${dateStr}　全${roundCount}ラウンド</div>
+        </div>
+        <button class="admin-btn sm danger" style="flex-shrink:0;" onclick="event.stopPropagation(); deleteAiDiscussion('${d.id}')">削除</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+async function deleteAiDiscussion(id) {
+  if (!_isAdmin || !_db) return;
+  const doc = _aiDiscList.find(d => d.id === id) || (_aiDiscCurrentId === id ? _aiDiscCurrentDoc : null);
+  const title = doc?.title || doc?.topic || 'この議論';
+  if (!confirm(`「${title}」を削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    await _db.collection('ai_discussions').doc(id).delete();
+    _aiDiscList = _aiDiscList.filter(d => d.id !== id);
+    if (_aiDiscCurrentId === id) {
+      _aiDiscCurrentId = null;
+      _aiDiscCurrentDoc = null;
+      _aiDiscShowScreen('ai-disc-list-screen');
+    }
+    _renderAiDiscussionList();
+  } catch(e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
 }
 
 function _aiDiscShowScreen(id) {
@@ -763,6 +787,7 @@ function openNewAiDiscussion() {
   _aiDiscDiscussMode = 'default';
   document.getElementById('ai-disc-topic-input').value = '';
   document.getElementById('ai-disc-rounds').innerHTML = '';
+  document.getElementById('ai-disc-delete-btn').style.display = 'none';
   document.getElementById('ai-disc-new-form').style.display = '';
   document.getElementById('ai-disc-continue-form').style.display = 'none';
   document.getElementById('ai-disc-auto-area').style.display = 'none';
@@ -1262,6 +1287,7 @@ async function openAiDiscussionDetail(id) {
   document.getElementById('ai-disc-rounds').innerHTML = '<div class="admin-empty">読み込み中...</div>';
   document.getElementById('ai-disc-continue-form').style.display = 'none';
   document.getElementById('ai-disc-auto-area').style.display = 'none';
+  document.getElementById('ai-disc-delete-btn').style.display = 'none';
   _aiDiscShowScreen('ai-disc-detail-screen');
   try {
     const doc = await _db.collection('ai_discussions').doc(id).get();
@@ -1275,6 +1301,7 @@ async function openAiDiscussionDetail(id) {
     _renderAiDiscussionRounds();
     document.getElementById('ai-disc-continue-input').value = '';
     document.getElementById('ai-disc-continue-form').style.display = '';
+    document.getElementById('ai-disc-delete-btn').style.display = '';
   } catch(e) {
     document.getElementById('ai-disc-rounds').innerHTML = `<div class="admin-empty">読み込みに失敗しました: ${_esc(e.message)}</div>`;
   }

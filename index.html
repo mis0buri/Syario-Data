@@ -1148,7 +1148,10 @@
 
       <!-- 詳細・新規画面 -->
       <div id="ai-disc-detail-screen" class="admin-sub-screen">
-        <button class="admin-btn sm" style="margin-bottom:12px;" onclick="closeAiDiscussionDetail()">← 一覧に戻る</button>
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:12px;">
+          <button class="admin-btn sm" onclick="closeAiDiscussionDetail()">← 一覧に戻る</button>
+          <button class="admin-btn sm danger" id="ai-disc-delete-btn" style="display:none;" onclick="deleteAiDiscussion(_aiDiscCurrentId)">この議論を削除</button>
+        </div>
 
         <div id="ai-disc-new-form">
           <div class="admin-form-group">
