@@ -585,11 +585,21 @@ let _aiDiscAutoProgress = null; // 途中失敗時の再開用 { key, round1All,
 
 let _aiDiscApiKeys = { gemini: '', groq: '' };
 
+// Groqの無料モデルは改廃があるため、ペルソナごとのモデルは設定で差し替え可能（空欄ならデフォルト）
+const _AI_DISC_DEFAULT_MODELS = { logic: 'openai/gpt-oss-120b', nova: 'openai/gpt-oss-20b', guard: 'llama-3.3-70b-versatile' };
+
 const _AI_DISC_PERSONAS = {
-  logic: { name: 'ロジック', emoji: '🔵', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。', groqModel: 'openai/gpt-oss-120b' },
-  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: 'openai/gpt-oss-20b' },
-  guard: { name: 'ガード',   emoji: '🟢', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', groqModel: 'llama-3.3-70b-versatile' },
+  logic: { name: 'ロジック', emoji: '🔵', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: 'ガード',   emoji: '🟢', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
 };
+
+function _applyAiDiscModels() {
+  const models = _aiDiscApiKeys.models || {};
+  Object.keys(_AI_DISC_PERSONAS).forEach(k => {
+    _AI_DISC_PERSONAS[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
+  });
+}
 
 async function initAdminAiDiscuss() {
   if (!_isAdmin || !_db) return;
@@ -613,10 +623,17 @@ async function _loadAiDiscApiKeys() {
   } catch(e) {
     _aiDiscApiKeys = { gemini: '', groq: '' };
   }
+  _applyAiDiscModels();
   const geminiInput = document.getElementById('ai-disc-gemini-key');
   const groqInput = document.getElementById('ai-disc-groq-key');
   if (geminiInput) geminiInput.value = _aiDiscApiKeys.gemini || '';
   if (groqInput) groqInput.value = _aiDiscApiKeys.groq || '';
+  const modelLogicInput = document.getElementById('ai-disc-model-logic');
+  const modelNovaInput = document.getElementById('ai-disc-model-nova');
+  const modelGuardInput = document.getElementById('ai-disc-model-guard');
+  if (modelLogicInput) modelLogicInput.value = _aiDiscApiKeys.models?.logic || '';
+  if (modelNovaInput) modelNovaInput.value = _aiDiscApiKeys.models?.nova || '';
+  if (modelGuardInput) modelGuardInput.value = _aiDiscApiKeys.models?.guard || '';
 }
 
 async function saveAiDiscApiKeys() {
@@ -624,12 +641,17 @@ async function saveAiDiscApiKeys() {
   const statusEl = document.getElementById('ai-disc-keys-status');
   const gemini = document.getElementById('ai-disc-gemini-key').value.trim();
   const groq = document.getElementById('ai-disc-groq-key').value.trim();
+  const logic = document.getElementById('ai-disc-model-logic').value.trim();
+  const nova = document.getElementById('ai-disc-model-nova').value.trim();
+  const guard = document.getElementById('ai-disc-model-guard').value.trim();
+  const models = { logic, nova, guard };
   statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
   try {
     await _db.collection('admin_secrets').doc('api_keys').set({
-      gemini, groq, openai: firebase.firestore.FieldValue.delete(), claude: firebase.firestore.FieldValue.delete(),
+      gemini, groq, models, openai: firebase.firestore.FieldValue.delete(), claude: firebase.firestore.FieldValue.delete(),
     }, { merge: true });
-    _aiDiscApiKeys = { gemini, groq };
+    _aiDiscApiKeys = { gemini, groq, models };
+    _applyAiDiscModels();
     statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
   } catch(e) {
     statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';

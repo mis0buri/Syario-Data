@@ -1115,7 +1115,24 @@
             </div>
             <div id="ai-disc-groq-test-status" class="admin-status"></div>
           </div>
-          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」がGeminiで発言します。</p>
+          <div class="admin-form-group">
+            <label>Groqモデル設定（空欄でデフォルト）</label>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🔵 ロジック</span>
+                <input type="text" id="ai-disc-model-logic" class="admin-input" placeholder="openai/gpt-oss-120b" autocomplete="off" style="flex:1;">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🟠 ノヴァ</span>
+                <input type="text" id="ai-disc-model-nova" class="admin-input" placeholder="openai/gpt-oss-20b" autocomplete="off" style="flex:1;">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🟢 ガード</span>
+                <input type="text" id="ai-disc-model-guard" class="admin-input" placeholder="llama-3.3-70b-versatile" autocomplete="off" style="flex:1;">
+              </div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」はGeminiを優先して発言します。モデル名は<a href="https://console.groq.com/docs/models" target="_blank" style="color:var(--accent)">Groqのモデル一覧</a>を参照。</p>
           <div id="ai-disc-keys-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
         </div>
