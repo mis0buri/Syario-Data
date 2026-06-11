@@ -580,7 +580,7 @@ let _aiDiscList = [];
 let _aiDiscCurrentId = null;
 let _aiDiscCurrentDoc = null;
 let _aiDiscMode = 'new'; // 'new' | 'continue'
-let _aiDiscAutoOutput = null; // 自動生成された議論（保存待ち）
+let _aiDiscAutoOutput = null; // 自動生成された議論（保存待ち。output=Markdown, detail=構造化データ）
 let _aiDiscAutoProgress = null; // 途中失敗時の再開用 { key, round1All, round2All }
 
 let _aiDiscApiKeys = { gemini: '', groq: '' };
@@ -740,7 +740,7 @@ async function _callGeminiApi(prompt) {
   return text;
 }
 
-async function _callGroqApi(prompt, model, maxTokens, _retryCount = 0) {
+async function _callGroqApi(prompt, model, maxTokens, onDelta, _retryCount = 0) {
   const key = _aiDiscApiKeys.groq;
   const body = {
     model: model || 'llama-3.3-70b-versatile',
@@ -749,6 +749,8 @@ async function _callGroqApi(prompt, model, maxTokens, _retryCount = 0) {
   };
   // gpt-ossは推論モデルのため、reasoningにmax_tokensを使い切って本文が空になるのを防ぐ
   if (body.model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
+  // ストリーミング用：onDeltaが指定されている場合、stream=trueを追加
+  if (onDelta) body.stream = true;
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
@@ -761,10 +763,39 @@ async function _callGroqApi(prompt, model, maxTokens, _retryCount = 0) {
       const m = detail.match(/try again in ([\d.]+)s/i);
       const waitMs = Math.min(m ? parseFloat(m[1]) : 5, 30) * 1000 + 500;
       await new Promise(r => setTimeout(r, waitMs));
-      return _callGroqApi(prompt, model, maxTokens, _retryCount + 1);
+      return _callGroqApi(prompt, model, maxTokens, onDelta, _retryCount + 1);
     }
     await _throwApiError(res, 'Groq');
   }
+
+  // ストリーミング時の処理
+  if (onDelta) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let full = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop(); // 末尾の不完全な行は次のチャンクへ持ち越す
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('data:')) continue;
+        const payload = t.slice(5).trim();
+        if (payload === '[DONE]') continue;
+        try {
+          const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content || '';
+          if (delta) { full += delta; onDelta(full); }
+        } catch(e) {}
+      }
+    }
+    if (!full) throw new Error('Groqからの応答が空です');
+    return full;
+  }
+
+  // 非ストリーミング時の処理
   const data = await res.json();
   const text = data?.choices?.[0]?.message?.content || '';
   if (!text) throw new Error('Groqからの応答が空です');
@@ -804,11 +835,19 @@ async function testAiDiscApiKey(provider) {
 }
 
 // ── プロンプト組み立て ──
+// 過去ラウンドは結論部分だけをプロンプトに渡す（継続のたびにトークン消費が増えるのを防ぐ）
+function _aiDiscRoundSummary(r) {
+  if (r.detail && r.detail.conclusion) return r.detail.conclusion;
+  const parts = (r.output || '').split(/##\s*📋\s*結論/);
+  if (parts.length > 1) return parts[parts.length - 1].trim();
+  return (r.output || '').slice(0, 800);
+}
+
 function _aiDiscContextBlock(topic, previousRounds) {
   if (previousRounds && previousRounds.length) {
     let block = '【これまでの議論】\n\n';
     previousRounds.forEach((r, i) => {
-      block += `▼ ${i === 0 ? '初回の議題' : `追加条件${i}`}: ${r.input}\n\n${r.output}\n\n`;
+      block += `▼ ${i === 0 ? '初回の議題' : `追加条件${i}`}: ${r.input}\n（結論の抜粋）\n${_aiDiscRoundSummary(r)}\n\n`;
     });
     block += `【追加の条件・質問】\n${topic}\n`;
     return block;
@@ -878,13 +917,13 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
   return prompt;
 }
 
-async function _callPersonaApi(personaKey, prompt, maxTokens) {
+async function _callPersonaApi(personaKey, prompt, maxTokens, onDelta) {
   const persona = _AI_DISC_PERSONAS[personaKey];
   if (personaKey === 'nova' && _aiDiscApiKeys.gemini) {
     try { return await _callGeminiApi(prompt); }
-    catch(e) { return await _callGroqApi(prompt, persona.groqModel, maxTokens); } // Gemini失敗時はGroqが代行
+    catch(e) { return await _callGroqApi(prompt, persona.groqModel, maxTokens, onDelta); } // Gemini失敗時はGroqが代行
   }
-  return await _callGroqApi(prompt, persona.groqModel, maxTokens);
+  return await _callGroqApi(prompt, persona.groqModel, maxTokens, onDelta);
 }
 
 function _composeAiDiscAutoOutput(round1All, round2All, conclusion) {
@@ -906,6 +945,15 @@ function _staggeredAll(thunks, delayMs) {
   return Promise.all(thunks.map((thunk, i) =>
     new Promise(resolve => setTimeout(resolve, i * delayMs)).then(thunk)
   ));
+}
+
+// ストリーミング中の再描画は120msに1回まで（最終結果は_renderAiDiscAutoPartialを直接呼ぶ）
+let _aiDiscLastPartialRender = 0;
+function _renderAiDiscAutoPartialThrottled(round1All, round2All, conclusion) {
+  const now = Date.now();
+  if (now - _aiDiscLastPartialRender < 120) return;
+  _aiDiscLastPartialRender = now;
+  _renderAiDiscAutoPartial(round1All, round2All, conclusion);
 }
 
 function _renderAiDiscAutoPartial(round1All, round2All, conclusion) {
@@ -955,11 +1003,14 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
       const round1All_obj = { logic: null, nova: null, guard: null };
       await _staggeredAll([
-        () => _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500)
+        () => _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500,
+            t => { round1All_obj.logic = t; _renderAiDiscAutoPartialThrottled(round1All_obj, null, null); })
           .then(t => { round1All_obj.logic = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
-        () => _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500)
+        () => _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500,
+            t => { round1All_obj.nova = t; _renderAiDiscAutoPartialThrottled(round1All_obj, null, null); })
           .then(t => { round1All_obj.nova = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
-        () => _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500)
+        () => _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500,
+            t => { round1All_obj.guard = t; _renderAiDiscAutoPartialThrottled(round1All_obj, null, null); })
           .then(t => { round1All_obj.guard = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
       ], 1500);
       round1All = round1All_obj;
@@ -970,11 +1021,14 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
       const round2All_obj = { logic: null, nova: null, guard: null };
       await _staggeredAll([
-        () => _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400)
+        () => _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400,
+            t => { round2All_obj.logic = t; _renderAiDiscAutoPartialThrottled(round1All, round2All_obj, null); })
           .then(t => { round2All_obj.logic = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
-        () => _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400)
+        () => _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400,
+            t => { round2All_obj.nova = t; _renderAiDiscAutoPartialThrottled(round1All, round2All_obj, null); })
           .then(t => { round2All_obj.nova = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
-        () => _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400)
+        () => _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400,
+            t => { round2All_obj.guard = t; _renderAiDiscAutoPartialThrottled(round1All, round2All_obj, null); })
           .then(t => { round2All_obj.guard = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
       ], 1500);
       round2All = round2All_obj;
@@ -982,10 +1036,14 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     }
 
     statusEl.textContent = '結論をまとめています...(3/3)';
-    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel, 800);
+    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel, 800,
+        t => _renderAiDiscAutoPartialThrottled(round1All, round2All, t));
 
     _renderAiDiscAutoPartial(round1All, round2All, conclusion);
-    _aiDiscAutoOutput = _composeAiDiscAutoOutput(round1All, round2All, conclusion);
+    _aiDiscAutoOutput = {
+      output: _composeAiDiscAutoOutput(round1All, round2All, conclusion),
+      detail: { round1: round1All, round2: round2All, conclusion },
+    };
     saveBtn.style.display = '';
     _aiDiscAutoProgress = null;
     statusEl.textContent = '議論が完成しました ✓'; statusEl.className = 'admin-status ok';
@@ -1068,10 +1126,11 @@ function _renderAiDiscMarkdown(text) {
 }
 
 // 議論ラウンド1件をFirestoreに保存（新規作成 or 既存ドキュメントへの追記）
-async function _saveAiDiscRound(output, statusEl) {
+async function _saveAiDiscRound(output, statusEl, detail) {
   if (_aiDiscMode === 'continue' && _aiDiscCurrentId) {
     const addCond = document.getElementById('ai-disc-continue-input').value.trim();
     const round = { input: addCond, output, createdAt: new Date().toISOString() };
+    if (detail) round.detail = detail;
     const rounds = [...(_aiDiscCurrentDoc.rounds || []), round];
     await _db.collection('ai_discussions').doc(_aiDiscCurrentId).update({
       rounds, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1086,6 +1145,7 @@ async function _saveAiDiscRound(output, statusEl) {
     if (!topic) { statusEl.textContent = '議題を入力してください'; statusEl.className = 'admin-status error'; return false; }
     const title = topic.length > 30 ? topic.slice(0, 30) + '…' : topic;
     const round = { input: topic, output, createdAt: new Date().toISOString() };
+    if (detail) round.detail = detail;
     const ref = await _db.collection('ai_discussions').add({
       topic, title, rounds: [round],
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1104,7 +1164,7 @@ async function saveAiDiscussionAuto() {
   btn.disabled = true;
   statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
   try {
-    const ok = await _saveAiDiscRound(_aiDiscAutoOutput, statusEl);
+    const ok = await _saveAiDiscRound(_aiDiscAutoOutput.output, statusEl, _aiDiscAutoOutput.detail);
     if (ok) {
       _aiDiscAutoOutput = null;
       document.getElementById('ai-disc-auto-area').style.display = 'none';
