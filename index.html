@@ -1115,7 +1115,7 @@
             </div>
             <div id="ai-disc-groq-test-status" class="admin-status"></div>
           </div>
-          <p style="font-size:12px;color:var(--dim);">Groq APIキーを設定すると、議題の入力だけで議論を自動実行できます（未設定の場合は手動でClaudeに貼り付ける従来方式になります）。</p>
+          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」がGeminiで発言します。</p>
           <div id="ai-disc-keys-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
         </div>
@@ -1138,7 +1138,7 @@
             <label>議題・質問・条件</label>
             <textarea id="ai-disc-topic-input" class="admin-textarea" rows="4" placeholder="議論したいテーマや質問を入力してください"></textarea>
           </div>
-          <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-btn" onclick="generateAiDiscussionPrompt()">プロンプトを生成</button>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-btn" onclick="generateAiDiscussionPrompt()">議論を実行</button>
         </div>
 
         <div id="ai-disc-rounds"></div>
@@ -1149,23 +1149,11 @@
             <label>追加の条件・質問</label>
             <textarea id="ai-disc-continue-input" class="admin-textarea" rows="3" placeholder="追加の条件や質問を入力してください"></textarea>
           </div>
-          <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-continue-btn" onclick="generateAiDiscussionContinuePrompt()">続きのプロンプトを生成</button>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-continue-btn" onclick="generateAiDiscussionContinuePrompt()">続きを実行</button>
         </div>
 
         <div id="ai-disc-status" class="admin-status" style="margin-top:12px;"></div>
 
-        <div id="ai-disc-prompt-area" style="display:none;margin-top:16px;">
-          <p style="font-size:12px;color:var(--dim);margin-bottom:8px;">① 下のプロンプトをコピーして <a href="https://claude.ai" target="_blank" style="color:var(--accent)">claude.ai</a> に送信<br>② 返ってきた回答をそのまま下に貼り付けて保存</p>
-          <div class="jare-prompt-box">
-            <div class="jare-prompt-text" id="ai-disc-prompt-text"></div>
-            <button type="button" class="jare-prompt-copy-btn" onclick="copyAiDiscussionPrompt()">コピー</button>
-          </div>
-          <div class="admin-form-group" style="margin-top:12px;">
-            <label>AIの回答を貼り付け</label>
-            <textarea id="ai-disc-response-input" class="admin-textarea" rows="8" placeholder="ここに回答を貼り付け"></textarea>
-          </div>
-          <button class="admin-btn primary" style="width:100%;" id="ai-disc-save-btn" onclick="saveAiDiscussion()">保存する</button>
-        </div>
 
         <div id="ai-disc-auto-area" style="display:none;margin-top:16px;">
           <div class="ai-disc-round">

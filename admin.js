@@ -580,9 +580,8 @@ let _aiDiscList = [];
 let _aiDiscCurrentId = null;
 let _aiDiscCurrentDoc = null;
 let _aiDiscMode = 'new'; // 'new' | 'continue'
-let _aiDiscNovaText = null; // Geminiが生成した「ノヴァ」の意見（手動モード用、未取得時はnull）
-let _aiDiscGuardText = null; // Groqが生成した「ガード」の意見（手動モード用、未取得時はnull）
-let _aiDiscAutoOutput = null; // Groqキー設定時に自動生成された議論（保存待ち）
+let _aiDiscAutoOutput = null; // 自動生成された議論（保存待ち）
+let _aiDiscAutoProgress = null; // 途中失敗時の再開用 { key, round1All, round2All }
 
 let _aiDiscApiKeys = { gemini: '', groq: '' };
 
@@ -595,16 +594,7 @@ const _AI_DISC_PERSONAS = {
 async function initAdminAiDiscuss() {
   if (!_isAdmin || !_db) return;
   await _loadAiDiscApiKeys();
-  _updateAiDiscButtonLabels();
   await _refreshAiDiscList();
-}
-
-function _updateAiDiscButtonLabels() {
-  const auto = !!_aiDiscApiKeys.groq;
-  const genBtn = document.getElementById('ai-disc-gen-btn');
-  const genContinueBtn = document.getElementById('ai-disc-gen-continue-btn');
-  if (genBtn) genBtn.textContent = auto ? '議論を実行' : 'プロンプトを生成';
-  if (genContinueBtn) genContinueBtn.textContent = auto ? '続きを実行' : '続きのプロンプトを生成';
 }
 
 function toggleAiDiscKeysPanel() {
@@ -640,7 +630,6 @@ async function saveAiDiscApiKeys() {
       gemini, groq, openai: firebase.firestore.FieldValue.delete(), claude: firebase.firestore.FieldValue.delete(),
     }, { merge: true });
     _aiDiscApiKeys = { gemini, groq };
-    _updateAiDiscButtonLabels();
     statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
   } catch(e) {
     statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
@@ -686,16 +675,13 @@ function openNewAiDiscussion() {
   _aiDiscCurrentId = null;
   _aiDiscCurrentDoc = null;
   _aiDiscMode = 'new';
-  _aiDiscNovaText = null;
-  _aiDiscGuardText = null;
   _aiDiscAutoOutput = null;
+  _aiDiscAutoProgress = null;
   document.getElementById('ai-disc-topic-input').value = '';
   document.getElementById('ai-disc-rounds').innerHTML = '';
   document.getElementById('ai-disc-new-form').style.display = '';
   document.getElementById('ai-disc-continue-form').style.display = 'none';
-  document.getElementById('ai-disc-prompt-area').style.display = 'none';
   document.getElementById('ai-disc-auto-area').style.display = 'none';
-  document.getElementById('ai-disc-response-input').value = '';
   const statusEl = document.getElementById('ai-disc-status');
   statusEl.textContent = ''; statusEl.className = 'admin-status';
   _aiDiscShowScreen('ai-disc-detail-screen');
@@ -705,7 +691,7 @@ function closeAiDiscussionDetail() {
   _aiDiscShowScreen('ai-disc-list-screen');
 }
 
-// ── Gemini / Groq / Claude 呼び出し ──
+// ── Gemini / Groq 呼び出し ──
 // レスポンスがエラーの場合、本文から詳細メッセージを抽出して例外を投げる
 async function _throwApiError(res, label) {
   let detail = '';
@@ -732,7 +718,7 @@ async function _callGeminiApi(prompt) {
   return text;
 }
 
-async function _callGroqApi(prompt, model, maxTokens, _retried) {
+async function _callGroqApi(prompt, model, maxTokens, _retryCount = 0) {
   const key = _aiDiscApiKeys.groq;
   const body = {
     model: model || 'llama-3.3-70b-versatile',
@@ -747,13 +733,13 @@ async function _callGroqApi(prompt, model, maxTokens, _retried) {
     body: JSON.stringify(body)
   });
   if (!res.ok) {
-    // レート制限(429)の場合は、エラー文中の待機秒数だけ待って一度だけ再試行する
-    if (res.status === 429 && !_retried) {
+    // レート制限(429)の場合は、エラー文中の待機秒数だけ待って最大2回まで再試行する
+    if (res.status === 429 && _retryCount < 2) {
       const detail = await res.text();
       const m = detail.match(/try again in ([\d.]+)s/i);
       const waitMs = Math.min(m ? parseFloat(m[1]) : 5, 30) * 1000 + 500;
       await new Promise(r => setTimeout(r, waitMs));
-      return _callGroqApi(prompt, model, maxTokens, true);
+      return _callGroqApi(prompt, model, maxTokens, _retryCount + 1);
     }
     await _throwApiError(res, 'Groq');
   }
@@ -808,119 +794,28 @@ function _aiDiscContextBlock(topic, previousRounds) {
   return `【テーマ】\n${topic}\n`;
 }
 
-function _buildPersonaSoloPrompt(name, emoji, desc, topic, previousRounds) {
-  let prompt = `あなたは「${name}」という名前のAIです。${desc}\n\n`;
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
-  prompt += `以下の構成でMarkdown形式で回答してください。\n\n`;
-  prompt += `## ${emoji} ${name}\n（200〜300字程度。テーマに対するあなたの見解）\n\n`;
-  prompt += `---\n\n### ${emoji} ${name}（第2ラウンド）\n（150〜250字。「ロジック」（論理的・データ重視のAI）と、もう一人の異なる視点のAIが同じ議論に参加している前提で、彼らから出されそうな指摘も意識しつつ、自分の意見を補足・深掘りしてください）`;
-  if (previousRounds && previousRounds.length) {
-    prompt += `\n\n前回の自分の見解からどう変わったか／変わらないかにも触れてください。`;
-  }
-  return prompt;
-}
-
-function _buildNovaPrompt(topic, previousRounds) {
-  return _buildPersonaSoloPrompt('ノヴァ', '🟠', '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', topic, previousRounds);
-}
-
-function _buildGuardPrompt(topic, previousRounds) {
-  return _buildPersonaSoloPrompt('ガード', '🟢', 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', topic, previousRounds);
-}
-
-function _buildClaudeDiscussionPrompt(topic, previousRounds, novaText, guardText) {
-  const writeNova = !novaText;
-  const writeGuard = !guardText;
-  let prompt = 'あなたは「マルチAI議論シミュレーター」のロジック（分析派AI：データと論理を重視し、客観的・体系的に分析する）担当として、議論を作成します。\n\n';
-
-  const provided = [];
-  if (novaText) provided.push(`【ノヴァ（革新派AI・楽観的で創造的）の意見】\n${novaText}`);
-  if (guardText) provided.push(`【ガード（慎重派AI・リスク重視で批判的）の意見】\n${guardText}`);
-  if (provided.length) {
-    prompt += '別のAIがすでに以下の意見を述べています。\n\n' + provided.join('\n\n') + '\n\n';
-  }
-
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
-
-  prompt += '以下の構成でMarkdown形式で出力してください。\n\n';
-  prompt += '## 🔵 ロジック\n（200〜300字程度の見解）\n\n';
-  if (writeNova) prompt += '## 🟠 ノヴァ\n（200〜300字程度の見解。革新派AI＝楽観的で創造的、新しい可能性やアイデアを提示）\n\n';
-  if (writeGuard) prompt += '## 🟢 ガード\n（200〜300字程度の見解。慎重派AI＝リスクや問題点を指摘、現実的な制約を重視）\n\n';
-  prompt += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
-  prompt += '### 🔵 ロジック\n（150〜250字。他の2人の意見を踏まえて）\n\n';
-  if (writeNova) prompt += '### 🟠 ノヴァ\n（150〜250字。他の2人の意見を踏まえて）\n\n';
-  if (writeGuard) prompt += '### 🟢 ガード\n（150〜250字。他の2人の意見を踏まえて）\n\n';
-  prompt += '---\n\n## 📋 結論\n**合意点：** （箇条書き）\n**相違点：** （箇条書き）\n**総合回答：** （まとめ）\n';
-
-  if (previousRounds && previousRounds.length) {
-    prompt += `\n結論部分の冒頭に、今回追加された条件「${topic}」を一文で明記してください。各AIが前回の見解からどう変わったか／変わらないかにも言及してください。`;
-  }
-  return prompt;
-}
-
-function _composeAiDiscOutput(claudeText, novaText, guardText) {
-  const parts = [claudeText.trim()];
-  if (novaText) parts.push(`## 🟠 ノヴァ\n\n${novaText.trim()}`);
-  if (guardText) parts.push(`## 🟢 ガード\n\n${guardText.trim()}`);
-  return parts.join('\n\n---\n\n');
-}
-
-async function _generateAiDiscPromptCommon(topic, previousRounds) {
-  const promptArea = document.getElementById('ai-disc-prompt-area');
-  const statusEl = document.getElementById('ai-disc-status');
-  const genBtns = ['ai-disc-gen-btn', 'ai-disc-gen-continue-btn'].map(id => document.getElementById(id)).filter(Boolean);
-
-  _aiDiscNovaText = null;
-  _aiDiscGuardText = null;
-
-  const hasGemini = !!_aiDiscApiKeys.gemini;
-  const warnings = [];
-
-  if (hasGemini) {
-    genBtns.forEach(b => b.disabled = true);
-    promptArea.style.display = 'none';
-    statusEl.textContent = 'Gemini の意見を取得中...';
-    statusEl.className = 'admin-status';
-
-    try {
-      _aiDiscNovaText = await _callGeminiApi(_buildNovaPrompt(topic, previousRounds));
-    } catch(e) {
-      warnings.push('Gemini: ' + e.message);
-    }
-
-    genBtns.forEach(b => b.disabled = false);
-  }
-
-  const prompt = _buildClaudeDiscussionPrompt(topic, previousRounds, _aiDiscNovaText, _aiDiscGuardText);
-  document.getElementById('ai-disc-prompt-text').textContent = prompt;
-  promptArea.style.display = '';
-  document.getElementById('ai-disc-response-input').value = '';
-
-  if (warnings.length) {
-    statusEl.textContent = '一部のAI取得に失敗しました（' + warnings.join(' / ') + '）。Claudeにその分も担当してもらいます。';
-    statusEl.className = 'admin-status error';
-  } else if (_aiDiscNovaText || _aiDiscGuardText) {
-    statusEl.textContent = 'Geminiの意見を取得しました。続けてClaudeのプロンプトをコピーしてください。';
-    statusEl.className = 'admin-status ok';
-  } else {
-    statusEl.textContent = '';
-    statusEl.className = 'admin-status';
-  }
-  promptArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 async function generateAiDiscussionPrompt() {
   const topic = document.getElementById('ai-disc-topic-input').value.trim();
   if (!topic) { alert('議題を入力してください'); return; }
-  if (_aiDiscApiKeys.groq) await runAiDiscussionAuto(topic, null);
-  else await _generateAiDiscPromptCommon(topic, null);
+  const statusEl = document.getElementById('ai-disc-status');
+  if (!_aiDiscApiKeys.groq) {
+    statusEl.textContent = 'Groq APIキーを設定してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  await runAiDiscussionAuto(topic, null);
 }
 
 async function generateAiDiscussionContinuePrompt() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
-  if (_aiDiscApiKeys.groq) await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
-  else await _generateAiDiscPromptCommon(addCond, _aiDiscCurrentDoc?.rounds || []);
+  const statusEl = document.getElementById('ai-disc-status');
+  if (!_aiDiscApiKeys.groq) {
+    statusEl.textContent = 'Groq APIキーを設定してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+  await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
 // ── 自動実行（Groqキー設定時）: 第1ラウンド→第2ラウンド→結論の3段階で全AIが順に意見を交わす ──
@@ -989,76 +884,108 @@ function _staggeredAll(thunks, delayMs) {
   ));
 }
 
+function _renderAiDiscAutoPartial(round1All, round2All, conclusion) {
+  // 完了したペルソナの発言から順次プレビューに表示する
+  const P = _AI_DISC_PERSONAS;
+  let out = '';
+  ['logic','nova','guard'].forEach(k => {
+    if (round1All && round1All[k]) out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
+  });
+  if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
+    out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
+    ['logic','nova','guard'].forEach(k => {
+      if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
+    });
+  }
+  if (conclusion) out += `---\n\n## 📋 結論\n${conclusion.trim()}\n`;
+  document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(out);
+}
+
 async function runAiDiscussionAuto(topic, previousRounds) {
   const statusEl = document.getElementById('ai-disc-status');
-  const promptArea = document.getElementById('ai-disc-prompt-area');
   const autoArea = document.getElementById('ai-disc-auto-area');
+  const saveBtn = document.getElementById('ai-disc-auto-save-btn');
   const genBtns = ['ai-disc-gen-btn', 'ai-disc-gen-continue-btn'].map(id => document.getElementById(id)).filter(Boolean);
 
-  promptArea.style.display = 'none';
-  autoArea.style.display = 'none';
+  autoArea.style.display = '';
+  saveBtn.style.display = 'none';
   _aiDiscAutoOutput = null;
   genBtns.forEach(b => b.disabled = true);
   statusEl.className = 'admin-status';
 
   try {
-    statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
-    const [logic1, nova1, guard1] = await _staggeredAll([
-      () => _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500),
-      () => _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500),
-      () => _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500),
-    ], 1500);
-    const round1All = { logic: logic1, nova: nova1, guard: guard1 };
+    const progressKey = topic + '|' + (previousRounds ? previousRounds.length : 0);
 
-    statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
-    const [logic2, nova2, guard2] = await _staggeredAll([
-      () => _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400),
-      () => _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400),
-      () => _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400),
-    ], 1500);
-    const round2All = { logic: logic2, nova: nova2, guard: guard2 };
+    // 再開時に前のステージの結果を再利用
+    let round1All = null;
+    let round2All = null;
+    if (_aiDiscAutoProgress && _aiDiscAutoProgress.key === progressKey) {
+      round1All = _aiDiscAutoProgress.round1All;
+      round2All = _aiDiscAutoProgress.round2All;
+      if (round1All) _renderAiDiscAutoPartial(round1All, round2All, null);
+    } else {
+      document.getElementById('ai-disc-auto-preview').innerHTML = '';
+    }
+
+    if (!round1All) {
+      statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
+      const round1All_obj = { logic: null, nova: null, guard: null };
+      await _staggeredAll([
+        () => _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500)
+          .then(t => { round1All_obj.logic = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
+        () => _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500)
+          .then(t => { round1All_obj.nova = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
+        () => _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500)
+          .then(t => { round1All_obj.guard = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
+      ], 1500);
+      round1All = round1All_obj;
+      _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null };
+    }
+
+    if (!round2All) {
+      statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
+      const round2All_obj = { logic: null, nova: null, guard: null };
+      await _staggeredAll([
+        () => _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400)
+          .then(t => { round2All_obj.logic = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
+        () => _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400)
+          .then(t => { round2All_obj.nova = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
+        () => _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400)
+          .then(t => { round2All_obj.guard = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
+      ], 1500);
+      round2All = round2All_obj;
+      _aiDiscAutoProgress.round2All = round2All;
+    }
 
     statusEl.textContent = '結論をまとめています...(3/3)';
     const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel, 800);
 
+    _renderAiDiscAutoPartial(round1All, round2All, conclusion);
     _aiDiscAutoOutput = _composeAiDiscAutoOutput(round1All, round2All, conclusion);
-    document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(_aiDiscAutoOutput);
-    autoArea.style.display = '';
+    saveBtn.style.display = '';
+    _aiDiscAutoProgress = null;
     statusEl.textContent = '議論が完成しました ✓'; statusEl.className = 'admin-status ok';
     autoArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch(e) {
-    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
+    let errMsg = 'エラー: ' + e.message;
+    if (_aiDiscAutoProgress) {
+      errMsg += '（途中まで完了しています。同じ内容でもう一度実行すると続きから再開します）';
+    }
+    statusEl.textContent = errMsg; statusEl.className = 'admin-status error';
   }
   genBtns.forEach(b => b.disabled = false);
 }
 
-function copyAiDiscussionPrompt() {
-  const text = document.getElementById('ai-disc-prompt-text').textContent;
-  const btn = document.querySelector('#ai-disc-prompt-area .jare-prompt-copy-btn');
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = 'コピー済み';
-    setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    btn.textContent = 'コピー済み';
-    setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
-  });
-}
 
 async function openAiDiscussionDetail(id) {
   if (!_db) return;
   _aiDiscCurrentId = id;
   _aiDiscMode = 'continue';
-  _aiDiscNovaText = null;
-  _aiDiscGuardText = null;
   _aiDiscAutoOutput = null;
+  _aiDiscAutoProgress = null;
   document.getElementById('ai-disc-new-form').style.display = 'none';
   document.getElementById('ai-disc-rounds').innerHTML = '<div class="admin-empty">読み込み中...</div>';
   document.getElementById('ai-disc-continue-form').style.display = 'none';
-  document.getElementById('ai-disc-prompt-area').style.display = 'none';
   document.getElementById('ai-disc-auto-area').style.display = 'none';
   _aiDiscShowScreen('ai-disc-detail-screen');
   try {
@@ -1126,7 +1053,6 @@ async function _saveAiDiscRound(output, statusEl) {
       rounds, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     _aiDiscCurrentDoc.rounds = rounds;
-    document.getElementById('ai-disc-prompt-area').style.display = 'none';
     document.getElementById('ai-disc-auto-area').style.display = 'none';
     document.getElementById('ai-disc-continue-input').value = '';
     _renderAiDiscussionRounds();
@@ -1145,28 +1071,6 @@ async function _saveAiDiscRound(output, statusEl) {
     _refreshAiDiscList();
   }
   return true;
-}
-
-async function saveAiDiscussion() {
-  if (!_db) return;
-  const statusEl = document.getElementById('ai-disc-status');
-  const response = document.getElementById('ai-disc-response-input').value.trim();
-  if (!response) { statusEl.textContent = 'AIの回答を貼り付けてください'; statusEl.className = 'admin-status error'; return; }
-  const btn = document.getElementById('ai-disc-save-btn');
-  btn.disabled = true;
-  statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
-  try {
-    const output = _composeAiDiscOutput(response, _aiDiscNovaText, _aiDiscGuardText);
-    const ok = await _saveAiDiscRound(output, statusEl);
-    if (ok) {
-      _aiDiscNovaText = null;
-      _aiDiscGuardText = null;
-      statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
-    }
-  } catch(e) {
-    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
-  }
-  btn.disabled = false;
 }
 
 async function saveAiDiscussionAuto() {
