@@ -588,15 +588,30 @@ let _aiDiscApiKeys = { gemini: '', groq: '' };
 const _AI_DISC_DEFAULT_MODELS = { logic: 'openai/gpt-oss-120b', nova: 'openai/gpt-oss-20b', guard: 'llama-3.3-70b-versatile' };
 
 const _AI_DISC_PERSONAS = {
-  logic: { name: 'ロジック', emoji: '🔵', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
-  nova:  { name: 'ノヴァ',   emoji: '🟠', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
-  guard: { name: 'ガード',   emoji: '🟢', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+  logic: { name: 'ロジック', emoji: '🔵', role: '分析派AI', desc: 'データと論理を重視し、客観的・体系的に分析する分析派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: 'ノヴァ',   emoji: '🟠', role: '革新派AI', desc: '楽観的で創造的。新しい可能性やアイデアを提示する革新派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: 'ガード',   emoji: '🟢', role: '慎重派AI', desc: 'リスクや問題点を指摘する批判的思考の持ち主。現実的な制約を重視する慎重派AIです。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
 };
+
+// MAGIモード用ペルソナ。キー(logic/nova/guard)ごとのモデル設定はデフォルトモードと共通で適用される
+const _AI_DISC_MAGI_PERSONAS = {
+  logic: { name: 'MAGI-1 メルキオール', emoji: '🔴', role: '理論家AI', desc: '原理原則と長期的視点を重視する理論家AIです。目先の損得よりも、筋が通っているか・将来どうなるかを基準に判断します。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  guard: { name: 'MAGI-2 バルタザール', emoji: '🔵', role: '保護者AI', desc: '関係者への影響と安全を最優先する保護者AIです。「それで困る人はいないか」「みんなが納得できるか」という共感とケアの視点から語ります。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+  nova:  { name: 'MAGI-3 カスパー', emoji: '🟡', role: '現実主義AI', desc: '感情・直感・本音を代弁する現実主義AIです。建前や理屈を一旦置いて、「実際それをやりたいか」「人の気持ちはどう動くか」という人間心理の観点で切り込みます。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+};
+
+let _aiDiscDiscussMode = 'default'; // 'default' | 'magi'
+function _P() { return _aiDiscDiscussMode === 'magi' ? _AI_DISC_MAGI_PERSONAS : _AI_DISC_PERSONAS; }
+// 表示順（MAGIはMAGI-1→2→3の順）
+function _P_ORDER() { return _aiDiscDiscussMode === 'magi' ? ['logic', 'guard', 'nova'] : ['logic', 'nova', 'guard']; }
 
 function _applyAiDiscModels() {
   const models = _aiDiscApiKeys.models || {};
   Object.keys(_AI_DISC_PERSONAS).forEach(k => {
     _AI_DISC_PERSONAS[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
+  });
+  Object.keys(_AI_DISC_MAGI_PERSONAS).forEach(k => {
+    _AI_DISC_MAGI_PERSONAS[k].groqModel = (models[k] || '').trim() || _AI_DISC_DEFAULT_MODELS[k];
   });
 }
 
@@ -697,11 +712,16 @@ function openNewAiDiscussion() {
   _aiDiscCurrentDoc = null;
   _aiDiscAutoOutput = null;
   _aiDiscAutoProgress = null;
+  _aiDiscDiscussMode = 'default';
   document.getElementById('ai-disc-topic-input').value = '';
   document.getElementById('ai-disc-rounds').innerHTML = '';
   document.getElementById('ai-disc-new-form').style.display = '';
   document.getElementById('ai-disc-continue-form').style.display = 'none';
   document.getElementById('ai-disc-auto-area').style.display = 'none';
+  const sel = document.getElementById('ai-disc-mode-select');
+  if (sel) sel.value = 'default';
+  document.getElementById('ai-disc-rounds').classList.remove('magi-mode');
+  document.getElementById('ai-disc-auto-area').classList.remove('magi-mode');
   const statusEl = document.getElementById('ai-disc-status');
   statusEl.textContent = ''; statusEl.className = 'admin-status';
   _aiDiscShowScreen('ai-disc-detail-screen');
@@ -836,7 +856,7 @@ async function testAiDiscApiKey(provider) {
 // 過去ラウンドは結論部分だけをプロンプトに渡す（継続のたびにトークン消費が増えるのを防ぐ）
 function _aiDiscRoundSummary(r) {
   if (r.detail && r.detail.conclusion) return r.detail.conclusion;
-  const parts = (r.output || '').split(/##\s*📋\s*結論/);
+  const parts = (r.output || '').split(/##\s*📋\s*(?:結論|決議)/);
   if (parts.length > 1) return parts[parts.length - 1].trim();
   return (r.output || '').slice(0, 800);
 }
@@ -856,12 +876,14 @@ function _aiDiscContextBlock(topic, previousRounds) {
 async function startAiDiscussion() {
   const topic = document.getElementById('ai-disc-topic-input').value.trim();
   if (!topic) { alert('議題を入力してください'); return; }
+  _aiDiscDiscussMode = document.getElementById('ai-disc-mode-select')?.value || 'default';
   await runAiDiscussionAuto(topic, null);
 }
 
 async function continueAiDiscussion() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
+  _aiDiscDiscussMode = _aiDiscCurrentDoc?.mode || 'default';
   await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
@@ -874,13 +896,14 @@ function _buildRound1Prompt(persona, topic, previousRounds) {
 }
 
 function _buildRound2Prompt(persona, topic, previousRounds, round1All) {
-  const P = _AI_DISC_PERSONAS;
+  const P = _P();
+  const order = _P_ORDER();
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
   prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
   prompt += '【第1ラウンドでの各AIの意見】\n\n';
-  prompt += `▼ ${P.logic.name}（分析派AI）\n${round1All.logic}\n\n`;
-  prompt += `▼ ${P.nova.name}（革新派AI）\n${round1All.nova}\n\n`;
-  prompt += `▼ ${P.guard.name}（慎重派AI）\n${round1All.guard}\n\n`;
+  order.forEach(k => {
+    prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
+  });
   prompt += '上記の他の2人の意見を踏まえ、反論や補足を含めたあなたの第2ラウンドの意見を150〜250字程度で述べてください。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
   prompt += '\n\nまた、他の2人の発言の中に固有名詞・用語・事実関係などで明らかな誤認識や間違いがあれば、必ず指摘し正しい情報を示してください（誤りがなければ無理に指摘する必要はありません）。';
   if (previousRounds && previousRounds.length) {
@@ -890,12 +913,41 @@ function _buildRound2Prompt(persona, topic, previousRounds, round1All) {
 }
 
 function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
-  const P = _AI_DISC_PERSONAS;
-  let prompt = `あなたは「マルチAI議論シミュレーター」の結論担当です。以下は3人のAI（${P.logic.name}=分析派, ${P.nova.name}=革新派, ${P.guard.name}=慎重派）による2ラウンドの議論の記録です。\n\n`;
+  const P = _P();
+  const order = _P_ORDER();
+  const isMagi = _aiDiscDiscussMode === 'magi';
+
+  let openingLine, outputFormat;
+
+  if (isMagi) {
+    openingLine = `あなたは「MAGIシステム」の決議担当です。以下は3基のMAGI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの審議の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で決議をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**各MAGIの判定：**（箇条書きで3行。「MAGI-1 メルキオール: 賛成／否決／条件付 — 一言理由」の形式）
+**決議：**（「可決（全会一致）」「可決（2対1）」「否決（2対1）」「否決（全会一致）」のいずれか）
+**総合回答：**（まとめ）
+
+議題が賛否を問える形式でない場合は、各MAGIの判定と決議を省略し、**総合回答：**のみを出力してください。`;
+  } else {
+    openingLine = `あなたは「マルチAI議論シミュレーター」の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**合意点：**（箇条書き）
+**相違点：**（箇条書き）
+**総合回答：**（まとめ）`;
+  }
+
+  let prompt = openingLine + '\n\n';
   prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
-  prompt += `【第1ラウンド】\n▼ ${P.logic.name}\n${round1All.logic}\n\n▼ ${P.nova.name}\n${round1All.nova}\n\n▼ ${P.guard.name}\n${round1All.guard}\n\n`;
-  prompt += `【第2ラウンド】\n▼ ${P.logic.name}\n${round2All.logic}\n\n▼ ${P.nova.name}\n${round2All.nova}\n\n▼ ${P.guard.name}\n${round2All.guard}\n\n`;
-  prompt += 'これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。\n\n**合意点：**（箇条書き）\n**相違点：**（箇条書き）\n**総合回答：**（まとめ）';
+  prompt += `【第1ラウンド】\n`;
+  order.forEach(k => {
+    prompt += `▼ ${P[k].name}\n${round1All[k]}\n\n`;
+  });
+  prompt += `【第2ラウンド】\n`;
+  order.forEach(k => {
+    prompt += `▼ ${P[k].name}\n${round2All[k]}\n\n`;
+  });
+  prompt += outputFormat;
   prompt += '\n\n第2ラウンドで固有名詞・用語・事実関係の誤りが指摘・訂正されている場合は、訂正後の正しい情報を前提として総合回答をまとめてください。';
   if (previousRounds && previousRounds.length) {
     prompt += `\n\n冒頭に、今回追加された条件「${topic}」を一文で明記してください。`;
@@ -904,7 +956,7 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All) {
 }
 
 async function _callPersonaApi(personaKey, prompt, maxTokens, onDelta) {
-  const persona = _AI_DISC_PERSONAS[personaKey];
+  const persona = _P()[personaKey];
   if (personaKey === 'nova' && _aiDiscApiKeys.gemini) {
     try { return await _callGeminiApi(prompt); }
     catch(e) { return await _callGroqApi(prompt, persona.groqModel, maxTokens, onDelta); } // Gemini失敗時はGroqが代行
@@ -914,18 +966,20 @@ async function _callPersonaApi(personaKey, prompt, maxTokens, onDelta) {
 
 function _composeAiDiscMd(round1All, round2All, conclusion) {
   // 議論全体のMarkdownを組み立てる（未完了の部分は省略されるため、生成途中のプレビューにも使える）
-  const P = _AI_DISC_PERSONAS;
+  const P = _P();
+  const order = _P_ORDER();
   let out = '';
-  ['logic','nova','guard'].forEach(k => {
+  order.forEach(k => {
     if (round1All && round1All[k]) out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
   });
   if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
     out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
-    ['logic','nova','guard'].forEach(k => {
+    order.forEach(k => {
       if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
     });
   }
-  if (conclusion) out += `---\n\n## 📋 結論\n${conclusion.trim()}\n`;
+  const conclusionHeading = _aiDiscDiscussMode === 'magi' ? '決議' : '結論';
+  if (conclusion) out += `---\n\n## 📋 ${conclusionHeading}\n${conclusion.trim()}\n`;
   return out;
 }
 
@@ -971,6 +1025,14 @@ async function runAiDiscussionAuto(topic, previousRounds) {
   runBtns.forEach(b => b.disabled = true);
   statusEl.className = 'admin-status';
 
+  const isMagi = _aiDiscDiscussMode === 'magi';
+  autoArea.classList.toggle('magi-mode', isMagi);
+  const magiHeader = document.getElementById('ai-disc-magi-header');
+  if (magiHeader) {
+    magiHeader.style.display = isMagi ? '' : 'none';
+    magiHeader.innerHTML = 'MAGI SYSTEM <span class="magi-blink">─ 審議中</span>';
+  }
+
   try {
     const progressKey = topic + '|' + (previousRounds ? previousRounds.length : 0);
 
@@ -994,11 +1056,11 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     if (!round1All) {
       statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
       const round1All_obj = { logic: null, nova: null, guard: null };
-      await _staggeredAll([
-        personaThunk('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500, round1All_obj, null),
-        personaThunk('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500, round1All_obj, null),
-        personaThunk('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500, round1All_obj, null),
-      ], 1500);
+      const P = _P();
+      const order = _P_ORDER();
+      await _staggeredAll(order.map(k =>
+        personaThunk(k, _buildRound1Prompt(P[k], topic, previousRounds), 500, round1All_obj, null)
+      ), 1500);
       round1All = round1All_obj;
       _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null };
     }
@@ -1006,17 +1068,18 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     if (!round2All) {
       statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
       const round2All_obj = { logic: null, nova: null, guard: null };
-      await _staggeredAll([
-        personaThunk('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400, round2All_obj, round1All),
-        personaThunk('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400, round2All_obj, round1All),
-        personaThunk('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400, round2All_obj, round1All),
-      ], 1500);
+      const P = _P();
+      const order = _P_ORDER();
+      await _staggeredAll(order.map(k =>
+        personaThunk(k, _buildRound2Prompt(P[k], topic, previousRounds, round1All), 400, round2All_obj, round1All)
+      ), 1500);
       round2All = round2All_obj;
       _aiDiscAutoProgress.round2All = round2All;
     }
 
     statusEl.textContent = '結論をまとめています...(3/3)';
-    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), _AI_DISC_PERSONAS.logic.groqModel, 800,
+    const P = _P();
+    const conclusion = await _callGroqApi(_buildConclusionPrompt(topic, previousRounds, round1All, round2All), P.logic.groqModel, 800,
         t => _renderAiDiscAutoPartialThrottled(round1All, round2All, t));
 
     _renderAiDiscAutoPartial(round1All, round2All, conclusion);
@@ -1026,7 +1089,9 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     };
     saveBtn.style.display = '';
     _aiDiscAutoProgress = null;
-    statusEl.textContent = '議論が完成しました ✓'; statusEl.className = 'admin-status ok';
+    if (magiHeader && isMagi) magiHeader.textContent = 'MAGI SYSTEM ─ 審議完了';
+    const successMsg = isMagi ? '審議が完了しました ✓' : '議論が完成しました ✓';
+    statusEl.textContent = successMsg; statusEl.className = 'admin-status ok';
     autoArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch(e) {
     let errMsg = 'エラー: ' + e.message;
@@ -1056,6 +1121,8 @@ async function openAiDiscussionDetail(id) {
       return;
     }
     _aiDiscCurrentDoc = { id: doc.id, ...doc.data() };
+    _aiDiscDiscussMode = _aiDiscCurrentDoc.mode || 'default';
+    document.getElementById('ai-disc-rounds').classList.toggle('magi-mode', _aiDiscDiscussMode === 'magi');
     _renderAiDiscussionRounds();
     document.getElementById('ai-disc-continue-input').value = '';
     document.getElementById('ai-disc-continue-form').style.display = '';
@@ -1126,7 +1193,7 @@ async function _saveAiDiscRound(output, statusEl, detail) {
     const round = { input: topic, output, createdAt: new Date().toISOString() };
     if (detail) round.detail = detail;
     const ref = await _db.collection('ai_discussions').add({
-      topic, title, rounds: [round],
+      topic, title, rounds: [round], mode: _aiDiscDiscussMode,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });

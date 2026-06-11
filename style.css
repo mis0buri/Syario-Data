@@ -1533,3 +1533,58 @@ body.public-mode .subnav,
 body.public-mode .period-bar { display: none !important; }
 body.public-mode main { padding-top: 20px; }
 
+/* ── AI議論 MAGIモード（黒×オレンジのターミナル風スキン） ── */
+.magi-header {
+  background: #000;
+  color: #ff9100;
+  border: 1px solid #ff9100;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-align: center;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+@keyframes magi-blink {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.15; }
+}
+.magi-blink { animation: magi-blink 1s step-end infinite; }
+
+/* 議論表示エリアのスキン（プレビューと保存済み表示の両方に適用） */
+.magi-mode .ai-disc-round,
+.magi-mode .ai-disc-round-output {
+  background: #000;
+  color: #ffb347;
+}
+.magi-mode .ai-disc-round {
+  border: 1px solid #ff9100;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.magi-mode .ai-disc-round-output h3 {
+  color: #000;
+  background: #ff9100;
+  display: inline-block;
+  padding: 2px 10px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+.magi-mode .ai-disc-round-output h4 {
+  color: #ff4400;
+  border-left: 3px solid #ff4400;
+  padding-left: 8px;
+}
+.magi-mode .ai-disc-round-output p,
+.magi-mode .ai-disc-round-output li {
+  color: #ffb347;
+}
+.magi-mode .ai-disc-round-output strong { color: #7CFC00; }
+.magi-mode .ai-disc-round-output hr,
+.magi-mode > .ai-disc-hr { border-color: #ff9100; }
+.magi-mode .ai-disc-round-label { color: #ff9100; }
+.magi-mode .ai-disc-round-input { background: #1a0e00; color: #ffd9a0; border: 1px dashed #ff9100; border-radius: 4px; }
+

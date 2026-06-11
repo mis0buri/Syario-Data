@@ -1152,6 +1152,13 @@
 
         <div id="ai-disc-new-form">
           <div class="admin-form-group">
+            <label>議論モード</label>
+            <select id="ai-disc-mode-select" class="admin-select">
+              <option value="default">デフォルト（ロジック・ノヴァ・ガード）</option>
+              <option value="magi">MAGI（メルキオール・バルタザール・カスパー）</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
             <label>議題・質問・条件</label>
             <textarea id="ai-disc-topic-input" class="admin-textarea" rows="4" placeholder="議論したいテーマや質問を入力してください"></textarea>
           </div>
@@ -1173,6 +1180,7 @@
 
 
         <div id="ai-disc-auto-area" style="display:none;margin-top:16px;">
+          <div id="ai-disc-magi-header" class="magi-header" style="display:none;">MAGI SYSTEM</div>
           <div class="ai-disc-round">
             <div id="ai-disc-auto-preview" class="ai-disc-round-output"></div>
           </div>
