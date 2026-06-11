@@ -579,7 +579,6 @@ async function copyPublicScheduleUrl() {
 let _aiDiscList = [];
 let _aiDiscCurrentId = null;
 let _aiDiscCurrentDoc = null;
-let _aiDiscMode = 'new'; // 'new' | 'continue'
 let _aiDiscAutoOutput = null; // 自動生成された議論（保存待ち。output=Markdown, detail=構造化データ）
 let _aiDiscAutoProgress = null; // 途中失敗時の再開用 { key, round1All, round2All }
 
@@ -696,7 +695,6 @@ function _aiDiscShowScreen(id) {
 function openNewAiDiscussion() {
   _aiDiscCurrentId = null;
   _aiDiscCurrentDoc = null;
-  _aiDiscMode = 'new';
   _aiDiscAutoOutput = null;
   _aiDiscAutoProgress = null;
   document.getElementById('ai-disc-topic-input').value = '';
@@ -855,27 +853,15 @@ function _aiDiscContextBlock(topic, previousRounds) {
   return `【テーマ】\n${topic}\n`;
 }
 
-async function generateAiDiscussionPrompt() {
+async function startAiDiscussion() {
   const topic = document.getElementById('ai-disc-topic-input').value.trim();
   if (!topic) { alert('議題を入力してください'); return; }
-  const statusEl = document.getElementById('ai-disc-status');
-  if (!_aiDiscApiKeys.groq) {
-    statusEl.textContent = 'Groq APIキーを設定してください';
-    statusEl.className = 'admin-status error';
-    return;
-  }
   await runAiDiscussionAuto(topic, null);
 }
 
-async function generateAiDiscussionContinuePrompt() {
+async function continueAiDiscussion() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
-  const statusEl = document.getElementById('ai-disc-status');
-  if (!_aiDiscApiKeys.groq) {
-    statusEl.textContent = 'Groq APIキーを設定してください';
-    statusEl.className = 'admin-status error';
-    return;
-  }
   await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
@@ -926,17 +912,20 @@ async function _callPersonaApi(personaKey, prompt, maxTokens, onDelta) {
   return await _callGroqApi(prompt, persona.groqModel, maxTokens, onDelta);
 }
 
-function _composeAiDiscAutoOutput(round1All, round2All, conclusion) {
+function _composeAiDiscMd(round1All, round2All, conclusion) {
+  // 議論全体のMarkdownを組み立てる（未完了の部分は省略されるため、生成途中のプレビューにも使える）
   const P = _AI_DISC_PERSONAS;
   let out = '';
-  out += `## ${P.logic.emoji} ${P.logic.name}\n${round1All.logic.trim()}\n\n`;
-  out += `## ${P.nova.emoji} ${P.nova.name}\n${round1All.nova.trim()}\n\n`;
-  out += `## ${P.guard.emoji} ${P.guard.name}\n${round1All.guard.trim()}\n\n`;
-  out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
-  out += `### ${P.logic.emoji} ${P.logic.name}\n${round2All.logic.trim()}\n\n`;
-  out += `### ${P.nova.emoji} ${P.nova.name}\n${round2All.nova.trim()}\n\n`;
-  out += `### ${P.guard.emoji} ${P.guard.name}\n${round2All.guard.trim()}\n\n`;
-  out += `---\n\n## 📋 結論\n${conclusion.trim()}\n`;
+  ['logic','nova','guard'].forEach(k => {
+    if (round1All && round1All[k]) out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
+  });
+  if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
+    out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
+    ['logic','nova','guard'].forEach(k => {
+      if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
+    });
+  }
+  if (conclusion) out += `---\n\n## 📋 結論\n${conclusion.trim()}\n`;
   return out;
 }
 
@@ -957,36 +946,39 @@ function _renderAiDiscAutoPartialThrottled(round1All, round2All, conclusion) {
 }
 
 function _renderAiDiscAutoPartial(round1All, round2All, conclusion) {
-  // 完了したペルソナの発言から順次プレビューに表示する
-  const P = _AI_DISC_PERSONAS;
-  let out = '';
-  ['logic','nova','guard'].forEach(k => {
-    if (round1All && round1All[k]) out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
-  });
-  if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
-    out += '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
-    ['logic','nova','guard'].forEach(k => {
-      if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
-    });
-  }
-  if (conclusion) out += `---\n\n## 📋 結論\n${conclusion.trim()}\n`;
-  document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(out);
+  // マークダウンを組成して、プレビューに表示する
+  const md = _composeAiDiscMd(round1All, round2All, conclusion);
+  document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(md);
 }
 
 async function runAiDiscussionAuto(topic, previousRounds) {
   const statusEl = document.getElementById('ai-disc-status');
+
+  // Groqキー設定の確認（最初にチェックして、失敗時はここで終了）
+  if (!_aiDiscApiKeys.groq) {
+    statusEl.textContent = 'Groq APIキーを設定してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+
   const autoArea = document.getElementById('ai-disc-auto-area');
   const saveBtn = document.getElementById('ai-disc-auto-save-btn');
-  const genBtns = ['ai-disc-gen-btn', 'ai-disc-gen-continue-btn'].map(id => document.getElementById(id)).filter(Boolean);
+  const runBtns = ['ai-disc-run-btn', 'ai-disc-run-continue-btn'].map(id => document.getElementById(id)).filter(Boolean);
 
   autoArea.style.display = '';
   saveBtn.style.display = 'none';
   _aiDiscAutoOutput = null;
-  genBtns.forEach(b => b.disabled = true);
+  runBtns.forEach(b => b.disabled = true);
   statusEl.className = 'admin-status';
 
   try {
     const progressKey = topic + '|' + (previousRounds ? previousRounds.length : 0);
+
+    // ペルソナ1人分の呼び出しサンク（ストリーミング中と完了時にプレビューを更新）
+    const personaThunk = (key, prompt, maxTok, obj, r1ForRender) => () =>
+      _callPersonaApi(key, prompt, maxTok,
+          t => { obj[key] = t; _renderAiDiscAutoPartialThrottled(r1ForRender || obj, r1ForRender ? obj : null, null); })
+        .then(t => { obj[key] = t; _renderAiDiscAutoPartial(r1ForRender || obj, r1ForRender ? obj : null, null); return t; });
 
     // 再開時に前のステージの結果を再利用
     let round1All = null;
@@ -1003,15 +995,9 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       statusEl.textContent = '第1ラウンドの意見を取得中...(1/3)';
       const round1All_obj = { logic: null, nova: null, guard: null };
       await _staggeredAll([
-        () => _callPersonaApi('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500,
-            t => { round1All_obj.logic = t; _renderAiDiscAutoPartialThrottled(round1All_obj, null, null); })
-          .then(t => { round1All_obj.logic = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
-        () => _callPersonaApi('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500,
-            t => { round1All_obj.nova = t; _renderAiDiscAutoPartialThrottled(round1All_obj, null, null); })
-          .then(t => { round1All_obj.nova = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
-        () => _callPersonaApi('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500,
-            t => { round1All_obj.guard = t; _renderAiDiscAutoPartialThrottled(round1All_obj, null, null); })
-          .then(t => { round1All_obj.guard = t; _renderAiDiscAutoPartial(round1All_obj, null, null); return t; }),
+        personaThunk('logic', _buildRound1Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds), 500, round1All_obj, null),
+        personaThunk('nova', _buildRound1Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds), 500, round1All_obj, null),
+        personaThunk('guard', _buildRound1Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds), 500, round1All_obj, null),
       ], 1500);
       round1All = round1All_obj;
       _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null };
@@ -1021,15 +1007,9 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       statusEl.textContent = '第2ラウンドの意見を取得中...(2/3)';
       const round2All_obj = { logic: null, nova: null, guard: null };
       await _staggeredAll([
-        () => _callPersonaApi('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400,
-            t => { round2All_obj.logic = t; _renderAiDiscAutoPartialThrottled(round1All, round2All_obj, null); })
-          .then(t => { round2All_obj.logic = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
-        () => _callPersonaApi('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400,
-            t => { round2All_obj.nova = t; _renderAiDiscAutoPartialThrottled(round1All, round2All_obj, null); })
-          .then(t => { round2All_obj.nova = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
-        () => _callPersonaApi('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400,
-            t => { round2All_obj.guard = t; _renderAiDiscAutoPartialThrottled(round1All, round2All_obj, null); })
-          .then(t => { round2All_obj.guard = t; _renderAiDiscAutoPartial(round1All, round2All_obj, null); return t; }),
+        personaThunk('logic', _buildRound2Prompt(_AI_DISC_PERSONAS.logic, topic, previousRounds, round1All), 400, round2All_obj, round1All),
+        personaThunk('nova', _buildRound2Prompt(_AI_DISC_PERSONAS.nova, topic, previousRounds, round1All), 400, round2All_obj, round1All),
+        personaThunk('guard', _buildRound2Prompt(_AI_DISC_PERSONAS.guard, topic, previousRounds, round1All), 400, round2All_obj, round1All),
       ], 1500);
       round2All = round2All_obj;
       _aiDiscAutoProgress.round2All = round2All;
@@ -1041,7 +1021,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
 
     _renderAiDiscAutoPartial(round1All, round2All, conclusion);
     _aiDiscAutoOutput = {
-      output: _composeAiDiscAutoOutput(round1All, round2All, conclusion),
+      output: _composeAiDiscMd(round1All, round2All, conclusion),
       detail: { round1: round1All, round2: round2All, conclusion },
     };
     saveBtn.style.display = '';
@@ -1055,14 +1035,13 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     }
     statusEl.textContent = errMsg; statusEl.className = 'admin-status error';
   }
-  genBtns.forEach(b => b.disabled = false);
+  runBtns.forEach(b => b.disabled = false);
 }
 
 
 async function openAiDiscussionDetail(id) {
   if (!_db) return;
   _aiDiscCurrentId = id;
-  _aiDiscMode = 'continue';
   _aiDiscAutoOutput = null;
   _aiDiscAutoProgress = null;
   document.getElementById('ai-disc-new-form').style.display = 'none';
@@ -1127,7 +1106,7 @@ function _renderAiDiscMarkdown(text) {
 
 // 議論ラウンド1件をFirestoreに保存（新規作成 or 既存ドキュメントへの追記）
 async function _saveAiDiscRound(output, statusEl, detail) {
-  if (_aiDiscMode === 'continue' && _aiDiscCurrentId) {
+  if (_aiDiscCurrentId) {
     const addCond = document.getElementById('ai-disc-continue-input').value.trim();
     const round = { input: addCond, output, createdAt: new Date().toISOString() };
     if (detail) round.detail = detail;

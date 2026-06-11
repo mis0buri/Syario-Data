@@ -1155,7 +1155,7 @@
             <label>議題・質問・条件</label>
             <textarea id="ai-disc-topic-input" class="admin-textarea" rows="4" placeholder="議論したいテーマや質問を入力してください"></textarea>
           </div>
-          <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-btn" onclick="generateAiDiscussionPrompt()">議論を実行</button>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-run-btn" onclick="startAiDiscussion()">議論を実行</button>
         </div>
 
         <div id="ai-disc-rounds"></div>
@@ -1166,7 +1166,7 @@
             <label>追加の条件・質問</label>
             <textarea id="ai-disc-continue-input" class="admin-textarea" rows="3" placeholder="追加の条件や質問を入力してください"></textarea>
           </div>
-          <button class="admin-btn primary" style="width:100%;" id="ai-disc-gen-continue-btn" onclick="generateAiDiscussionContinuePrompt()">続きを実行</button>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-run-continue-btn" onclick="continueAiDiscussion()">続きを実行</button>
         </div>
 
         <div id="ai-disc-status" class="admin-status" style="margin-top:12px;"></div>

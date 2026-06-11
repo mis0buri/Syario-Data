@@ -103,6 +103,8 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 | `vote_answers` | Anyone create; update/delete own or Admin |
 | `renban_events` + subcollection `participants` | Anyone; delete own or Admin |
 | `jare_stories` | Admin only |
+| `ai_discussions` | Admin only (read: anyone) |
+| `admin_secrets` (`/api_keys`) | Admin only (read+write) — Gemini/Groq API keys + per-persona model config |
 | `users` | Own UID only |
 | `stamp_cards` | Own UID only |
 | `admins`, `managers` | Server only (client read-only) |
