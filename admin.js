@@ -645,7 +645,7 @@ const _AI_DISC_MODE_PERSONAS = {
   ogiri: _AI_DISC_OGIRI_PERSONAS,
 };
 
-let _aiDiscDiscussMode = 'default'; // _AI_DISC_MODE_PERSONAS のいずれかのキー
+let _aiDiscDiscussMode = 'default'; // _AI_DISC_MODE_PERSONAS のいずれかのキー、または検索専用の 'search'
 function _P() { return _AI_DISC_MODE_PERSONAS[_aiDiscDiscussMode] || _AI_DISC_PERSONAS; }
 // 表示順（MAGIはMAGI-1→2→3の順、大喜利はボケ2人→司会の順で締める）
 function _P_ORDER() {
@@ -831,6 +831,26 @@ async function _callGeminiApi(prompt) {
   return text;
 }
 
+// 検索モード用：Google検索ツールを有効にしてGeminiに問い合わせ、回答と参照元URLを返す
+async function _callGeminiSearchApi(prompt) {
+  const key = _aiDiscApiKeys.gemini;
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] })
+  });
+  if (!res.ok) await _throwApiError(res, 'Gemini');
+  const data = await res.json();
+  const cand = data?.candidates?.[0];
+  const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
+  if (!text) throw new Error('Geminiからの応答が空です');
+  const seen = new Set();
+  const sources = (cand?.groundingMetadata?.groundingChunks || [])
+    .map(c => c.web)
+    .filter(w => w?.uri && !seen.has(w.uri) && seen.add(w.uri));
+  return { text, sources };
+}
+
 async function _callGroqApi(prompt, model, maxTokens, onDelta, _retryCount = 0) {
   const key = _aiDiscApiKeys.groq;
   const body = {
@@ -950,6 +970,7 @@ async function startAiDiscussion() {
   const topic = document.getElementById('ai-disc-topic-input').value.trim();
   if (!topic) { alert('議題を入力してください'); return; }
   _aiDiscDiscussMode = document.getElementById('ai-disc-mode-select')?.value || 'default';
+  if (_aiDiscDiscussMode === 'search') { await runAiDiscussionSearch(topic, null); return; }
   await runAiDiscussionAuto(topic, null);
 }
 
@@ -957,7 +978,56 @@ async function continueAiDiscussion() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
   _aiDiscDiscussMode = _aiDiscCurrentDoc?.mode || 'default';
+  if (_aiDiscDiscussMode === 'search') { await runAiDiscussionSearch(addCond, _aiDiscCurrentDoc?.rounds || []); return; }
   await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
+}
+
+// ── 検索モード：Gemini + Google検索でテーマを直接調べて回答する（ペルソナ議論は行わない） ──
+function _buildSearchPrompt(topic, previousRounds) {
+  let prompt = 'あなたはGoogle検索を使って最新の情報を調べる調査アシスタントです。\n\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += '上記について、検索結果に基づいて分かりやすくMarkdownで回答してください。前置きや見出しは付けず、本文のみを出力してください。情報の時点（日付）が分かる場合はできるだけ明記してください。';
+  return prompt;
+}
+
+async function runAiDiscussionSearch(topic, previousRounds) {
+  const statusEl = document.getElementById('ai-disc-status');
+  if (!_aiDiscApiKeys.gemini) {
+    statusEl.textContent = 'Gemini APIキーを設定してください';
+    statusEl.className = 'admin-status error';
+    return;
+  }
+
+  const autoArea = document.getElementById('ai-disc-auto-area');
+  const saveBtn = document.getElementById('ai-disc-auto-save-btn');
+  const runBtns = ['ai-disc-run-btn', 'ai-disc-run-continue-btn'].map(id => document.getElementById(id)).filter(Boolean);
+  const magiHeader = document.getElementById('ai-disc-magi-header');
+
+  autoArea.style.display = '';
+  autoArea.classList.remove('magi-mode');
+  if (magiHeader) magiHeader.style.display = 'none';
+  saveBtn.style.display = 'none';
+  _aiDiscAutoOutput = null;
+  runBtns.forEach(b => b.disabled = true);
+  statusEl.className = 'admin-status';
+  statusEl.textContent = 'Web検索中...';
+  document.getElementById('ai-disc-auto-preview').innerHTML = '';
+
+  try {
+    const { text, sources } = await _callGeminiSearchApi(_buildSearchPrompt(topic, previousRounds));
+    let md = text.trim();
+    if (sources.length) {
+      md += '\n\n---\n\n## 参考情報\n' + sources.map(s => `- [${s.title || s.uri}](${s.uri})`).join('\n');
+    }
+    document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(md);
+    _aiDiscAutoOutput = { output: md, detail: { sources } };
+    saveBtn.style.display = '';
+    statusEl.textContent = '検索が完了しました ✓'; statusEl.className = 'admin-status ok';
+    autoArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
+  }
+  runBtns.forEach(b => b.disabled = false);
 }
 
 // ── 自動実行（Groqキー設定時）: 第1ラウンド→第2ラウンド→結論の3段階で全AIが順に意見を交わす ──
@@ -1320,7 +1390,9 @@ function _renderAiDiscussionRounds() {
 }
 
 function _inlineMd(s) {
-  return _esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return _esc(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
 function _renderAiDiscMarkdown(text) {
