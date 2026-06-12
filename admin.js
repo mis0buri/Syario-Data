@@ -646,9 +646,12 @@ const _AI_DISC_MODE_PERSONAS = {
 };
 
 let _aiDiscDiscussMode = 'default'; // _AI_DISC_MODE_PERSONAS のいずれかのキー、または検索専用の 'search'
-let _aiDiscUseSearch = false;    // Web検索併用フラグ（議論前にGeminiで事前調査する）
-let _aiDiscBriefing = null;      // 事前調査の本文（_aiDiscContextBlockで全プロンプトに注入される）
-let _aiDiscBriefingSources = []; // 事前調査の参照元 [{title, uri}]
+let _aiDiscSearchMode = 'none';      // Web検索併用方式: 'none' | 'briefing'(事前ブリーフィング) | 'individual'(個別検索) | 'advanced'(発展検索)
+let _aiDiscBriefing = null;          // briefing方式：事前調査の本文
+let _aiDiscBriefingSources = [];     // briefing方式：事前調査の参照元 [{title, uri}]
+let _aiDiscPersonaBriefings = {};    // individual方式：ペルソナキー別の調査結果 { logic: {text, sources}, ... }
+let _aiDiscAdvancedResearch = null;  // advanced方式：争点検証調査の本文
+let _aiDiscAdvancedSources = [];     // advanced方式：争点検証調査の参照元
 function _P() { return _AI_DISC_MODE_PERSONAS[_aiDiscDiscussMode] || _AI_DISC_PERSONAS; }
 // 表示順（MAGIはMAGI-1→2→3の順、大喜利はボケ2人→司会の順で締める）
 function _P_ORDER() {
@@ -788,11 +791,12 @@ function openNewAiDiscussion() {
   _aiDiscAutoOutput = null;
   _aiDiscAutoProgress = null;
   _aiDiscDiscussMode = 'default';
-  _aiDiscUseSearch = false;
+  _aiDiscSearchMode = 'none';
   _aiDiscBriefing = null;
   _aiDiscBriefingSources = [];
-  const searchCheck = document.getElementById('ai-disc-search-check');
-  if (searchCheck) searchCheck.checked = false;
+  _aiDiscPersonaBriefings = {};
+  _aiDiscAdvancedResearch = null;
+  _aiDiscAdvancedSources = [];
   document.getElementById('ai-disc-topic-input').value = '';
   document.getElementById('ai-disc-rounds').innerHTML = '';
   document.getElementById('ai-disc-delete-btn').style.display = 'none';
@@ -801,6 +805,8 @@ function openNewAiDiscussion() {
   document.getElementById('ai-disc-auto-area').style.display = 'none';
   const sel = document.getElementById('ai-disc-mode-select');
   if (sel) sel.value = 'default';
+  const searchSel = document.getElementById('ai-disc-search-mode-select');
+  if (searchSel) searchSel.value = 'none';
   document.getElementById('ai-disc-rounds').classList.remove('magi-mode');
   document.getElementById('ai-disc-auto-area').classList.remove('magi-mode');
   const statusEl = document.getElementById('ai-disc-status');
@@ -963,7 +969,35 @@ function _aiDiscRoundSummary(r) {
   return (r.output || '').slice(0, 800);
 }
 
-function _aiDiscContextBlock(topic, previousRounds) {
+// Web検索併用時、各プロンプトに注入する調査結果ブロックを返す（searchModeに応じて内容が変わる）
+// personaKey: round1/round2のペルソナ自身向けにはそのキー、司会者・結論担当向けにはnull
+// stage: 'pre' | 'round1' | 'contention' | 'round2' | 'conclusion'
+function _aiDiscSearchContextBlock(personaKey, stage) {
+  if (_aiDiscSearchMode === 'briefing') {
+    if (!_aiDiscBriefing) return '';
+    return `\n【最新のWeb調査ブリーフィング】\n以下は議論の参考のために事前にWeb検索で調査した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscBriefing}\n`;
+  }
+  if (_aiDiscSearchMode === 'individual') {
+    if (personaKey) {
+      const b = _aiDiscPersonaBriefings[personaKey];
+      if (!b) return '';
+      return `\n【あなた自身がWeb検索で調べた最新情報】\nあなたの視点で検索した結果です。これを踏まえて意見を述べ、あなたの知識と矛盾する場合はこちらを優先してください。\n${b.text}\n`;
+    }
+    const P = _P();
+    const order = _P_ORDER();
+    const parts = order.filter(k => _aiDiscPersonaBriefings[k]).map(k => `▼ ${P[k].name}が調べた情報\n${_aiDiscPersonaBriefings[k].text}`);
+    if (!parts.length) return '';
+    return `\n【各AIが個別にWeb検索で調べた最新情報】\n${parts.join('\n\n')}\n`;
+  }
+  if (_aiDiscSearchMode === 'advanced') {
+    if (stage !== 'round2' && stage !== 'conclusion') return '';
+    if (!_aiDiscAdvancedResearch) return '';
+    return `\n【争点を検証するためのWeb調査結果】\n第1ラウンドの争点について検索した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscAdvancedResearch}\n`;
+  }
+  return '';
+}
+
+function _aiDiscContextBlock(topic, previousRounds, personaKey, stage) {
   let block;
   if (previousRounds && previousRounds.length) {
     block = '【これまでの議論】\n\n';
@@ -974,9 +1008,7 @@ function _aiDiscContextBlock(topic, previousRounds) {
   } else {
     block = `【テーマ】\n${topic}\n`;
   }
-  if (_aiDiscBriefing) {
-    block += `\n【最新のWeb調査ブリーフィング】\n以下は議論の参考のために事前にWeb検索で調査した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscBriefing}\n`;
-  }
+  block += _aiDiscSearchContextBlock(personaKey, stage);
   return block;
 }
 
@@ -984,8 +1016,8 @@ async function startAiDiscussion() {
   const topic = document.getElementById('ai-disc-topic-input').value.trim();
   if (!topic) { alert('議題を入力してください'); return; }
   _aiDiscDiscussMode = document.getElementById('ai-disc-mode-select')?.value || 'default';
-  if (_aiDiscDiscussMode === 'search') { _aiDiscUseSearch = false; await runAiDiscussionSearch(topic, null); return; }
-  _aiDiscUseSearch = !!document.getElementById('ai-disc-search-check')?.checked;
+  if (_aiDiscDiscussMode === 'search') { _aiDiscSearchMode = 'none'; await runAiDiscussionSearch(topic, null); return; }
+  _aiDiscSearchMode = document.getElementById('ai-disc-search-mode-select')?.value || 'none';
   await runAiDiscussionAuto(topic, null);
 }
 
@@ -993,23 +1025,40 @@ async function continueAiDiscussion() {
   const addCond = document.getElementById('ai-disc-continue-input').value.trim();
   if (!addCond) { alert('追加の条件・質問を入力してください'); return; }
   _aiDiscDiscussMode = _aiDiscCurrentDoc?.mode || 'default';
-  if (_aiDiscDiscussMode === 'search') { _aiDiscUseSearch = false; await runAiDiscussionSearch(addCond, _aiDiscCurrentDoc?.rounds || []); return; }
-  _aiDiscUseSearch = !!_aiDiscCurrentDoc?.useSearch;
+  if (_aiDiscDiscussMode === 'search') { _aiDiscSearchMode = 'none'; await runAiDiscussionSearch(addCond, _aiDiscCurrentDoc?.rounds || []); return; }
+  _aiDiscSearchMode = _aiDiscCurrentDoc?.searchMode || 'none';
   await runAiDiscussionAuto(addCond, _aiDiscCurrentDoc?.rounds || []);
 }
 
-// Web検索併用時の事前調査プロンプト（意見を含まない事実ベースの資料を作らせる）
+// briefing方式：議論前の事前調査プロンプト（意見を含まない事実ベースの資料を作らせる）
 function _buildBriefingPrompt(topic, previousRounds) {
   let prompt = 'あなたは議論の事前調査を行う調査アシスタントです。\n\n';
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, null, 'pre') + '\n';
   prompt += '上記のテーマについて議論するための事前資料として、関連する最新の事実・データ・動向をWeb検索で調べ、箇条書き中心で400〜600字程度にまとめてください。あなた自身の意見や結論は述べず、事実のみを書いてください。情報の時点（日付）が分かるものはできるだけ明記してください。前置きや見出しは付けないでください。';
+  return prompt;
+}
+
+// individual方式：ペルソナごとの個別調査プロンプト（その視点で重要そうな情報を調べさせる）
+function _buildPersonaSearchPrompt(persona, topic, previousRounds) {
+  let prompt = `あなたは「${persona.role}」の視点で議論の事前調査を行う調査アシスタントです。\n\n`;
+  prompt += _aiDiscContextBlock(topic, previousRounds, null, 'pre') + '\n';
+  prompt += `上記のテーマについて、「${persona.role}」の視点から特に重要になりそうな最新の事実・データ・動向をWeb検索で調べ、箇条書き中心で200〜300字程度にまとめてください。あなた自身の意見や結論は述べず、事実のみを書いてください。前置きや見出しは付けないでください。`;
+  return prompt;
+}
+
+// advanced方式：第1ラウンドの争点を検証するための調査プロンプト
+function _buildAdvancedSearchPrompt(topic, previousRounds, contention) {
+  let prompt = 'あなたは議論の事実確認を行う調査アシスタントです。\n\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, null, 'pre') + '\n';
+  prompt += `【第1ラウンドで挙がった争点】\n${contention}\n\n`;
+  prompt += '上記の争点を検証・裏付けするための最新の事実・データをWeb検索で調べ、箇条書き中心で400〜600字程度にまとめてください。どの争点に関する情報かが分かるようにしてください。あなた自身の意見や結論は述べず、事実のみを書いてください。前置きや見出しは付けないでください。';
   return prompt;
 }
 
 // ── 検索モード：Gemini + Google検索でテーマを直接調べて回答する（ペルソナ議論は行わない） ──
 function _buildSearchPrompt(topic, previousRounds) {
   let prompt = 'あなたはGoogle検索を使って最新の情報を調べる調査アシスタントです。\n\n';
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, null, 'pre') + '\n';
   prompt += '上記について、検索結果に基づいて分かりやすくMarkdownで回答してください。前置きや見出しは付けず、本文のみを出力してください。情報の時点（日付）が分かる場合はできるだけ明記してください。';
   return prompt;
 }
@@ -1057,9 +1106,9 @@ async function runAiDiscussionSearch(topic, previousRounds) {
 }
 
 // ── 自動実行（Groqキー設定時）: 第1ラウンド→第2ラウンド→結論の3段階で全AIが順に意見を交わす ──
-function _buildRound1Prompt(persona, topic, previousRounds) {
+function _buildRound1Prompt(persona, topic, previousRounds, personaKey) {
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, personaKey, 'round1') + '\n';
   if (_aiDiscDiscussMode === 'ogiri') {
     prompt += '上記を大喜利のお題として扱い、あなたのキャラクターで回答してください（回答は1〜3個、合計200字程度）。前置きや見出しは付けず、本文のみをMarkdown平文で出力してください。';
   } else {
@@ -1074,7 +1123,7 @@ function _buildContentionPrompt(topic, previousRounds, round1All) {
   const order = _P_ORDER();
   const isOgiri = _aiDiscDiscussMode === 'ogiri';
   let prompt = isOgiri ? 'あなたは大喜利の司会者です。\n\n' : 'あなたは3人のAIによる議論の司会者です。\n\n';
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, null, 'contention') + '\n';
   prompt += `【第1ラウンドでの各AIの${isOgiri ? '回答' : '意見'}】\n\n`;
   order.forEach(k => {
     prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
@@ -1087,11 +1136,11 @@ function _buildContentionPrompt(topic, previousRounds, round1All) {
   return prompt;
 }
 
-function _buildRound2Prompt(persona, topic, previousRounds, round1All, contention) {
+function _buildRound2Prompt(persona, topic, previousRounds, round1All, contention, personaKey) {
   const P = _P();
   const order = _P_ORDER();
   let prompt = `あなたは「${persona.name}」という名前のAIです。${persona.desc}\n\n`;
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, personaKey, 'round2') + '\n';
   prompt += '【第1ラウンドでの各AIの意見】\n\n';
   order.forEach(k => {
     prompt += `▼ ${P[k].name}（${P[k].role}）\n${round1All[k]}\n\n`;
@@ -1189,7 +1238,7 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, con
   }
 
   let prompt = openingLine + '\n\n';
-  prompt += _aiDiscContextBlock(topic, previousRounds) + '\n';
+  prompt += _aiDiscContextBlock(topic, previousRounds, null, 'conclusion') + '\n';
   prompt += `【第1ラウンド】\n`;
   order.forEach(k => {
     prompt += `▼ ${P[k].name}\n${round1All[k]}\n\n`;
@@ -1226,22 +1275,45 @@ function _composeAiDiscMd(round1All, round2All, conclusion) {
   const P = _P();
   const order = _P_ORDER();
   let out = '';
-  if (_aiDiscBriefing) out += `## 🔎 Web調査ブリーフィング\n${_aiDiscBriefing.trim()}\n\n---\n\n`;
+  if (_aiDiscSearchMode === 'briefing' && _aiDiscBriefing) out += `## 🔎 Web調査ブリーフィング\n${_aiDiscBriefing.trim()}\n\n---\n\n`;
   order.forEach(k => {
-    if (round1All && round1All[k]) out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
+    if (round1All && round1All[k]) {
+      if (_aiDiscSearchMode === 'individual' && _aiDiscPersonaBriefings[k]) {
+        out += `#### 🔎 個別調査\n${_aiDiscPersonaBriefings[k].text.trim()}\n\n`;
+      }
+      out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
+    }
   });
   if (round2All && (round2All.logic || round2All.nova || round2All.guard)) {
     const isOgiri = _aiDiscDiscussMode === 'ogiri';
     out += isOgiri ? '---\n\n## 第2ラウンド：乗っかり・ツッコミ\n\n' : '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
     if (_aiDiscAutoContention) out += `### 🎙️ ${isOgiri ? '司会者が挙げた切り口' : '司会者による争点整理'}\n${_aiDiscAutoContention.trim()}\n\n`;
+    if (_aiDiscSearchMode === 'advanced' && _aiDiscAdvancedResearch) {
+      out += `### 🔎 争点の検証調査\n${_aiDiscAdvancedResearch.trim()}\n\n`;
+    }
     order.forEach(k => {
       if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
     });
   }
   const conclusionHeading = { magi: '決議', sengoku: '軍議の沙汰', ogiri: '結果発表' }[_aiDiscDiscussMode] || '結論';
   if (conclusion) out += `---\n\n## 📋 ${conclusionHeading}\n${conclusion.trim()}\n`;
-  if (conclusion && _aiDiscBriefingSources.length) {
-    out += '\n---\n\n## 🔎 参考情報\n' + _aiDiscBriefingSources.map(s => `- [${s.title || s.uri}](${s.uri})`).join('\n') + '\n';
+  if (conclusion) {
+    let sources = [];
+    if (_aiDiscSearchMode === 'briefing') {
+      sources = _aiDiscBriefingSources.map(s => ({ title: s.title || s.uri, uri: s.uri }));
+    } else if (_aiDiscSearchMode === 'individual') {
+      order.forEach(k => {
+        const b = _aiDiscPersonaBriefings[k];
+        if (b) b.sources.forEach(s => sources.push({ title: `[${P[k].name}] ${s.title || s.uri}`, uri: s.uri }));
+      });
+    } else if (_aiDiscSearchMode === 'advanced') {
+      sources = _aiDiscAdvancedSources.map(s => ({ title: s.title || s.uri, uri: s.uri }));
+    }
+    const seen = new Set();
+    sources = sources.filter(s => !seen.has(s.uri) && seen.add(s.uri));
+    if (sources.length) {
+      out += '\n---\n\n## 🔎 参考情報\n' + sources.map(s => `- [${s.title}](${s.uri})`).join('\n') + '\n';
+    }
   }
   return out;
 }
@@ -1277,7 +1349,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     statusEl.className = 'admin-status error';
     return;
   }
-  if (_aiDiscUseSearch && !_aiDiscApiKeys.gemini) {
+  if (_aiDiscSearchMode !== 'none' && !_aiDiscApiKeys.gemini) {
     statusEl.textContent = 'Web検索の併用にはGemini APIキーが必要です';
     statusEl.className = 'admin-status error';
     return;
@@ -1321,16 +1393,22 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       _aiDiscAutoContention = contention;
       _aiDiscBriefing = _aiDiscAutoProgress.briefing || null;
       _aiDiscBriefingSources = _aiDiscAutoProgress.briefingSources || [];
+      _aiDiscPersonaBriefings = _aiDiscAutoProgress.personaBriefings || {};
+      _aiDiscAdvancedResearch = _aiDiscAutoProgress.advancedResearch || null;
+      _aiDiscAdvancedSources = _aiDiscAutoProgress.advancedSources || [];
       if (round1All) _renderAiDiscAutoPartial(round1All, round2All, null);
     } else {
       _aiDiscAutoContention = null;
       _aiDiscBriefing = null;
       _aiDiscBriefingSources = [];
+      _aiDiscPersonaBriefings = {};
+      _aiDiscAdvancedResearch = null;
+      _aiDiscAdvancedSources = [];
       document.getElementById('ai-disc-auto-preview').innerHTML = '';
     }
 
-    // Web検索併用時：議論の前にGeminiで事前調査し、結果を全プロンプトに注入する
-    if (_aiDiscUseSearch && !_aiDiscBriefing && !round1All) {
+    // 事前ブリーフィング方式：議論の前にGeminiで事前調査し、結果を全プロンプトに注入する
+    if (_aiDiscSearchMode === 'briefing' && !_aiDiscBriefing && !round1All) {
       statusEl.textContent = 'Webで事前調査中...';
       try {
         const b = await _callGeminiSearchApi(_buildBriefingPrompt(topic, previousRounds));
@@ -1344,16 +1422,32 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       }
     }
 
+    // 個別検索方式：各AIがそれぞれの視点でWeb検索してから第1ラウンドに臨む
+    if (_aiDiscSearchMode === 'individual' && !Object.keys(_aiDiscPersonaBriefings).length && !round1All) {
+      statusEl.textContent = '各AIがWebで個別調査中...';
+      const P = _P();
+      const order = _P_ORDER();
+      await _staggeredAll(order.map(k => async () => {
+        try {
+          const b = await _callGeminiSearchApi(_buildPersonaSearchPrompt(P[k], topic, previousRounds));
+          _aiDiscPersonaBriefings[k] = { text: b.text, sources: b.sources };
+        } catch(e) {
+          // 個別調査に失敗した場合はそのAIだけ調査結果なしで続行する
+        }
+      }), 1500);
+      _renderAiDiscAutoPartial(null, null, null);
+    }
+
     if (!round1All) {
       statusEl.textContent = '第1ラウンドの意見を取得中...(1/4)';
       const round1All_obj = { logic: null, nova: null, guard: null };
       const P = _P();
       const order = _P_ORDER();
       await _staggeredAll(order.map(k =>
-        personaThunk(k, _buildRound1Prompt(P[k], topic, previousRounds), 500, round1All_obj, null)
+        personaThunk(k, _buildRound1Prompt(P[k], topic, previousRounds, k), 500, round1All_obj, null)
       ), 1500);
       round1All = round1All_obj;
-      _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null, contention: null, briefing: _aiDiscBriefing, briefingSources: _aiDiscBriefingSources };
+      _aiDiscAutoProgress = { key: progressKey, round1All, round2All: null, contention: null, briefing: _aiDiscBriefing, briefingSources: _aiDiscBriefingSources, personaBriefings: _aiDiscPersonaBriefings, advancedResearch: null, advancedSources: [] };
     }
 
     if (!contention) {
@@ -1363,13 +1457,29 @@ async function runAiDiscussionAuto(topic, previousRounds) {
       _aiDiscAutoProgress.contention = contention;
     }
 
+    // 発展検索方式：第1ラウンドの争点をWebで検証し、結果を第2ラウンド以降に注入する
+    if (_aiDiscSearchMode === 'advanced' && !_aiDiscAdvancedResearch && !round2All) {
+      statusEl.textContent = '争点をWebで検証中...';
+      try {
+        const r = await _callGeminiSearchApi(_buildAdvancedSearchPrompt(topic, previousRounds, contention));
+        _aiDiscAdvancedResearch = r.text;
+        _aiDiscAdvancedSources = r.sources;
+      } catch(e) {
+        // 検証調査に失敗してもそのまま第2ラウンドに進む
+        _aiDiscAdvancedResearch = null;
+        _aiDiscAdvancedSources = [];
+      }
+      _aiDiscAutoProgress.advancedResearch = _aiDiscAdvancedResearch;
+      _aiDiscAutoProgress.advancedSources = _aiDiscAdvancedSources;
+    }
+
     if (!round2All) {
       statusEl.textContent = '第2ラウンドの意見を取得中...(3/4)';
       const round2All_obj = { logic: null, nova: null, guard: null };
       const P = _P();
       const order = _P_ORDER();
       await _staggeredAll(order.map(k =>
-        personaThunk(k, _buildRound2Prompt(P[k], topic, previousRounds, round1All, contention), 500, round2All_obj, round1All)
+        personaThunk(k, _buildRound2Prompt(P[k], topic, previousRounds, round1All, contention, k), 500, round2All_obj, round1All)
       ), 1500);
       round2All = round2All_obj;
       _aiDiscAutoProgress.round2All = round2All;
@@ -1383,7 +1493,13 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     _renderAiDiscAutoPartial(round1All, round2All, conclusion);
     _aiDiscAutoOutput = {
       output: _composeAiDiscMd(round1All, round2All, conclusion),
-      detail: { round1: round1All, round2: round2All, contention, conclusion, briefing: _aiDiscBriefing, sources: _aiDiscBriefingSources },
+      detail: {
+        round1: round1All, round2: round2All, contention, conclusion,
+        searchMode: _aiDiscSearchMode,
+        briefing: _aiDiscBriefing, sources: _aiDiscBriefingSources,
+        personaBriefings: _aiDiscPersonaBriefings,
+        advancedResearch: _aiDiscAdvancedResearch, advancedSources: _aiDiscAdvancedSources,
+      },
     };
     saveBtn.style.display = '';
     _aiDiscAutoProgress = null;
@@ -1421,6 +1537,7 @@ async function openAiDiscussionDetail(id) {
     }
     _aiDiscCurrentDoc = { id: doc.id, ...doc.data() };
     _aiDiscDiscussMode = _aiDiscCurrentDoc.mode || 'default';
+    _aiDiscSearchMode = _aiDiscCurrentDoc.searchMode || 'none';
     document.getElementById('ai-disc-rounds').classList.toggle('magi-mode', _aiDiscDiscussMode === 'magi');
     _renderAiDiscussionRounds();
     document.getElementById('ai-disc-continue-input').value = '';
@@ -1495,7 +1612,7 @@ async function _saveAiDiscRound(output, statusEl, detail) {
     const round = { input: topic, output, createdAt: new Date().toISOString() };
     if (detail) round.detail = detail;
     const ref = await _db.collection('ai_discussions').add({
-      topic, title, rounds: [round], mode: _aiDiscDiscussMode, useSearch: _aiDiscUseSearch,
+      topic, title, rounds: [round], mode: _aiDiscDiscussMode, searchMode: _aiDiscSearchMode,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });

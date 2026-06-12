@@ -1168,9 +1168,13 @@
             </select>
           </div>
           <div class="admin-form-group">
-            <label style="display:flex;align-items:center;gap:6px;">
-              <input type="checkbox" id="ai-disc-search-check" style="width:auto;"> Web検索を併用する（最新情報を調査してから議論・要Gemini APIキー）
-            </label>
+            <label>Web検索の併用（要Gemini APIキー）</label>
+            <select id="ai-disc-search-mode-select" class="admin-select">
+              <option value="none">使わない</option>
+              <option value="briefing">事前ブリーフィング（議論前に1回検索して共有）</option>
+              <option value="individual">個別検索（各AIが自分の視点で検索）</option>
+              <option value="advanced">発展検索（争点を検索で検証してから第2ラウンドへ）</option>
+            </select>
           </div>
           <div class="admin-form-group">
             <label>議題・質問・条件</label>
