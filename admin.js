@@ -582,7 +582,28 @@ let _aiDiscCurrentDoc = null;
 let _aiDiscAutoOutput = null; // 自動生成された議論（保存待ち。output=Markdown, detail=構造化データ）
 let _aiDiscAutoProgress = null; // 途中失敗時の再開用 { key, round1All, round2All }
 
-let _aiDiscApiKeys = { gemini: '', groq: '' };
+let _aiDiscApiKeys = { gemini: '', groq: '', geminiKeys: [] };
+let _geminiKeyIndex = 0; // Geminiの複数キーをラウンドロビンで分散利用するためのカウンタ
+
+// 登録されているGeminiキーの一覧を返す（後方互換: 旧gemini単体キーもフォールバックで含める）
+function _geminiKeyList() {
+  const keys = (_aiDiscApiKeys.geminiKeys || []).filter(k => k && k.trim());
+  if (keys.length) return keys;
+  return _aiDiscApiKeys.gemini ? [_aiDiscApiKeys.gemini] : [];
+}
+
+function _hasGeminiKey() {
+  return _geminiKeyList().length > 0;
+}
+
+// 呼び出すたびに次のGeminiキーを返す（複数アカウントのキーをラウンドロビンで分散）
+function _nextGeminiKey() {
+  const keys = _geminiKeyList();
+  if (!keys.length) return '';
+  const key = keys[_geminiKeyIndex % keys.length];
+  _geminiKeyIndex++;
+  return key;
+}
 
 // Groqの無料モデルは改廃があるため、ペルソナごとのモデルは設定で差し替え可能（空欄ならデフォルト）
 const _AI_DISC_DEFAULT_MODELS = { logic: 'openai/gpt-oss-120b', nova: 'openai/gpt-oss-20b', guard: 'llama-3.3-70b-versatile' };
@@ -635,6 +656,13 @@ const _AI_DISC_OGIRI_PERSONAS = {
   logic: { name: '座布団', emoji: '🎤', role: 'ツッコミ兼司会AI', desc: '大喜利の司会とツッコミを兼ねるAIです。お題を整理しつつ他の回答に鋭くツッコミを入れ、自分でも一つ気の利いた回答を出します。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
 };
 
+// 競馬予想モード用ペルソナ（血統・調教・データの3視点で予想を検討する）
+const _AI_DISC_KEIBA_PERSONAS = {
+  logic: { name: '血統博士', emoji: '🧬', role: '血統派AI', desc: '血統・系統や種牡馬の特徴を重視する血統派AIです。父系・母系の特性や距離・馬場適性を血統から読み解きます。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: '気配師', emoji: '🐎', role: '調教・気配派AI', desc: '調教タイムや当日の気配、馬体の状態を重視する調教派AIです。仕上がり具合や直近のレースぶりから狙い目を探します。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: 'オッズ番長', emoji: '📊', role: 'データ・オッズ派AI', desc: '過去のレースデータ、オッズの動き、馬場・コース傾向を重視する現実主義AIです。回収率の観点からリスクとリターンを冷静に見極めます。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+};
+
 const _AI_DISC_MODE_PERSONAS = {
   default: _AI_DISC_PERSONAS,
   magi: _AI_DISC_MAGI_PERSONAS,
@@ -643,6 +671,7 @@ const _AI_DISC_MODE_PERSONAS = {
   jikan: _AI_DISC_JIKAN_PERSONAS,
   devil: _AI_DISC_DEVIL_PERSONAS,
   ogiri: _AI_DISC_OGIRI_PERSONAS,
+  keiba: _AI_DISC_KEIBA_PERSONAS,
 };
 
 let _aiDiscDiscussMode = 'default'; // _AI_DISC_MODE_PERSONAS のいずれかのキー、または検索専用の 'search'
@@ -687,14 +716,14 @@ async function _loadAiDiscApiKeys() {
   if (!_db) return;
   try {
     const doc = await _db.collection('admin_secrets').doc('api_keys').get();
-    _aiDiscApiKeys = doc.exists ? { gemini: '', groq: '', ...doc.data() } : { gemini: '', groq: '' };
+    _aiDiscApiKeys = doc.exists ? { gemini: '', groq: '', geminiKeys: [], ...doc.data() } : { gemini: '', groq: '', geminiKeys: [] };
   } catch(e) {
-    _aiDiscApiKeys = { gemini: '', groq: '' };
+    _aiDiscApiKeys = { gemini: '', groq: '', geminiKeys: [] };
   }
   _applyAiDiscModels();
-  const geminiInput = document.getElementById('ai-disc-gemini-key');
+  const geminiKeysInput = document.getElementById('ai-disc-gemini-keys');
   const groqInput = document.getElementById('ai-disc-groq-key');
-  if (geminiInput) geminiInput.value = _aiDiscApiKeys.gemini || '';
+  if (geminiKeysInput) geminiKeysInput.value = _geminiKeyList().join('\n');
   if (groqInput) groqInput.value = _aiDiscApiKeys.groq || '';
   const modelLogicInput = document.getElementById('ai-disc-model-logic');
   const modelNovaInput = document.getElementById('ai-disc-model-nova');
@@ -707,7 +736,7 @@ async function _loadAiDiscApiKeys() {
 async function saveAiDiscApiKeys() {
   if (!_isAdmin || !_db) return;
   const statusEl = document.getElementById('ai-disc-keys-status');
-  const gemini = document.getElementById('ai-disc-gemini-key').value.trim();
+  const geminiKeys = document.getElementById('ai-disc-gemini-keys').value.split('\n').map(s => s.trim()).filter(Boolean);
   const groq = document.getElementById('ai-disc-groq-key').value.trim();
   const logic = document.getElementById('ai-disc-model-logic').value.trim();
   const nova = document.getElementById('ai-disc-model-nova').value.trim();
@@ -716,9 +745,10 @@ async function saveAiDiscApiKeys() {
   statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
   try {
     await _db.collection('admin_secrets').doc('api_keys').set({
-      gemini, groq, models, openai: firebase.firestore.FieldValue.delete(), claude: firebase.firestore.FieldValue.delete(),
+      geminiKeys, groq, models, gemini: firebase.firestore.FieldValue.delete(), openai: firebase.firestore.FieldValue.delete(), claude: firebase.firestore.FieldValue.delete(),
     }, { merge: true });
-    _aiDiscApiKeys = { gemini, groq, models };
+    _aiDiscApiKeys = { geminiKeys, groq, models };
+    _geminiKeyIndex = 0;
     _applyAiDiscModels();
     statusEl.textContent = '保存しました ✓'; statusEl.className = 'admin-status ok';
   } catch(e) {
@@ -832,7 +862,7 @@ async function _throwApiError(res, label) {
 }
 
 async function _callGeminiApi(prompt) {
-  const key = _aiDiscApiKeys.gemini;
+  const key = _nextGeminiKey();
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -847,7 +877,7 @@ async function _callGeminiApi(prompt) {
 
 // 検索モード用：Google検索ツールを有効にしてGeminiに問い合わせ、回答と参照元URLを返す
 async function _callGeminiSearchApi(prompt) {
-  const key = _aiDiscApiKeys.gemini;
+  const key = _nextGeminiKey();
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -946,14 +976,24 @@ async function _testGroqKey(key) {
 }
 
 async function testAiDiscApiKey(provider) {
-  const inputId = `ai-disc-${provider}-key`;
   const statusEl = document.getElementById(`ai-disc-${provider}-test-status`);
-  const key = document.getElementById(inputId).value.trim();
+  if (provider === 'gemini') {
+    const keys = document.getElementById('ai-disc-gemini-keys').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!keys.length) { statusEl.textContent = 'キーを入力してください'; statusEl.className = 'admin-status error'; return; }
+    statusEl.textContent = '確認中...'; statusEl.className = 'admin-status';
+    const results = await Promise.all(keys.map(async (key, i) => {
+      try { await _testGeminiKey(key); return `${i + 1}番目: ✓`; }
+      catch(e) { return `${i + 1}番目: ✗ (${e.message})`; }
+    }));
+    statusEl.textContent = results.join(' / ');
+    statusEl.className = results.every(r => r.includes('✓')) ? 'admin-status ok' : 'admin-status error';
+    return;
+  }
+  const key = document.getElementById('ai-disc-groq-key').value.trim();
   if (!key) { statusEl.textContent = 'キーを入力してください'; statusEl.className = 'admin-status error'; return; }
   statusEl.textContent = '確認中...'; statusEl.className = 'admin-status';
   try {
-    if (provider === 'gemini') await _testGeminiKey(key);
-    else await _testGroqKey(key);
+    await _testGroqKey(key);
     statusEl.textContent = '接続できました ✓'; statusEl.className = 'admin-status ok';
   } catch(e) {
     statusEl.textContent = '接続できませんでした: ' + e.message; statusEl.className = 'admin-status error';
@@ -1065,7 +1105,7 @@ function _buildSearchPrompt(topic, previousRounds) {
 
 async function runAiDiscussionSearch(topic, previousRounds) {
   const statusEl = document.getElementById('ai-disc-status');
-  if (!_aiDiscApiKeys.gemini) {
+  if (!_hasGeminiKey()) {
     statusEl.textContent = 'Gemini APIキーを設定してください';
     statusEl.className = 'admin-status error';
     return;
@@ -1226,6 +1266,15 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, con
 **総合回答：**（まとめ。可能であれば麻雀の格言を一つ引用して締めくくってください）
 **前提条件：**（この結論が成り立つための条件・仮定を箇条書き）
 **次のアクション：**（議題の提起者が次に取るべき行動を1〜3個の箇条書き）`;
+  } else if (_aiDiscDiscussMode === 'keiba') {
+    openingLine = `あなたは競馬予想会議の最終予想担当です。以下は3人の予想師AI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの検討の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で最終予想をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**◎本命：**（馬名・番号と一言理由）
+**▲対抗：**（馬名・番号と一言理由）
+**△穴：**（馬名・番号と一言理由）
+**総合コメント：**（まとめ）
+**リスク・注意点：**（外れる場合に考えられる要因を箇条書き）`;
   } else {
     openingLine = `あなたは「マルチAI議論シミュレーター」の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
     outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
@@ -1260,7 +1309,7 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, con
 
 async function _callPersonaApi(personaKey, prompt, maxTokens, onDelta) {
   const persona = _P()[personaKey];
-  if (personaKey === 'nova' && _aiDiscApiKeys.gemini) {
+  if (personaKey === 'nova' && _hasGeminiKey()) {
     try { return await _callGeminiApi(prompt); }
     catch(e) { return await _callGroqApi(prompt, persona.groqModel, maxTokens, onDelta); } // Gemini失敗時はGroqが代行
   }
@@ -1295,7 +1344,7 @@ function _composeAiDiscMd(round1All, round2All, conclusion) {
       if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
     });
   }
-  const conclusionHeading = { magi: '決議', sengoku: '軍議の沙汰', ogiri: '結果発表' }[_aiDiscDiscussMode] || '結論';
+  const conclusionHeading = { magi: '決議', sengoku: '軍議の沙汰', ogiri: '結果発表', keiba: '最終予想' }[_aiDiscDiscussMode] || '結論';
   if (conclusion) out += `---\n\n## 📋 ${conclusionHeading}\n${conclusion.trim()}\n`;
   if (conclusion) {
     let sources = [];
@@ -1349,7 +1398,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     statusEl.className = 'admin-status error';
     return;
   }
-  if (_aiDiscSearchMode !== 'none' && !_aiDiscApiKeys.gemini) {
+  if (_aiDiscSearchMode !== 'none' && !_hasGeminiKey()) {
     statusEl.textContent = 'Web検索の併用にはGemini APIキーが必要です';
     statusEl.className = 'admin-status error';
     return;

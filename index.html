@@ -1100,11 +1100,9 @@
         </button>
         <div id="ai-disc-keys-body" style="display:none;margin-top:10px;">
           <div class="admin-form-group">
-            <label>Gemini APIキー</label>
-            <div style="display:flex;gap:8px;">
-              <input type="password" id="ai-disc-gemini-key" class="admin-input" placeholder="AIza..." autocomplete="off" style="flex:1;">
-              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('gemini')">確認</button>
-            </div>
+            <label>Gemini APIキー（複数アカウント可・1行に1つ）</label>
+            <textarea id="ai-disc-gemini-keys" class="admin-textarea" rows="3" placeholder="AIza...&#10;AIza...（複数登録すると検索リクエストを分散します）" autocomplete="off"></textarea>
+            <button type="button" class="admin-btn" style="width:100%;margin-top:6px;" onclick="testAiDiscApiKey('gemini')">確認</button>
             <div id="ai-disc-gemini-test-status" class="admin-status"></div>
           </div>
           <div class="admin-form-group">
@@ -1132,7 +1130,7 @@
               </div>
             </div>
           </div>
-          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」はGeminiを優先して発言します。モデル名は<a href="https://console.groq.com/docs/models" target="_blank" style="color:var(--accent)">Groqのモデル一覧</a>を参照。</p>
+          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」はGeminiを優先して発言します。Gemini APIキーは複数登録でき、Web検索の呼び出しを順番に分散して無料枠のレート制限を回避しやすくなります。モデル名は<a href="https://console.groq.com/docs/models" target="_blank" style="color:var(--accent)">Groqのモデル一覧</a>を参照。</p>
           <div id="ai-disc-keys-status" class="admin-status"></div>
           <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
         </div>
@@ -1164,6 +1162,7 @@
               <option value="jikan">時間軸（歴史家・未来学者・実務家）</option>
               <option value="devil">悪魔の代弁者（推進派・調停者・反対論者）</option>
               <option value="ogiri">大喜利（ボケ太・シュール男爵・座布団）</option>
+              <option value="keiba">競馬予想（血統博士・気配師・オッズ番長）</option>
               <option value="search">検索モード（最新情報をWeb検索して回答）</option>
             </select>
           </div>
