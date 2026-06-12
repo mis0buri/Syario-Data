@@ -837,6 +837,16 @@
             </div>
           </div>
         </div>
+        <div class="admin-form-group" id="col-ai-panel" style="display:none;">
+          <label>AI執筆支援</label>
+          <div class="col-ai-btns">
+            <button type="button" id="col-ai-title-btn" class="admin-btn sm" onclick="colAiSuggestTitles()">📝 タイトル案</button>
+            <button type="button" id="col-ai-summary-btn" class="admin-btn sm" onclick="colAiSummarize()">📄 リード文案</button>
+            <button type="button" id="col-ai-proofread-btn" class="admin-btn sm" onclick="colAiProofread()">✂️ 校正チェック</button>
+          </div>
+          <div id="col-ai-status" class="admin-status"></div>
+          <div id="col-ai-result" class="col-ai-result"></div>
+        </div>
         <div id="col-edit-status" class="admin-status error"></div>
         <div class="col-submit-btns">
           <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>

@@ -261,6 +261,102 @@ function _colInitEditor(data) {
 
   const statusEl = document.getElementById('col-edit-status');
   if (statusEl) statusEl.textContent = '';
+
+  const aiPanel = document.getElementById('col-ai-panel');
+  if (aiPanel) aiPanel.style.display = _isAdmin ? '' : 'none';
+  const aiResult = document.getElementById('col-ai-result');
+  if (aiResult) aiResult.innerHTML = '';
+  _colAiSetStatus('');
+}
+
+// ── AI執筆支援（管理者のみ。Gemini APIキーは admin_secrets 経由で取得） ──
+function _colGetBodyText() {
+  const bodyEl = document.getElementById('col-edit-body');
+  return (bodyEl?.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function _colAiSetStatus(msg, isError) {
+  const el = document.getElementById('col-ai-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'admin-status' + (isError ? ' error' : '');
+}
+
+async function _colEnsureGeminiKeys() {
+  if (_hasGeminiKey()) return true;
+  await _loadAiDiscApiKeys();
+  return _hasGeminiKey();
+}
+
+function _colRenderAiText(label, text) {
+  const el = document.getElementById('col-ai-result');
+  if (!el) return;
+  el.innerHTML = `<div class="col-ai-result-label">${_esc(label)}</div><div class="col-ai-result-text">${_esc(text)}</div>`;
+}
+
+function _colRenderAiTitleSuggestions(titles) {
+  const el = document.getElementById('col-ai-result');
+  if (!el) return;
+  if (!titles.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="col-ai-result-label">タイトル案（クリックで適用）</div>' +
+    titles.map(t => `<button type="button" class="admin-btn sm col-ai-suggestion" onclick="colApplyAiTitle(this)">${_esc(t)}</button>`).join('');
+}
+
+function colApplyAiTitle(btn) {
+  const titleEl = document.getElementById('col-edit-title');
+  if (titleEl) {
+    titleEl.value = btn.textContent;
+    _colDirty = true;
+  }
+  const el = document.getElementById('col-ai-result');
+  if (el) el.innerHTML = '';
+}
+
+async function _colRunAiTask(btnId, runner) {
+  const btn = document.getElementById(btnId);
+  const text = _colGetBodyText();
+  if (!text) { _colAiSetStatus('本文を入力してください', true); return; }
+  document.querySelectorAll('.col-ai-btns button').forEach(b => b.disabled = true);
+  _colAiSetStatus('AIに問い合わせ中...');
+  try {
+    if (!await _colEnsureGeminiKeys()) {
+      _colAiSetStatus('Gemini APIキーが設定されていません（AI討論の管理画面で登録してください）', true);
+      return;
+    }
+    await runner(text);
+    _colAiSetStatus('');
+  } catch(e) {
+    _colAiSetStatus('エラー: ' + e.message, true);
+  } finally {
+    document.querySelectorAll('.col-ai-btns button').forEach(b => b.disabled = false);
+  }
+}
+
+async function colAiSuggestTitles() {
+  await _colRunAiTask('col-ai-title-btn', async text => {
+    const prompt = `以下は麻雀クラブのコラム記事の本文です。この内容に合うタイトル案を3つ提案してください。出力は1行に1案、番号や記号・説明文を付けずタイトルのみを改行区切りで出力してください。\n\n本文:\n${text.slice(0, 4000)}`;
+    const result = await _callGeminiApi(prompt);
+    const titles = result.split('\n')
+      .map(s => s.replace(/^[\s\d.\-・*「」"'　]+/, '').replace(/["'」]+$/, '').trim())
+      .filter(Boolean).slice(0, 5);
+    _colRenderAiTitleSuggestions(titles);
+  });
+}
+
+async function colAiSummarize() {
+  await _colRunAiTask('col-ai-summary-btn', async text => {
+    const prompt = `以下は麻雀クラブのコラム記事の本文です。記事の内容を2〜3文程度で要約した「リード文」を作成してください。リード文のみを出力し、説明や前置きは不要です。\n\n本文:\n${text.slice(0, 6000)}`;
+    const result = await _callGeminiApi(prompt);
+    _colRenderAiText('リード文案（コピーしてご利用ください）', result.trim());
+  });
+}
+
+async function colAiProofread() {
+  await _colRunAiTask('col-ai-proofread-btn', async text => {
+    const prompt = `以下は麻雀クラブのコラム記事の本文です。誤字脱字・文法の誤り・読みにくい表現があれば箇条書きで簡潔に指摘してください。問題がなければ「特に問題ありません」とだけ回答してください。本文の書き直しは不要です。\n\n本文:\n${text.slice(0, 6000)}`;
+    const result = await _callGeminiApi(prompt);
+    _colRenderAiText('校正チェック結果', result.trim());
+  });
 }
 
 function colConfirmLeave() {
