@@ -656,6 +656,13 @@ const _AI_DISC_OGIRI_PERSONAS = {
   logic: { name: '座布団', emoji: '🎤', role: 'ツッコミ兼司会AI', desc: '大喜利の司会とツッコミを兼ねるAIです。お題を整理しつつ他の回答に鋭くツッコミを入れ、自分でも一つ気の利いた回答を出します。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
 };
 
+// 徹底調査モード用ペルソナ（競馬予想のようにWebでの十分な情報収集が前提の問題全般を扱う）
+const _AI_DISC_RESEARCH_PERSONAS = {
+  logic: { name: 'ファクト', emoji: '📚', role: '事実検証派AI', desc: '一次情報と確認済みの事実だけを土台に組み立てる事実検証派AIです。出典の信頼性や情報の鮮度を重視し、推測と事実を明確に区別して論じます。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
+  nova:  { name: 'トレンド', emoji: '📈', role: '動向分析派AI', desc: '最新のニュース・世論・専門家の見解から流れを読む動向分析派AIです。直近の変化やモメンタムを重視し、これから起きそうな展開を大胆に予測します。', groqModel: _AI_DISC_DEFAULT_MODELS.nova },
+  guard: { name: 'ヘッジ', emoji: '🎲', role: '不確実性管理派AI', desc: '予測の不確実性と外れた場合の損失を管理する慎重派AIです。番狂わせの要因や見落とされがちな情報を探し、確度の低い断定に歯止めをかけます。', groqModel: _AI_DISC_DEFAULT_MODELS.guard },
+};
+
 // 競馬予想モード用ペルソナ（血統・調教・データの3視点で予想を検討する）
 const _AI_DISC_KEIBA_PERSONAS = {
   logic: { name: '血統博士', emoji: '🧬', role: '血統派AI', desc: '血統・系統や種牡馬の特徴を重視する血統派AIです。父系・母系の特性や距離・馬場適性を血統から読み解きます。', groqModel: _AI_DISC_DEFAULT_MODELS.logic },
@@ -672,6 +679,7 @@ const _AI_DISC_MODE_PERSONAS = {
   devil: _AI_DISC_DEVIL_PERSONAS,
   ogiri: _AI_DISC_OGIRI_PERSONAS,
   keiba: _AI_DISC_KEIBA_PERSONAS,
+  research: _AI_DISC_RESEARCH_PERSONAS,
 };
 
 let _aiDiscDiscussMode = 'default'; // _AI_DISC_MODE_PERSONAS のいずれかのキー、または検索専用の 'search'
@@ -1013,28 +1021,27 @@ function _aiDiscRoundSummary(r) {
 // personaKey: round1/round2のペルソナ自身向けにはそのキー、司会者・結論担当向けにはnull
 // stage: 'pre' | 'round1' | 'contention' | 'round2' | 'conclusion'
 function _aiDiscSearchContextBlock(personaKey, stage) {
-  if (_aiDiscSearchMode === 'briefing') {
-    if (!_aiDiscBriefing) return '';
-    return `\n【最新のWeb調査ブリーフィング】\n以下は議論の参考のために事前にWeb検索で調査した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscBriefing}\n`;
+  // deep（徹底検索）はindividualとadvancedの両方の調査結果を注入する
+  let out = '';
+  if (_aiDiscSearchMode === 'briefing' && _aiDiscBriefing) {
+    out += `\n【最新のWeb調査ブリーフィング】\n以下は議論の参考のために事前にWeb検索で調査した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscBriefing}\n`;
   }
-  if (_aiDiscSearchMode === 'individual') {
+  if (_aiDiscSearchMode === 'individual' || _aiDiscSearchMode === 'deep') {
     if (personaKey) {
       const b = _aiDiscPersonaBriefings[personaKey];
-      if (!b) return '';
-      return `\n【あなた自身がWeb検索で調べた最新情報】\nあなたの視点で検索した結果です。これを踏まえて意見を述べ、あなたの知識と矛盾する場合はこちらを優先してください。\n${b.text}\n`;
+      if (b) out += `\n【あなた自身がWeb検索で調べた最新情報】\nあなたの視点で検索した結果です。これを踏まえて意見を述べ、あなたの知識と矛盾する場合はこちらを優先してください。\n${b.text}\n`;
+    } else {
+      const P = _P();
+      const order = _P_ORDER();
+      const parts = order.filter(k => _aiDiscPersonaBriefings[k]).map(k => `▼ ${P[k].name}が調べた情報\n${_aiDiscPersonaBriefings[k].text}`);
+      if (parts.length) out += `\n【各AIが個別にWeb検索で調べた最新情報】\n${parts.join('\n\n')}\n`;
     }
-    const P = _P();
-    const order = _P_ORDER();
-    const parts = order.filter(k => _aiDiscPersonaBriefings[k]).map(k => `▼ ${P[k].name}が調べた情報\n${_aiDiscPersonaBriefings[k].text}`);
-    if (!parts.length) return '';
-    return `\n【各AIが個別にWeb検索で調べた最新情報】\n${parts.join('\n\n')}\n`;
   }
-  if (_aiDiscSearchMode === 'advanced') {
-    if (stage !== 'round2' && stage !== 'conclusion') return '';
-    if (!_aiDiscAdvancedResearch) return '';
-    return `\n【争点を検証するためのWeb調査結果】\n第1ラウンドの争点について検索した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscAdvancedResearch}\n`;
+  if ((_aiDiscSearchMode === 'advanced' || _aiDiscSearchMode === 'deep') &&
+      (stage === 'round2' || stage === 'conclusion') && _aiDiscAdvancedResearch) {
+    out += `\n【争点を検証するためのWeb調査結果】\n第1ラウンドの争点について検索した最新情報です。あなたの知識と矛盾する場合はこちらを優先してください。\n${_aiDiscAdvancedResearch}\n`;
   }
-  return '';
+  return out;
 }
 
 function _aiDiscContextBlock(topic, previousRounds, personaKey, stage) {
@@ -1275,6 +1282,15 @@ function _buildConclusionPrompt(topic, previousRounds, round1All, round2All, con
 **△穴：**（馬名・番号と一言理由）
 **総合コメント：**（まとめ）
 **リスク・注意点：**（外れる場合に考えられる要因を箇条書き）`;
+  } else if (_aiDiscDiscussMode === 'research') {
+    openingLine = `あなたは「徹底調査会議」の最終報告担当です。以下は3人の調査AI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの検討の記録です。`;
+    outputFormat = `これらを踏まえて、以下の形式で調査報告をMarkdownで出力してください。前置きや見出しは付けないでください。
+
+**結論・予測：**（最も可能性が高いと考えられる答えを端的に）
+**確度：**（高・中・低のいずれかと、その理由を一言）
+**主な根拠：**（調査で得られた事実を箇条書き。情報の時点が分かるものは日付も明記）
+**不確実要素：**（結論が外れるとしたらどんな場合かを箇条書き）
+**追加で調べるとよい情報：**（確度を上げるために確認すべき情報を1〜3個の箇条書き）`;
   } else {
     openingLine = `あなたは「マルチAI議論シミュレーター」の結論担当です。以下は3人のAI（${order.map(k => `${P[k].name}=${P[k].role}`).join(', ')}）による2ラウンドの議論の記録です。`;
     outputFormat = `これらを踏まえて、以下の形式で結論をMarkdownで出力してください。前置きや見出しは付けないでください。
@@ -1327,7 +1343,7 @@ function _composeAiDiscMd(round1All, round2All, conclusion) {
   if (_aiDiscSearchMode === 'briefing' && _aiDiscBriefing) out += `## 🔎 Web調査ブリーフィング\n${_aiDiscBriefing.trim()}\n\n---\n\n`;
   order.forEach(k => {
     if (round1All && round1All[k]) {
-      if (_aiDiscSearchMode === 'individual' && _aiDiscPersonaBriefings[k]) {
+      if ((_aiDiscSearchMode === 'individual' || _aiDiscSearchMode === 'deep') && _aiDiscPersonaBriefings[k]) {
         out += `#### 🔎 個別調査\n${_aiDiscPersonaBriefings[k].text.trim()}\n\n`;
       }
       out += `## ${P[k].emoji} ${P[k].name}\n${round1All[k].trim()}\n\n`;
@@ -1337,26 +1353,28 @@ function _composeAiDiscMd(round1All, round2All, conclusion) {
     const isOgiri = _aiDiscDiscussMode === 'ogiri';
     out += isOgiri ? '---\n\n## 第2ラウンド：乗っかり・ツッコミ\n\n' : '---\n\n## 第2ラウンド：相互の意見への反論・補足\n\n';
     if (_aiDiscAutoContention) out += `### 🎙️ ${isOgiri ? '司会者が挙げた切り口' : '司会者による争点整理'}\n${_aiDiscAutoContention.trim()}\n\n`;
-    if (_aiDiscSearchMode === 'advanced' && _aiDiscAdvancedResearch) {
+    if ((_aiDiscSearchMode === 'advanced' || _aiDiscSearchMode === 'deep') && _aiDiscAdvancedResearch) {
       out += `### 🔎 争点の検証調査\n${_aiDiscAdvancedResearch.trim()}\n\n`;
     }
     order.forEach(k => {
       if (round2All[k]) out += `### ${P[k].emoji} ${P[k].name}\n${round2All[k].trim()}\n\n`;
     });
   }
-  const conclusionHeading = { magi: '決議', sengoku: '軍議の沙汰', ogiri: '結果発表', keiba: '最終予想' }[_aiDiscDiscussMode] || '結論';
+  const conclusionHeading = { magi: '決議', sengoku: '軍議の沙汰', ogiri: '結果発表', keiba: '最終予想', research: '調査報告' }[_aiDiscDiscussMode] || '結論';
   if (conclusion) out += `---\n\n## 📋 ${conclusionHeading}\n${conclusion.trim()}\n`;
   if (conclusion) {
     let sources = [];
     if (_aiDiscSearchMode === 'briefing') {
       sources = _aiDiscBriefingSources.map(s => ({ title: s.title || s.uri, uri: s.uri }));
-    } else if (_aiDiscSearchMode === 'individual') {
+    }
+    if (_aiDiscSearchMode === 'individual' || _aiDiscSearchMode === 'deep') {
       order.forEach(k => {
         const b = _aiDiscPersonaBriefings[k];
         if (b) b.sources.forEach(s => sources.push({ title: `[${P[k].name}] ${s.title || s.uri}`, uri: s.uri }));
       });
-    } else if (_aiDiscSearchMode === 'advanced') {
-      sources = _aiDiscAdvancedSources.map(s => ({ title: s.title || s.uri, uri: s.uri }));
+    }
+    if (_aiDiscSearchMode === 'advanced' || _aiDiscSearchMode === 'deep') {
+      _aiDiscAdvancedSources.forEach(s => sources.push({ title: s.title || s.uri, uri: s.uri }));
     }
     const seen = new Set();
     sources = sources.filter(s => !seen.has(s.uri) && seen.add(s.uri));
@@ -1472,7 +1490,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     }
 
     // 個別検索方式：各AIがそれぞれの視点でWeb検索してから第1ラウンドに臨む
-    if (_aiDiscSearchMode === 'individual' && !Object.keys(_aiDiscPersonaBriefings).length && !round1All) {
+    if ((_aiDiscSearchMode === 'individual' || _aiDiscSearchMode === 'deep') && !Object.keys(_aiDiscPersonaBriefings).length && !round1All) {
       statusEl.textContent = '各AIがWebで個別調査中...';
       const P = _P();
       const order = _P_ORDER();
@@ -1507,7 +1525,7 @@ async function runAiDiscussionAuto(topic, previousRounds) {
     }
 
     // 発展検索方式：第1ラウンドの争点をWebで検証し、結果を第2ラウンド以降に注入する
-    if (_aiDiscSearchMode === 'advanced' && !_aiDiscAdvancedResearch && !round2All) {
+    if ((_aiDiscSearchMode === 'advanced' || _aiDiscSearchMode === 'deep') && !_aiDiscAdvancedResearch && !round2All) {
       statusEl.textContent = '争点をWebで検証中...';
       try {
         const r = await _callGeminiSearchApi(_buildAdvancedSearchPrompt(topic, previousRounds, contention));
