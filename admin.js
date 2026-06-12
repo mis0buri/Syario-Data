@@ -1141,7 +1141,7 @@ async function runAiDiscussionSearch(topic, previousRounds) {
     if (sources.length) {
       md += '\n\n---\n\n## 参考情報\n' + sources.map(s => `- [${s.title || s.uri}](${s.uri})`).join('\n');
     }
-    document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(md);
+    document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(md, 'ai-disc-auto-preview');
     _aiDiscAutoOutput = { output: md, detail: { sources } };
     saveBtn.style.display = '';
     statusEl.textContent = '検索が完了しました ✓'; statusEl.className = 'admin-status ok';
@@ -1404,7 +1404,7 @@ function _renderAiDiscAutoPartialThrottled(round1All, round2All, conclusion) {
 function _renderAiDiscAutoPartial(round1All, round2All, conclusion) {
   // マークダウンを組成して、プレビューに表示する
   const md = _composeAiDiscMd(round1All, round2All, conclusion);
-  document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(md);
+  document.getElementById('ai-disc-auto-preview').innerHTML = _renderAiDiscMarkdown(md, conclusion ? 'ai-disc-auto-preview' : null);
 }
 
 async function runAiDiscussionAuto(topic, previousRounds) {
@@ -1618,10 +1618,11 @@ async function openAiDiscussionDetail(id) {
 function _renderAiDiscussionRounds() {
   const rounds = _aiDiscCurrentDoc?.rounds || [];
   const html = rounds.map((r, i) => {
-    return `<div class="ai-disc-round">
+    const id = `ai-disc-round-${i}`;
+    return `<div class="ai-disc-round" id="${id}">
       <div class="ai-disc-round-label">${i === 0 ? '議題' : `追加条件 ${i + 1}`}</div>
       <div class="ai-disc-round-input">${_esc(r.input)}</div>
-      <div class="ai-disc-round-output">${_renderAiDiscMarkdown(r.output)}</div>
+      <div class="ai-disc-round-output">${_renderAiDiscMarkdown(r.output, id)}</div>
     </div>`;
   }).join('<hr class="ai-disc-hr">');
   document.getElementById('ai-disc-rounds').innerHTML = html;
@@ -1633,18 +1634,29 @@ function _inlineMd(s) {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
-function _renderAiDiscMarkdown(text) {
+function _renderAiDiscMarkdown(text, scrollTargetId) {
   const lines = (text || '').split('\n');
   let html = '';
   let inList = false;
+  let inDetails = false;
   const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  const closeDetails = () => { if (inDetails) { html += '</details>'; inDetails = false; } };
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) { closeList(); continue; }
     let m;
-    if (/^---+$/.test(line)) { closeList(); html += '<hr class="ai-disc-hr">'; continue; }
-    if ((m = line.match(/^####\s*(.+)$/)) || (m = line.match(/^###\s*(.+)$/))) { closeList(); html += `<h4>${_inlineMd(m[1])}</h4>`; continue; }
-    if ((m = line.match(/^##\s*(.+)$/))) { closeList(); html += `<h3>${_inlineMd(m[1])}</h3>`; continue; }
+    if (/^---+$/.test(line)) { closeList(); closeDetails(); html += '<hr class="ai-disc-hr">'; continue; }
+    if ((m = line.match(/^####\s*(.+)$/)) || (m = line.match(/^###\s*(.+)$/))) { closeList(); closeDetails(); html += `<h4>${_inlineMd(m[1])}</h4>`; continue; }
+    if ((m = line.match(/^##\s*(.+)$/))) {
+      closeList(); closeDetails();
+      if (/参考情報/.test(m[1])) {
+        html += `<details class="ai-disc-sources"><summary>${_inlineMd(m[1])}</summary>`;
+        inDetails = true;
+      } else {
+        html += `<h3>${_inlineMd(m[1])}</h3>`;
+      }
+      continue;
+    }
     if ((m = line.match(/^[-*]\s+(.+)$/))) {
       if (!inList) { html += '<ul>'; inList = true; }
       html += `<li>${_inlineMd(m[1])}</li>`;
@@ -1654,6 +1666,10 @@ function _renderAiDiscMarkdown(text) {
     html += `<p>${_inlineMd(line)}</p>`;
   }
   closeList();
+  closeDetails();
+  if (scrollTargetId) {
+    html += `<div class="ai-disc-top-link"><button type="button" class="admin-btn sm" onclick="document.getElementById('${scrollTargetId}').scrollIntoView({behavior:'smooth', block:'start'})">▲ 上に戻る</button></div>`;
+  }
   return html;
 }
 

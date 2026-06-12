@@ -1223,6 +1223,10 @@
   .ai-disc-round-output li { margin-bottom: 2px; }
   .ai-disc-round-output strong { color: var(--accent); }
   .ai-disc-hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+  .ai-disc-round-output details.ai-disc-sources { font-size: 13px; margin: 10px 0; }
+  .ai-disc-round-output details.ai-disc-sources summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--text); margin: 14px 0 6px; }
+  .ai-disc-round-output details.ai-disc-sources ul { margin-top: 6px; }
+  .ai-disc-top-link { margin-top: 14px; text-align: right; }
 
 /* ── 投票箱 ── */
 .vote-view { display: none; }
