@@ -1,3 +1,5 @@
+const MAKE_RSV_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
+
 // ── 営業予定カレンダー ──
 let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth(); // 0-indexed
@@ -101,6 +103,8 @@ function closeRsvModal() {
   rsvPendingData = null;
   _editMode = false;
   _editDocId = null;
+  _rsvListSelectMode = false;
+  _rsvListSelected.clear();
 }
 
 function rsvOverlayClick(e) {
@@ -127,7 +131,10 @@ async function openDayDetail(dateStr) {
      </div>`;
 
   const rsvBtn = document.querySelector('#rsv-detail .rsv-btn.primary');
-  if (rsvBtn) rsvBtn.style.display = mark === '×' ? 'none' : '';
+  if (rsvBtn) rsvBtn.style.display = (mark === '×' && !_isAdmin) ? 'none' : '';
+
+  const adminBtnWrap = document.getElementById('rsv-detail-admin-btn-wrap');
+  if (adminBtnWrap) adminBtnWrap.style.display = _isAdmin ? '' : 'none';
 
   showRsvScreen('rsv-detail');
 
@@ -155,7 +162,7 @@ async function openDayDetail(dateStr) {
     _currentDayRsvData = snap.docs.map(doc => {
       const dta = doc.data();
       const cats = (dta.categories || []).map(c => c === 'その他' && dta.otherText ? `その他(${dta.otherText})` : c);
-      return { name: dta.name || '匿名', cats };
+      return { name: dta.name || '匿名', cats, note: dta.note || '' };
     });
     if (snap.empty) {
       listEl.innerHTML = '<div class="rsv-empty">まだ予約はありません</div>';
@@ -261,8 +268,9 @@ async function postToX() {
   }
 
   const dpr = window.devicePixelRatio || 1;
-  const W = 720, pad = 36, rowH = 34;
-  const rsvSectionH = rsvs.length > 0 ? 48 + rsvs.length * rowH : 48;
+  const W = 720, pad = 36, rowH = 34, noteH = 20;
+  const rsvNoteExtra = rsvs.reduce((s, r) => s + (r.note ? noteH : 0), 0);
+  const rsvSectionH = rsvs.length > 0 ? 48 + rsvs.length * rowH + rsvNoteExtra : 48;
   const hasParticipants = joins.length > 0 || interests.length > 0;
   const participantSectionH = hasParticipants
     ? 30 + 24 + joins.length * rowH + (interests.length > 0 ? 16 + 24 + interests.length * rowH : 0) + 20
@@ -323,13 +331,19 @@ async function postToX() {
       ctx.fillStyle = '#dde2ec';
       ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
       ctx.fillText(rsv.name, pad, curY);
-      if (rsv.cats.length) {
+      if (rsv.cats && rsv.cats.length) {
         const nameW = ctx.measureText(rsv.name).width;
         ctx.fillStyle = '#61afef';
         ctx.font = "13px 'Noto Sans JP', sans-serif";
         ctx.fillText('  ' + rsv.cats.join(' / '), pad + nameW, curY);
       }
       curY += rowH;
+      if (rsv.note) {
+        ctx.fillStyle = '#7f848e';
+        ctx.font = "13px 'Noto Sans JP', sans-serif";
+        ctx.fillText('📝 ' + rsv.note, pad + 12, curY);
+        curY += noteH;
+      }
     });
   }
 
@@ -398,7 +412,7 @@ function populateDateSelect() {
     const day = String(d.getDate()).padStart(2,'0');
     const dateStr = `${y}-${m}-${day}`;
     const entry = SCHEDULE_DATA[dateStr];
-    if (!entry || entry.mark === '×') continue;
+    if (!_isAdmin && (!entry || entry.mark === '×')) continue;
     const dayName = DAYNAMES[d.getDay()];
     const mark = entry ? ` ${entry.mark}` : '';
     const opt = document.createElement('option');
@@ -423,6 +437,8 @@ function _initReservationForm(preselect) {
   document.getElementById('rsv-other-text').value = '';
   document.getElementById('rsv-other-wrap').style.display = 'none';
   document.getElementById('rsv-note').value = '';
+  const rsvXWrap = document.getElementById('rsv-x-post-wrap');
+  if (rsvXWrap) rsvXWrap.style.display = _isAdmin ? '' : 'none';
   showRsvScreen('rsv-form');
 }
 
@@ -509,6 +525,28 @@ async function submitReservation() {
         body: JSON.stringify({ content: `${header}\n${lines.join('\n')}` })
       });
     } catch(e) { console.warn('Discord通知失敗:', e); }
+    // Make → X 通知（新規予約のみ）
+    const rsvXCheck = document.getElementById('rsv-x-post-check');
+    if (!_editMode && MAKE_RSV_WEBHOOK_URL && (!_isAdmin || rsvXCheck.checked)) {
+      try {
+        const parts2 = rsvCurrentDate.split('-');
+        const dateLabel2 = `${parseInt(parts2[0])}年${parseInt(parts2[1])}月${parseInt(parts2[2])}日`;
+        const displayCats2 = (rsvPendingData.categories || []).map(c => c === 'その他' && rsvPendingData.otherText ? `その他(${rsvPendingData.otherText})` : c);
+        await fetch(MAKE_RSV_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'reservation',
+            date: dateLabel2,
+            name: rsvPendingData.name,
+            categories: displayCats2.join('、') || 'なし',
+            note: rsvPendingData.note || '',
+            url: location.origin + location.pathname + '#schedule/' + rsvCurrentDate,
+          })
+        });
+      } catch(e) { console.warn('Make通知失敗:', e); }
+    }
+    btn.disabled = false;
     const ds = _editMode ? rsvCurrentDate : null;
     const wasEdit = _editMode;
     closeRsvModal();
@@ -522,8 +560,15 @@ async function submitReservation() {
 }
 
 async function openReservationList() {
+  _rsvListSelectMode = false;
+  _rsvListSelected.clear();
+  _rsvListCache = [];
   showRsvScreen('rsv-list-screen');
   const content = document.getElementById('rsv-list-content');
+  const btnWrap = document.getElementById('rsv-list-modal-btn-wrap');
+  const confirmBar = document.getElementById('rsv-list-confirm-bar');
+  if (btnWrap) btnWrap.style.display = 'none';
+  if (confirmBar) confirmBar.style.display = 'none';
   content.innerHTML = '<div class="rsv-empty">読み込み中...</div>';
   if (!_db) {
     content.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">Firebase未設定</div>';
@@ -538,27 +583,288 @@ async function openReservationList() {
       .get();
     if (snap.empty) {
       content.innerHTML = '<div class="rsv-empty">今後の予約はありません</div>';
+      if (btnWrap) {
+        btnWrap.innerHTML = '<button class="rsv-btn x-post" onclick="shareRsvListEmpty()">共有</button>';
+        btnWrap.style.display = '';
+      }
       return;
     }
-    const grouped = {};
+    const byDate = {};
     snap.docs.forEach(doc => {
       const dta = doc.data();
-      if (!grouped[dta.date]) grouped[dta.date] = [];
-      grouped[dta.date].push(dta);
+      const cats = (dta.categories || []).map(c =>
+        c === 'その他' && dta.otherText ? `その他(${dta.otherText})` : c);
+      if (!byDate[dta.date]) byDate[dta.date] = [];
+      byDate[dta.date].push({ name: dta.name || '匿名', cats, note: dta.note || '' });
     });
-    content.innerHTML = Object.entries(grouped).map(([dateStr, rsvs]) => {
-      const p = dateStr.split('-');
-      const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
-      return `<div class="rsv-list-item" onclick="closeRsvModal();setTimeout(()=>openDayDetail('${dateStr}'),80)">
-        <div class="rsv-list-date">${dateLabel}</div>
-        <div class="rsv-list-count">${rsvs.length}件の予約</div>
-      </div>`;
-    }).join('');
+    const dates = Object.keys(byDate).sort();
+    _rsvListCache = await Promise.all(dates.map(async date => {
+      let joins = [], interests = [];
+      try {
+        const pSnap = await _db.collection('rsv_participants').where('date', '==', date).get();
+        const all = pSnap.docs.map(p => p.data());
+        joins     = all.filter(p => p.type === 'join');
+        interests = all.filter(p => p.type === 'interest');
+      } catch(e) {}
+      return { date, rsvs: byDate[date], joins, interests };
+    }));
+    _renderRsvListContent();
+    if (btnWrap) {
+      btnWrap.innerHTML = '<button class="rsv-btn x-post" onclick="enterRsvListSelectMode()">まとめて共有</button>';
+      btnWrap.style.display = '';
+    }
   } catch(e) {
     content.innerHTML = '<div class="rsv-empty" style="color:var(--red);font-size:12px;">読み込みエラー</div>';
     console.error(e);
   }
 }
+
+function _renderRsvListContent() {
+  const DOW = ['日','月','火','水','木','金','土'];
+  const sm = _rsvListSelectMode;
+  document.getElementById('rsv-list-content').innerHTML = _rsvListCache.map(({ date, rsvs }) => {
+    const [y, mo, d] = date.split('-').map(Number);
+    const dow = DOW[new Date(Date.UTC(y, mo-1, d)).getUTCDay()];
+    const isSelected = _rsvListSelected.has(date);
+    const selCls = sm && isSelected ? ' boshu-selected' : '';
+    const onclick = sm
+      ? `toggleRsvListItem('${date}')`
+      : `closeRsvModal();setTimeout(()=>openDayDetail('${date}'),80)`;
+    const chk = sm ? `<span class="boshu-check-icon">${isSelected ? '☑' : '☐'}</span>` : '';
+    return `<div class="rsv-list-item${selCls}" onclick="${onclick}" style="${sm ? 'display:flex;align-items:center;gap:10px;' : ''}">
+      ${chk}<div style="${sm ? 'flex:1;min-width:0' : ''}">
+        <div class="rsv-list-date">${mo}月${d}日（${dow}）</div>
+        <div class="rsv-list-count">${rsvs.length}件の予約</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function enterRsvListSelectMode() {
+  _rsvListSelectMode = true;
+  _rsvListSelected.clear();
+  document.getElementById('rsv-list-confirm-bar').style.display = '';
+  document.getElementById('rsv-list-modal-btn-wrap').style.display = 'none';
+  _renderRsvListContent();
+  _rsvListUpdateCount();
+}
+
+function exitRsvListSelectMode() {
+  _rsvListSelectMode = false;
+  _rsvListSelected.clear();
+  document.getElementById('rsv-list-confirm-bar').style.display = 'none';
+  document.getElementById('rsv-list-modal-btn-wrap').style.display = '';
+  _renderRsvListContent();
+}
+
+function toggleRsvListItem(date) {
+  if (!_rsvListSelected.has(date)) _rsvListSelected.add(date);
+  else _rsvListSelected.delete(date);
+  _renderRsvListContent();
+  _rsvListUpdateCount();
+}
+
+function _rsvListUpdateCount() {
+  const el = document.getElementById('rsv-list-select-count');
+  const btn = document.getElementById('rsv-list-share-exec-btn');
+  const allBtn = document.getElementById('rsv-list-select-all-btn');
+  if (el) el.textContent = `${_rsvListSelected.size}件選択中`;
+  if (btn) btn.disabled = _rsvListSelected.size === 0;
+  if (allBtn) {
+    const allSelected = _rsvListCache.length > 0 && _rsvListCache.every(g => _rsvListSelected.has(g.date));
+    allBtn.textContent = allSelected ? '全解除' : '全選択';
+  }
+}
+
+function toggleRsvListSelectAll() {
+  const allSelected = _rsvListCache.length > 0 && _rsvListCache.every(g => _rsvListSelected.has(g.date));
+  if (allSelected) _rsvListSelected.clear();
+  else _rsvListCache.forEach(g => _rsvListSelected.add(g.date));
+  _renderRsvListContent();
+  _rsvListUpdateCount();
+}
+
+function shareRsvListSelected() {
+  const items = _rsvListCache.filter(g => _rsvListSelected.has(g.date));
+  _generateRsvListCanvas(items);
+}
+
+function shareRsvListEmpty() {
+  _generateRsvListCanvas([]);
+}
+
+async function _generateRsvListCanvas(items) {
+  const W = 720, pad = 36, rowH = 34, noteH = 20, SEP = 12;
+  const MARK_LABELS = { '◎':'終日営業', '〇':'半日以上', '△':'短時間のみ', '×':'お休み' };
+  const MARK_COLORS = { '◎':'#98c379', '〇':'#61afef', '△':'#e5c07b', '×':'#e06c75' };
+  await document.fonts.ready;
+  const dpr = window.devicePixelRatio || 1;
+  let totalH, canvas, ctx;
+
+  if (!items.length) {
+    // 予約なし画像
+    totalH = 230;
+    canvas = document.createElement('canvas');
+    canvas.width = W * dpr; canvas.height = totalH * dpr;
+    ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#21252b';
+    ctx.fillRect(0, 0, W, totalH);
+    ctx.fillStyle = '#528bff';
+    ctx.fillRect(0, 0, 6, totalH);
+    ctx.fillStyle = '#dde2ec';
+    ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+    ctx.fillText('予約一覧', pad, 54);
+    ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, 72); ctx.lineTo(W - pad, 72); ctx.stroke();
+    ctx.fillStyle = '#5c6370';
+    ctx.font = "bold 28px 'Noto Sans JP', sans-serif";
+    ctx.fillText('予約なし', pad, 138);
+    ctx.fillStyle = '#3e4451';
+    ctx.font = "14px 'Noto Sans JP', sans-serif";
+    ctx.fillText('現在、今後の予約はありません', pad, 176);
+  } else {
+    // 選択された日付のカード
+    const calcH = (rsvs, joins, interests) => {
+      const rsvNoteEx = rsvs.reduce((s, r) => s + (r.note ? noteH : 0), 0);
+      const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH + rsvNoteEx : 48;
+      const pSecH = (joins.length || interests.length)
+        ? 30 + 24 + joins.length * rowH + (interests.length ? 16 + 24 + interests.length * rowH : 0) + 20
+        : 20;
+      return 154 + rsvSecH + pSecH;
+    };
+    const heights = items.map(it => calcH(it.rsvs, it.joins, it.interests));
+    totalH = heights.reduce((s, h) => s + h, 0) + Math.max(0, items.length - 1) * SEP;
+    canvas = document.createElement('canvas');
+    canvas.width = W * dpr; canvas.height = totalH * dpr;
+    ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#21252b';
+    ctx.fillRect(0, 0, W, totalH);
+
+    let curY = 0;
+    for (let i = 0; i < items.length; i++) {
+      const { date, rsvs, joins, interests } = items[i];
+      const cardH = heights[i];
+      const [yr, mo, dy] = date.split('-').map(Number);
+      const entry = SCHEDULE_DATA[date];
+      const mark = entry ? entry.mark : '';
+      const barColor = MARK_COLORS[mark] || '#528bff';
+
+      ctx.fillStyle = barColor;
+      ctx.fillRect(0, curY, 6, cardH);
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "bold 26px 'Noto Sans JP', sans-serif";
+      ctx.fillText(`${yr}年${mo}月${dy}日`, pad, curY + 50);
+      if (mark) {
+        ctx.fillStyle = barColor;
+        ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+        ctx.fillText(`${mark}  ${MARK_LABELS[mark] || ''}`, pad, curY + 86);
+      }
+      if (entry && entry.note) {
+        ctx.fillStyle = '#7f848e';
+        ctx.font = "14px 'Noto Sans JP', sans-serif";
+        ctx.fillText(entry.note, pad, curY + 112);
+      }
+      ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad, curY + 130); ctx.lineTo(W - pad, curY + 130); ctx.stroke();
+
+      let rY = curY + 154;
+      if (!rsvs.length) {
+        ctx.fillStyle = '#5c6370';
+        ctx.font = "16px 'Noto Sans JP', sans-serif";
+        ctx.fillText('予約はありません', pad, rY + 12);
+        rY += 48;
+      } else {
+        ctx.fillStyle = '#5c6370';
+        ctx.font = "13px 'Noto Sans JP', sans-serif";
+        ctx.fillText(`${rsvs.length}件の予約`, pad, rY);
+        rY += 24;
+        rsvs.forEach(rsv => {
+          ctx.fillStyle = '#dde2ec';
+          ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
+          ctx.fillText(rsv.name, pad, rY);
+          if (rsv.cats && rsv.cats.length) {
+            const nw = ctx.measureText(rsv.name).width;
+            ctx.fillStyle = '#61afef';
+            ctx.font = "13px 'Noto Sans JP', sans-serif";
+            ctx.fillText('  ' + rsv.cats.join(' / '), pad + nw, rY);
+          }
+          rY += rowH;
+          if (rsv.note) {
+            ctx.fillStyle = '#7f848e';
+            ctx.font = "13px 'Noto Sans JP', sans-serif";
+            ctx.fillText('📝 ' + rsv.note, pad + 12, rY);
+            rY += noteH;
+          }
+        });
+      }
+      rY += 14;
+      ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad, rY); ctx.lineTo(W - pad, rY); ctx.stroke();
+      rY += 22;
+
+      const drawPL = (label, list) => {
+        ctx.fillStyle = '#5c6370';
+        ctx.font = "13px 'Noto Sans JP', sans-serif";
+        ctx.fillText(`${label}  ${list.length}人`, pad, rY);
+        rY += 24;
+        list.forEach(p => {
+          ctx.fillStyle = '#dde2ec';
+          ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
+          ctx.fillText(p.name || '匿名', pad + 12, rY);
+          if (p.note) {
+            const nw = ctx.measureText(p.name || '匿名').width;
+            ctx.fillStyle = '#7f848e';
+            ctx.font = "13px 'Noto Sans JP', sans-serif";
+            ctx.fillText('  ' + p.note, pad + 12 + nw, rY);
+          }
+          rY += rowH;
+        });
+      };
+      drawPL('参加', joins);
+      if (interests.length) { rY += 8; drawPL('興味あり', interests); }
+
+      curY += cardH;
+      if (i < items.length - 1) {
+        ctx.fillStyle = '#2a2f3b';
+        ctx.fillRect(0, curY, W, SEP);
+        curY += SEP;
+      }
+    }
+  }
+
+  const shareUrl  = location.origin + location.pathname + '#schedule';
+  const shareText = `予約一覧\n${shareUrl}`;
+  const filename  = items.length ? 'rsv-list.png' : 'rsv-nashi.png';
+  const includeSchedule = document.getElementById('rsv-include-schedule')?.checked;
+
+  const toBlob = c => new Promise(resolve => c.toBlob(resolve, 'image/png'));
+  const mainBlob = await toBlob(canvas);
+  const schedBlob = includeSchedule ? await toBlob(await generateScheduleCanvas()) : null;
+
+  const files = [new File([mainBlob], filename, { type: 'image/png' })];
+  if (schedBlob) files.push(new File([schedBlob], 'schedule.png', { type: 'image/png' }));
+
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, text: shareText }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  files.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    const a = document.createElement('a');
+    a.href = url; a.download = f.name;
+    if (i > 0) setTimeout(() => { a.click(); URL.revokeObjectURL(url); }, i * 300);
+    else { a.click(); URL.revokeObjectURL(url); }
+  });
+  try { await navigator.clipboard.writeText(shareText); } catch {}
+  _boshuToast(items.length ? '画像をダウンロード・URLをコピーしました' : '画像をダウンロードしました');
+}
+
+// ── 予約一覧 選択モード ──
+let _rsvListSelectMode = false;
+let _rsvListSelected = new Set();
+let _rsvListCache = []; // [{date, rsvs:[{name,cats}], joins:[], interests:[]}]
 
 // ── 編集機能 ──
 let _editMode = false, _editDocId = null, _editDateStr = null;
@@ -594,6 +900,8 @@ function _loadEditForm(data, dateStr) {
   document.getElementById('rsv-other-wrap').style.display = hasOther ? 'block' : 'none';
   document.getElementById('rsv-other-text').value = data.otherText || '';
   document.getElementById('rsv-note').value = data.note || '';
+  const rsvXWrapEdit = document.getElementById('rsv-x-post-wrap');
+  if (rsvXWrapEdit) rsvXWrapEdit.style.display = 'none';
   showRsvScreen('rsv-form');
 }
 
@@ -608,14 +916,6 @@ async function openCancelModal(docId, name, dateStr) {
     if (data.uid === _currentUser.uid || _isAdmin) {
       if (!confirm(`「${name}」の予約をキャンセルしますか？`)) return;
       await _db.collection('reservations').doc(docId).delete();
-      try {
-        const p = dateStr.split('-');
-        const dateLabel = `${parseInt(p[0])}年${parseInt(p[1])}月${parseInt(p[2])}日`;
-        await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: `__**予約がキャンセルされました**__\n📅 **日付**: ${dateLabel}\n👤 **お名前**: ${name}` })
-        });
-      } catch(e) {}
       alert('予約をキャンセルしました');
       openDayDetail(dateStr);
     } else {

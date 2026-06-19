@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>シャリオ</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -24,10 +27,12 @@
 <header>
   <div class="logo" onclick="showSection('top')"><span style="color:#e08080;font-size:inherit;font-weight:inherit;margin-left:0">シ</span><span style="color:#72c072;font-size:inherit;font-weight:inherit;margin-left:0">ャ</span><span style="color:#6b9ed4;font-size:inherit;font-weight:inherit;margin-left:0">リ</span><span style="color:#d4c045;font-size:inherit;font-weight:inherit;margin-left:0">オ</span></div>
   <nav>
+    <button data-nav="top" onclick="showSection('top')">トップ</button>
     <button data-nav="sensei" onclick="showSection('ranking')">戦績</button>
     <button data-nav="gallery" onclick="showSection('gallery')">ギャラリー</button>
     <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
+    <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
@@ -53,6 +58,8 @@
 <!-- ギャラリーサブナビ -->
 <div id="subnav-gallery" class="subnav" style="display:none">
   <button class="active" onclick="showSection('jare')">じゃれ本</button>
+  <button onclick="showSection('walk')">散歩ログ</button>
+  <button onclick="showSection('column')">コラム</button>
 </div>
 
 <!-- 管理者サブナビ -->
@@ -60,6 +67,8 @@
   <button onclick="showSection('admin-members')">メンバー管理</button>
   <button onclick="showSection('admin-gather')">対局登録</button>
   <button onclick="showSection('admin-score')">スコア入力</button>
+  <button onclick="showSection('admin-schedule')">スケジュール</button>
+  <button onclick="showSection('admin-ai-discuss')">AI議論</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -108,6 +117,59 @@
 
   <!-- 桜の木デコレーション（いらすとや等の画像URLがあれば src に差し替え可） -->
   <div class="sakura-deco" aria-hidden="true">
+    <!-- 夜：三日月と星 -->
+    <div class="night-deco">
+      <svg class="night-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+        <defs>
+          <radialGradient id="moonGrad" cx="36%" cy="32%" r="68%">
+            <stop offset="0%" stop-color="#fffef0"/>
+            <stop offset="55%" stop-color="#f4e060"/>
+            <stop offset="100%" stop-color="#c8a028"/>
+          </radialGradient>
+          <mask id="moonMask">
+            <rect width="120" height="120" fill="white"/>
+            <circle cx="76" cy="42" r="54" fill="black"/>
+          </mask>
+        </defs>
+        <circle cx="50" cy="60" r="50" fill="url(#moonGrad)" mask="url(#moonMask)" opacity="0.92"/>
+      </svg>
+      <div class="night-star" style="top:16%;left:12%;width:2px;height:2px;--d:2.1s;--delay:0.3s"></div>
+      <div class="night-star" style="top:14%;left:28%;width:1px;height:1px;--d:1.8s;--delay:1.2s"></div>
+      <div class="night-star" style="top:20%;left:42%;width:2px;height:2px;--d:2.5s;--delay:0.7s"></div>
+      <div class="night-star" style="top:15%;left:55%;width:1px;height:1px;--d:1.6s;--delay:0s"></div>
+      <div class="night-star" style="top:18%;left:70%;width:2px;height:2px;--d:2.3s;--delay:1.8s"></div>
+      <div class="night-star" style="top:13%;left:84%;width:1px;height:1px;--d:2.0s;--delay:0.5s"></div>
+      <div class="night-star" style="top:25%;left:8%;width:1px;height:1px;--d:1.9s;--delay:2.1s"></div>
+      <div class="night-star" style="top:28%;left:22%;width:2px;height:2px;--d:2.2s;--delay:0.9s"></div>
+      <div class="night-star" style="top:22%;left:50%;width:1px;height:1px;--d:1.7s;--delay:1.5s"></div>
+      <div class="night-star" style="top:30%;left:64%;width:2px;height:2px;--d:2.4s;--delay:0.2s"></div>
+      <div class="night-star" style="top:24%;left:78%;width:1px;height:1px;--d:1.8s;--delay:2.4s"></div>
+      <div class="night-star" style="top:17%;left:35%;width:3px;height:3px;--d:2.6s;--delay:0.6s"></div>
+      <div class="night-star" style="top:34%;left:5%;width:2px;height:2px;--d:1.5s;--delay:1.7s"></div>
+      <div class="night-star" style="top:21%;left:93%;width:2px;height:2px;--d:2.1s;--delay:2.8s"></div>
+      <div class="night-star" style="top:32%;left:88%;width:1px;height:1px;--d:1.9s;--delay:0.4s"></div>
+      <!-- 雲 -->
+      <svg class="night-cloud" style="top:22%;opacity:.48;width:160px;animation-duration:30s;animation-delay:-6s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="18" fill="#5a2020"/><circle cx="62" cy="32" r="24" fill="#5a2020"/>
+        <circle cx="96" cy="27" r="26" fill="#5a2020"/><circle cx="130" cy="34" r="20" fill="#5a2020"/>
+        <circle cx="148" cy="44" r="14" fill="#5a2020"/>
+      </svg>
+      <svg class="night-cloud" style="top:34%;opacity:.38;width:120px;animation-duration:22s;animation-delay:-14s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="16" fill="#5a2020"/><circle cx="60" cy="34" r="20" fill="#5a2020"/>
+        <circle cx="92" cy="29" r="22" fill="#5a2020"/><circle cx="124" cy="36" r="18" fill="#5a2020"/>
+        <circle cx="142" cy="45" r="12" fill="#5a2020"/>
+      </svg>
+      <svg class="night-cloud" style="top:18%;opacity:.35;width:200px;animation-duration:40s;animation-delay:-22s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="18" fill="#5a2020"/><circle cx="62" cy="32" r="24" fill="#5a2020"/>
+        <circle cx="96" cy="27" r="26" fill="#5a2020"/><circle cx="130" cy="34" r="20" fill="#5a2020"/>
+        <circle cx="148" cy="44" r="14" fill="#5a2020"/>
+      </svg>
+      <svg class="night-cloud" style="top:40%;opacity:.42;width:140px;animation-duration:26s;animation-delay:-2s" viewBox="0 0 160 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="38" cy="44" r="14" fill="#5a2020"/><circle cx="58" cy="35" r="19" fill="#5a2020"/>
+        <circle cx="88" cy="30" r="22" fill="#5a2020"/><circle cx="120" cy="37" r="17" fill="#5a2020"/>
+        <circle cx="138" cy="46" r="12" fill="#3a1010"/>
+      </svg>
+    </div>
     <svg class="sakura-tree s-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
       <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
       <line x1="100" y1="255" x2="58"  y2="172" stroke="#8b6147" stroke-width="12" stroke-linecap="round"/>
@@ -119,19 +181,33 @@
       <line x1="146" y1="168" x2="128" y2="116" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
       <line x1="104" y1="185" x2="84"  y2="134" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
       <line x1="104" y1="182" x2="122" y2="132" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
-      <circle cx="100" cy="112" r="40" fill="#ffb7c5"/>
-      <circle cx="48"  cy="98"  r="34" fill="#ffb7c5"/>
-      <circle cx="160" cy="94"  r="35" fill="#ffb7c5"/>
-      <circle cx="77"  cy="76"  r="30" fill="#ffc0cb"/>
-      <circle cx="128" cy="80"  r="32" fill="#ffc0cb"/>
-      <circle cx="100" cy="66"  r="36" fill="#ffb7c5"/>
-      <circle cx="60"  cy="66"  r="25" fill="#ffc0cb"/>
-      <circle cx="144" cy="70"  r="27" fill="#ffc0cb"/>
-      <circle cx="32"  cy="84"  r="20" fill="#ffb7c5"/>
-      <circle cx="172" cy="80"  r="22" fill="#ffb7c5"/>
-      <circle cx="100" cy="46"  r="28" fill="#ffb7c5"/>
-      <circle cx="78"  cy="50"  r="22" fill="#ffc0cb"/>
-      <circle cx="122" cy="54"  r="24" fill="#ffc0cb"/>
+      <circle cx="100" cy="112" r="40" fill="#8fca72"/>
+      <circle cx="48"  cy="98"  r="34" fill="#8fca72"/>
+      <circle cx="160" cy="94"  r="35" fill="#8fca72"/>
+      <circle cx="77"  cy="76"  r="30" fill="#a8d880"/>
+      <circle cx="128" cy="80"  r="32" fill="#a8d880"/>
+      <circle cx="100" cy="66"  r="36" fill="#8fca72"/>
+      <circle cx="60"  cy="66"  r="25" fill="#a8d880"/>
+      <circle cx="144" cy="70"  r="27" fill="#a8d880"/>
+      <circle cx="32"  cy="84"  r="20" fill="#8fca72"/>
+      <circle cx="172" cy="80"  r="22" fill="#8fca72"/>
+      <circle cx="100" cy="46"  r="28" fill="#8fca72"/>
+      <circle cx="78"  cy="50"  r="22" fill="#a8d880"/>
+      <circle cx="122" cy="54"  r="24" fill="#a8d880"/>
+      <!-- シマエナガ：右向き（scaleX(-1)で画面では左向き） -->
+      <path d="M90 162 C89 172 89 181 89 188 C90 191 91.5 191 92 188 C92.5 181 92 172 91 162Z" fill="#d0c0ae"/>
+      <circle cx="97" cy="152" r="8" fill="#f8f8f8"/>
+      <path d="M89 152 C90 146 94 144 97 145 C94 147 91 151 90 155Z" fill="#d0ae88" opacity="0.5"/>
+      <circle cx="97" cy="155" r="3" fill="#f0c0b8" opacity="0.3"/>
+      <circle cx="105" cy="145" r="6" fill="#f8f8f8"/>
+      <path d="M99 145 C100 140 106 139 109 143 C107 141 104 140 100 144Z" fill="#1e1a1a"/>
+      <circle cx="109" cy="146" r="2" fill="#1e1a1a"/>
+      <circle cx="109.8" cy="145.3" r="0.7" fill="white"/>
+      <path d="M111 146.5 L115 147 L111 147.5Z" fill="#363030"/>
+      <line x1="95" y1="159" x2="91" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="95" y1="159" x2="98" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="100" y1="159" x2="97" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="100" y1="159" x2="103" y2="165" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
     </svg>
     <svg class="sakura-tree s-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
       <line x1="100" y1="340" x2="100" y2="228" stroke="#8b6147" stroke-width="16" stroke-linecap="round"/>
@@ -144,20 +220,216 @@
       <line x1="146" y1="168" x2="128" y2="116" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
       <line x1="104" y1="185" x2="84"  y2="134" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
       <line x1="104" y1="182" x2="122" y2="132" stroke="#8b6147" stroke-width="7"  stroke-linecap="round"/>
-      <circle cx="100" cy="112" r="40" fill="#ffb7c5"/>
-      <circle cx="48"  cy="98"  r="34" fill="#ffb7c5"/>
-      <circle cx="160" cy="94"  r="35" fill="#ffb7c5"/>
-      <circle cx="77"  cy="76"  r="30" fill="#ffc0cb"/>
-      <circle cx="128" cy="80"  r="32" fill="#ffc0cb"/>
-      <circle cx="100" cy="66"  r="36" fill="#ffb7c5"/>
-      <circle cx="60"  cy="66"  r="25" fill="#ffc0cb"/>
-      <circle cx="144" cy="70"  r="27" fill="#ffc0cb"/>
-      <circle cx="32"  cy="84"  r="20" fill="#ffb7c5"/>
-      <circle cx="172" cy="80"  r="22" fill="#ffb7c5"/>
-      <circle cx="100" cy="46"  r="28" fill="#ffb7c5"/>
-      <circle cx="78"  cy="50"  r="22" fill="#ffc0cb"/>
-      <circle cx="122" cy="54"  r="24" fill="#ffc0cb"/>
+      <circle cx="100" cy="112" r="40" fill="#8fca72"/>
+      <circle cx="48"  cy="98"  r="34" fill="#8fca72"/>
+      <circle cx="160" cy="94"  r="35" fill="#8fca72"/>
+      <circle cx="77"  cy="76"  r="30" fill="#a8d880"/>
+      <circle cx="128" cy="80"  r="32" fill="#a8d880"/>
+      <circle cx="100" cy="66"  r="36" fill="#8fca72"/>
+      <circle cx="60"  cy="66"  r="25" fill="#a8d880"/>
+      <circle cx="144" cy="70"  r="27" fill="#a8d880"/>
+      <circle cx="32"  cy="84"  r="20" fill="#8fca72"/>
+      <circle cx="172" cy="80"  r="22" fill="#8fca72"/>
+      <circle cx="100" cy="46"  r="28" fill="#8fca72"/>
+      <circle cx="78"  cy="50"  r="22" fill="#a8d880"/>
+      <circle cx="122" cy="54"  r="24" fill="#a8d880"/>
+      <!-- シマエナガ：右向き（画面右向き） -->
+      <path d="M61 149 C60 159 60 168 60 175 C61 178 62.5 178 63 175 C63.5 168 63 159 62 149Z" fill="#d0c0ae"/>
+      <circle cx="67" cy="139" r="8" fill="#f8f8f8"/>
+      <path d="M59 139 C60 133 64 131 67 132 C64 134 61 138 60 142Z" fill="#d0ae88" opacity="0.5"/>
+      <circle cx="67" cy="142" r="3" fill="#f0c0b8" opacity="0.3"/>
+      <circle cx="75" cy="132" r="6" fill="#f8f8f8"/>
+      <path d="M69 132 C70 127 76 126 79 130 C77 128 74 127 70 131Z" fill="#1e1a1a"/>
+      <circle cx="79" cy="133" r="2" fill="#1e1a1a"/>
+      <circle cx="79.8" cy="132.3" r="0.7" fill="white"/>
+      <path d="M81 133.5 L85 134 L81 134.5Z" fill="#363030"/>
+      <line x1="69" y1="146" x2="73" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="69" y1="146" x2="66" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="64" y1="146" x2="67" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="64" y1="146" x2="61" y2="152" stroke="#8a6840" stroke-width="1.4" stroke-linecap="round"/>
     </svg>
+    <!-- 冬：葉の落ちた木 -->
+    <svg class="fuyu-tree f-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <line x1="100" y1="340" x2="100" y2="228" stroke="#607080" stroke-width="16" stroke-linecap="round"/>
+      <line x1="100" y1="255" x2="58"  y2="172" stroke="#607080" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="248" x2="146" y2="168" stroke="#607080" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="238" x2="104" y2="152" stroke="#607080" stroke-width="10" stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="32"  y2="112" stroke="#607080" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="76"  y2="122" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="172" y2="106" stroke="#607080" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="128" y2="116" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="185" x2="84"  y2="134" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="182" x2="122" y2="132" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <circle cx="32"  cy="112" r="9"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="76"  cy="122" r="7"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="172" cy="106" r="9"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="128" cy="116" r="7"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="104" cy="152" r="10" fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="84"  cy="134" r="6"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="122" cy="132" r="6"  fill="#d8ecfc" opacity="0.85"/>
+    </svg>
+    <svg class="fuyu-tree f-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <line x1="100" y1="340" x2="100" y2="228" stroke="#607080" stroke-width="16" stroke-linecap="round"/>
+      <line x1="100" y1="255" x2="58"  y2="172" stroke="#607080" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="248" x2="146" y2="168" stroke="#607080" stroke-width="12" stroke-linecap="round"/>
+      <line x1="100" y1="238" x2="104" y2="152" stroke="#607080" stroke-width="10" stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="32"  y2="112" stroke="#607080" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="58"  y1="172" x2="76"  y2="122" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="172" y2="106" stroke="#607080" stroke-width="8"  stroke-linecap="round"/>
+      <line x1="146" y1="168" x2="128" y2="116" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="185" x2="84"  y2="134" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <line x1="104" y1="182" x2="122" y2="132" stroke="#607080" stroke-width="7"  stroke-linecap="round"/>
+      <circle cx="32"  cy="112" r="9"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="76"  cy="122" r="7"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="172" cy="106" r="9"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="128" cy="116" r="7"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="104" cy="152" r="10" fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="84"  cy="134" r="6"  fill="#d8ecfc" opacity="0.85"/>
+      <circle cx="122" cy="132" r="6"  fill="#d8ecfc" opacity="0.85"/>
+    </svg>
+    <!-- 夏：ひまわり -->
+    <svg class="natsu-deco n-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <line x1="100" y1="340" x2="100" y2="90" stroke="#4a7830" stroke-width="12" stroke-linecap="round"/>
+      <ellipse cx="68" cy="218" rx="24" ry="11" fill="#5a8a40" transform="rotate(-30,68,218)"/>
+      <ellipse cx="132" cy="178" rx="24" ry="11" fill="#5a8a40" transform="rotate(30,132,178)"/>
+      <ellipse cx="100" cy="50"  rx="9" ry="18" fill="#f0c030"/>
+      <ellipse cx="100" cy="130" rx="9" ry="18" fill="#f0c030"/>
+      <ellipse cx="60"  cy="90"  rx="18" ry="9" fill="#f0c030"/>
+      <ellipse cx="140" cy="90"  rx="18" ry="9" fill="#f0c030"/>
+      <ellipse cx="72"  cy="62"  rx="9" ry="18" fill="#f0c030" transform="rotate(-45,72,62)"/>
+      <ellipse cx="128" cy="118" rx="9" ry="18" fill="#f0c030" transform="rotate(-45,128,118)"/>
+      <ellipse cx="128" cy="62"  rx="9" ry="18" fill="#f0c030" transform="rotate(45,128,62)"/>
+      <ellipse cx="72"  cy="118" rx="9" ry="18" fill="#f0c030" transform="rotate(45,72,118)"/>
+      <circle cx="100" cy="90" r="28" fill="#8b5010"/>
+      <circle cx="100" cy="90" r="17" fill="#6a3808"/>
+    </svg>
+    <svg class="natsu-deco n-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <line x1="100" y1="340" x2="100" y2="90" stroke="#4a7830" stroke-width="12" stroke-linecap="round"/>
+      <ellipse cx="68" cy="218" rx="24" ry="11" fill="#5a8a40" transform="rotate(-30,68,218)"/>
+      <ellipse cx="132" cy="178" rx="24" ry="11" fill="#5a8a40" transform="rotate(30,132,178)"/>
+      <ellipse cx="100" cy="50"  rx="9" ry="18" fill="#f0c030"/>
+      <ellipse cx="100" cy="130" rx="9" ry="18" fill="#f0c030"/>
+      <ellipse cx="60"  cy="90"  rx="18" ry="9" fill="#f0c030"/>
+      <ellipse cx="140" cy="90"  rx="18" ry="9" fill="#f0c030"/>
+      <ellipse cx="72"  cy="62"  rx="9" ry="18" fill="#f0c030" transform="rotate(-45,72,62)"/>
+      <ellipse cx="128" cy="118" rx="9" ry="18" fill="#f0c030" transform="rotate(-45,128,118)"/>
+      <ellipse cx="128" cy="62"  rx="9" ry="18" fill="#f0c030" transform="rotate(45,128,62)"/>
+      <ellipse cx="72"  cy="118" rx="9" ry="18" fill="#f0c030" transform="rotate(45,72,118)"/>
+      <circle cx="100" cy="90" r="28" fill="#8b5010"/>
+      <circle cx="100" cy="90" r="17" fill="#6a3808"/>
+    </svg>
+    <!-- 梅雨：あじさい -->
+    <svg class="tsuyu-deco t-left" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <ellipse cx="100" cy="305" rx="85" ry="32" fill="#3a5830"/>
+      <circle cx="55"  cy="248" r="36" fill="#9090d0"/>
+      <circle cx="100" cy="228" r="40" fill="#a8a0d8"/>
+      <circle cx="145" cy="246" r="35" fill="#9090d0"/>
+      <circle cx="75"  cy="262" r="28" fill="#b0a8e0"/>
+      <circle cx="125" cy="260" r="28" fill="#a0a0d8"/>
+      <circle cx="55"  cy="238" r="7"  fill="#c8c0f0"/>
+      <circle cx="78"  cy="255" r="6"  fill="#c8c0f0"/>
+      <circle cx="100" cy="218" r="8"  fill="#c0b8e8"/>
+      <circle cx="122" cy="235" r="6"  fill="#c8c0f0"/>
+      <circle cx="145" cy="237" r="7"  fill="#c8c0f0"/>
+      <ellipse cx="35"  cy="288" rx="26" ry="12" fill="#4a7040" transform="rotate(-20,35,288)"/>
+      <ellipse cx="165" cy="286" rx="26" ry="12" fill="#4a7040" transform="rotate(20,165,286)"/>
+    </svg>
+    <svg class="tsuyu-deco t-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 340">
+      <ellipse cx="100" cy="305" rx="85" ry="32" fill="#3a5830"/>
+      <circle cx="55"  cy="248" r="36" fill="#9090d0"/>
+      <circle cx="100" cy="228" r="40" fill="#a8a0d8"/>
+      <circle cx="145" cy="246" r="35" fill="#9090d0"/>
+      <circle cx="75"  cy="262" r="28" fill="#b0a8e0"/>
+      <circle cx="125" cy="260" r="28" fill="#a0a0d8"/>
+      <circle cx="55"  cy="238" r="7"  fill="#c8c0f0"/>
+      <circle cx="78"  cy="255" r="6"  fill="#c8c0f0"/>
+      <circle cx="100" cy="218" r="8"  fill="#c0b8e8"/>
+      <circle cx="122" cy="235" r="6"  fill="#c8c0f0"/>
+      <circle cx="145" cy="237" r="7"  fill="#c8c0f0"/>
+      <ellipse cx="35"  cy="288" rx="26" ry="12" fill="#4a7040" transform="rotate(-20,35,288)"/>
+      <ellipse cx="165" cy="286" rx="26" ry="12" fill="#4a7040" transform="rotate(20,165,286)"/>
+    </svg>
+    <!-- 鳥のシルエット -->
+    <svg class="nature-birds" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 130">
+      <path d="M 50 80 Q 60 70 70 80"   stroke="#6a7860" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M 80 60 Q 90 50 100 60"  stroke="#6a7860" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M115 38 Q127 27 139 38"  stroke="#6a7860" stroke-width="2.0" fill="none" stroke-linecap="round"/>
+      <path d="M165 55 Q173 47 181 55"  stroke="#6a7860" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M230 72 Q240 63 250 72"  stroke="#6a7860" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M290 20 Q300 12 310 20"  stroke="#6a7860" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M350 90 Q358 83 366 90"  stroke="#6a7860" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M380 30 Q392 20 404 30"  stroke="#6a7860" stroke-width="2.0" fill="none" stroke-linecap="round"/>
+      <path d="M430 110 Q440 102 450 110" stroke="#6a7860" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M460 65 Q470 56 480 65"  stroke="#6a7860" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M520 42 Q530 34 540 42"  stroke="#6a7860" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <path d="M560 15 Q572 5  584 15"  stroke="#6a7860" stroke-width="2.0" fill="none" stroke-linecap="round"/>
+      <path d="M610 75 Q620 66 630 75"  stroke="#6a7860" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M650 42 Q660 33 670 42"  stroke="#6a7860" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    </svg>
+    <!-- 草むら -->
+    <svg class="nature-grass" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 80">
+      <path d="M 30 80 Q 27 52 32 28 Q 36 52 39 80" fill="#4a8840"/>
+      <path d="M 50 80 Q 47 56 53 32 Q 57 56 60 80" fill="#5a9850"/>
+      <path d="M 70 80 Q 67 50 72 25 Q 76 50 79 80" fill="#4a8840"/>
+      <path d="M150 80 Q147 54 153 30 Q157 54 160 80" fill="#5a9850"/>
+      <path d="M170 80 Q168 58 175 38 Q179 58 181 80" fill="#4a8840"/>
+      <path d="M240 80 Q237 53 243 28 Q247 53 250 80" fill="#5a9850"/>
+      <path d="M300 80 Q297 56 303 33 Q307 56 310 80" fill="#4a8840"/>
+      <path d="M325 80 Q323 62 330 44 Q334 62 336 80" fill="#5a9850"/>
+      <path d="M350 80 Q347 50 353 25 Q357 50 360 80" fill="#4a8840"/>
+      <path d="M390 80 Q388 58 395 38 Q399 58 401 80" fill="#5a9850"/>
+      <path d="M420 80 Q418 58 425 38 Q429 58 431 80" fill="#4a8840"/>
+      <path d="M445 80 Q443 62 450 45 Q454 62 456 80" fill="#5a9850"/>
+      <path d="M470 80 Q467 53 473 28 Q477 53 480 80" fill="#4a8840"/>
+      <path d="M500 80 Q498 60 505 40 Q509 60 511 80" fill="#5a9850"/>
+      <path d="M530 80 Q527 56 533 33 Q537 56 540 80" fill="#4a8840"/>
+      <path d="M548 80 Q546 64 553 48 Q557 64 559 80" fill="#5a9850"/>
+      <path d="M565 80 Q563 60 570 42 Q574 60 576 80" fill="#4a8840"/>
+      <path d="M585 80 Q584 65 590 50 Q593 65 595 80" fill="#5a9850"/>
+    </svg>
+    <!-- 中央低木 -->
+    <svg class="nature-shrub" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120">
+      <ellipse cx="150" cy="95" rx="130" ry="22" fill="#2a4a28"/>
+      <circle cx="90"  cy="70" r="32" fill="#3a6a30"/>
+      <circle cx="150" cy="58" r="38" fill="#4a7a3a"/>
+      <circle cx="210" cy="68" r="32" fill="#3a6a30"/>
+      <circle cx="118" cy="55" r="26" fill="#508040"/>
+      <circle cx="182" cy="53" r="26" fill="#508040"/>
+      <circle cx="150" cy="42" r="22" fill="#5a8a48"/>
+    </svg>
+    <!-- 浮き葉 -->
+    <svg class="deco-leaf" style="left:6%;animation-delay:4s;animation-duration:7.2s"   xmlns="http://www.w3.org/2000/svg" width="11" height="15" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/></svg>
+    <svg class="deco-leaf" style="left:20%;animation-delay:0s;animation-duration:8s"    xmlns="http://www.w3.org/2000/svg" width="14" height="18" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/></svg>
+    <svg class="deco-leaf" style="left:33%;animation-delay:6.8s;animation-duration:8.2s" xmlns="http://www.w3.org/2000/svg" width="12" height="16" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#a8d880"/></svg>
+    <svg class="deco-leaf" style="left:44%;animation-delay:5s;animation-duration:9s"    xmlns="http://www.w3.org/2000/svg" width="10" height="14" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/></svg>
+    <svg class="deco-leaf" style="left:57%;animation-delay:1.8s;animation-duration:7.8s" xmlns="http://www.w3.org/2000/svg" width="13" height="17" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#a8d880"/></svg>
+    <svg class="deco-leaf" style="left:72%;animation-delay:2.5s;animation-duration:7s"  xmlns="http://www.w3.org/2000/svg" width="12" height="16" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#a8d880"/></svg>
+    <svg class="deco-leaf" style="left:83%;animation-delay:1s;animation-duration:6.5s"  xmlns="http://www.w3.org/2000/svg" width="13" height="17" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#a8d880"/></svg>
+    <svg class="deco-leaf" style="left:11%;animation-delay:3.5s;animation-duration:8.5s" xmlns="http://www.w3.org/2020/svg" width="11" height="15" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/></svg>
+    <svg class="deco-leaf" style="left:90%;animation-delay:6s;animation-duration:7.5s"  xmlns="http://www.w3.org/2000/svg" width="12" height="16" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#a8d880"/></svg>
+    <svg class="deco-leaf" style="left:64%;animation-delay:9s;animation-duration:8.8s"  xmlns="http://www.w3.org/2000/svg" width="10" height="13" viewBox="0 0 14 18"><path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/></svg>
+    <!-- 雨粒追加 (tsuyu only) -->
+    <svg class="deco-rain" style="left:3%;animation-delay:0.3s"  xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:14%;animation-delay:0.9s" xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:26%;animation-delay:0.2s" xmlns="http://www.w3.org/2000/svg" width="3" height="12" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:38%;animation-delay:1.1s" xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:50%;animation-delay:0.6s" xmlns="http://www.w3.org/2000/svg" width="3" height="12" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:62%;animation-delay:0.0s" xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:75%;animation-delay:1.3s" xmlns="http://www.w3.org/2000/svg" width="3" height="12" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <svg class="deco-rain" style="left:87%;animation-delay:0.7s" xmlns="http://www.w3.org/2000/svg" width="4" height="14" viewBox="0 0 4 14"><rect x="1" y="0" width="2" height="14" rx="1" fill="#8090c8" opacity="0.8"/></svg>
+    <!-- 新緑の青い小鳥 (midori only) 翼広げ斜め視点：右向き3羽・左向き2羽 -->
+    <svg class="midori-bird"     style="top:20%;left:0;--delay:0s;--dur:14s;--angle:-10deg;--y0:40px;--y1:-40px"  xmlns="http://www.w3.org/2000/svg" width="22" height="11" viewBox="0 0 52 26"><path d="M6 9 L1 5 L5 12 L1 20 C9 20 19 20 27 16 C32 16 37 15 41 14 Q46 14 50 13 Q46 12 41 11 C37 10 32 9 27 8 C19 5 9 4 6 9Z" fill="#6aaae8"/></svg>
+    <svg class="midori-bird"     style="top:32%;left:0;--delay:-5s;--dur:11s;--angle:-6deg;--y0:20px;--y1:-20px" xmlns="http://www.w3.org/2000/svg" width="26" height="13" viewBox="0 0 52 26"><path d="M6 9 L1 5 L5 12 L1 20 C9 20 19 20 27 16 C32 16 37 15 41 14 Q46 14 50 13 Q46 12 41 11 C37 10 32 9 27 8 C19 5 9 4 6 9Z" fill="#5599cc"/></svg>
+    <svg class="midori-bird rtl" style="top:38%;left:0;--delay:-3s;--dur:16s;--angle:12deg;--y0:-35px;--y1:35px" xmlns="http://www.w3.org/2000/svg" width="18" height="9"  viewBox="0 0 52 26"><path d="M46 9 L51 5 L47 12 L51 20 C43 20 33 20 25 16 C20 16 15 15 11 14 Q6 14 2 13 Q6 12 11 11 C15 10 20 9 25 8 C33 5 43 4 46 9Z" fill="#6aaae8"/></svg>
+    <svg class="midori-bird"     style="top:55%;left:0;--delay:-8s;--dur:10s;--angle:-12deg;--y0:45px;--y1:-45px" xmlns="http://www.w3.org/2000/svg" width="28" height="14" viewBox="0 0 52 26"><path d="M6 9 L1 5 L5 12 L1 20 C9 20 19 20 27 16 C32 16 37 15 41 14 Q46 14 50 13 Q46 12 41 11 C37 10 32 9 27 8 C19 5 9 4 6 9Z" fill="#4488cc"/></svg>
+    <svg class="midori-bird rtl" style="top:24%;left:0;--delay:0s;--dur:13s;--angle:-8deg;--y0:22px;--y1:-22px"  xmlns="http://www.w3.org/2000/svg" width="16" height="8"  viewBox="0 0 52 26"><path d="M46 9 L51 5 L47 12 L51 20 C43 20 33 20 25 16 C20 16 15 15 11 14 Q6 14 2 13 Q6 12 11 11 C15 10 20 9 25 8 C33 5 43 4 46 9Z" fill="#5599dd"/></svg>
+    <!-- 花火 (natsu only) -->
+    <div class="firework" style="left:14%;--c:#ffdd44;--c2:#ffaa22;--delay:0s;--d:3.8s;--h:-50vh"></div>
+    <div class="firework" style="left:29%;--c:#ff6688;--c2:#ffbbdd;--delay:1.3s;--d:4.2s;--h:-62vh"></div>
+    <div class="firework" style="left:50%;--c:#44ccff;--c2:#aaeeff;--delay:2.6s;--d:3.5s;--h:-54vh"></div>
+    <div class="firework" style="left:68%;--c:#88ee88;--c2:#44cc66;--delay:0.8s;--d:4.5s;--h:-46vh"></div>
+    <div class="firework" style="left:82%;--c:#ffaadd;--c2:#ff44aa;--delay:3.4s;--d:3.9s;--h:-58vh"></div>
+    <div class="firework" style="left:41%;--c:#ffffbb;--c2:#ffcc44;--delay:1.9s;--d:4.8s;--h:-66vh"></div>
   </div>
 
   <!-- 総合ランキング -->
@@ -167,7 +439,7 @@
       <div style="overflow-x:auto">
         <table class="rank-table">
           <thead><tr>
-            <th>順位</th><th>名前</th><th>総成績</th><th>4麻</th><th>3麻</th>
+            <th>順位</th><th>名前</th><th>総成績</th><th>レート(4麻)</th><th>4麻</th><th>3麻</th>
             <th>対局数(4)</th><th>対局数(3)</th><th>対局数(計)</th><th>連対率</th><th>チップ</th><th>飛び(4)</th><th>飛び(3)</th><th>来店</th>
           </tr></thead>
           <tbody id="tbody-ranking"></tbody>
@@ -182,6 +454,7 @@
       <label class="member-sort-label">並び順</label>
       <select id="member-sort" onchange="onMemberSortChange(this.value)">
         <option value="allTotal">総成績順</option>
+        <option value="rating">レート(4麻)順</option>
         <option value="total4">4麻成績順</option>
         <option value="total3">3麻成績順</option>
         <option value="matchCount">半荘数順</option>
@@ -257,6 +530,132 @@
     </div>
   </div>
 
+  <!-- 投票箱 -->
+  <div id="sec-vote" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="vote-list-view" class="vote-view active">
+      <div class="vote-list-header">
+        <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openVoteAddForm()">＋ 投票箱を作成</button>
+        <button id="vote-select-mode-btn" class="rsv-btn" style="flex:none;padding:8px 16px;" onclick="enterVoteSelectMode()">選択して共有</button>
+      </div>
+      <div id="vote-select-bar" class="vote-select-bar" style="display:none;">
+        <span id="vote-select-count">0件選択中</span>
+        <button id="vote-select-all-btn" class="admin-btn sm" onclick="toggleVoteSelectAll()">全選択</button>
+        <button id="vote-share-exec-btn" class="rsv-btn x-post" onclick="shareVoteListSelected()" disabled>画像を共有</button>
+        <button class="admin-btn sm" onclick="exitVoteSelectMode()">キャンセル</button>
+      </div>
+      <div id="vote-list">
+        <div class="vote-empty">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="vote-detail-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
+        <div class="vote-detail-toggle">
+          <button id="vote-toggle-option" class="vote-toggle-btn active" onclick="toggleVoteDetailMode('option')">選択肢別</button>
+          <button id="vote-toggle-voter" class="vote-toggle-btn" onclick="toggleVoteDetailMode('voter')">解答者別</button>
+        </div>
+      </div>
+      <div class="card">
+        <div id="vote-expired-notice" class="vote-expired-notice" style="display:none;">この投票箱は期限切れのため、回答できません。</div>
+        <h2 id="vote-detail-title" class="vote-detail-title"></h2>
+        <div id="vote-detail-meta" class="vote-detail-meta"></div>
+        <div id="vote-detail-delete-row" style="display:none;margin-bottom:12px;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button id="vote-detail-share-btn" class="admin-btn sm" style="display:none;">共有</button>
+          <button id="vote-detail-edit-btn" class="admin-btn sm" style="display:none;">編集</button>
+          <button id="vote-detail-delete-btn" class="admin-btn danger sm">投票箱を削除</button>
+        </div>
+        <div id="vote-detail-content"></div>
+      </div>
+      <div class="vote-answer-btn-wrap">
+        <button id="vote-answer-btn" class="rsv-btn primary" style="padding:10px 32px;">解答する</button>
+      </div>
+    </div>
+
+    <!-- 追加フォームビュー -->
+    <div id="vote-add-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div id="vote-add-form-title" class="vote-form-title">投票箱を作成</div>
+        <div id="vote-add-login-warn" class="vote-login-warn">
+          ⚠ ログインしていない場合、後から変更・削除できません
+        </div>
+        <form onsubmit="submitVoteBox(event)">
+          <div class="admin-form-group">
+            <label>名前</label>
+            <input type="text" id="vote-add-name" class="admin-input" placeholder="名前を入力">
+          </div>
+          <div class="admin-form-group">
+            <label>質問 <span style="color:var(--red)">*</span></label>
+            <input type="text" id="vote-add-title" class="admin-input" placeholder="質問を入力" required>
+          </div>
+          <div class="admin-form-group">
+            <label>選択肢 <span style="color:var(--red)">*</span>（最低2つ）</label>
+            <div id="vote-options-container"></div>
+            <button type="button" class="admin-btn sm" style="margin-top:6px;" onclick="_voteAddOptionRow()">＋ 選択肢を追加</button>
+          </div>
+          <div class="admin-form-group">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-add-allow-other">
+              「その他（自由入力）」を追加
+            </label>
+          </div>
+          <div class="admin-form-group">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-add-multiple">
+              複数回答を許可
+            </label>
+          </div>
+          <div class="admin-form-group">
+            <label>期限（今日〜最長1ヶ月）</label>
+            <input type="date" id="vote-add-deadline" class="admin-input">
+          </div>
+          <div id="vote-x-post-wrap" class="admin-form-group" style="display:none;">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-x-post-check" checked>
+              X(Twitter)に自動ポスト
+            </label>
+          </div>
+          <div id="vote-add-status" class="admin-status error"></div>
+          <button type="submit" id="vote-add-submit-btn" class="admin-btn primary" style="width:100%;">投票箱を作成</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 解答フォームビュー -->
+    <div id="vote-answer-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" id="vote-answer-back-btn" onclick="if(_voteCurrentBoxId)openVoteDetail(_voteCurrentBoxId);else initVote()">← 詳細へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title">解答フォーム</div>
+        <div class="vote-answer-box-title" id="vote-answer-box-title"></div>
+        <form onsubmit="submitVoteAnswer(event)">
+          <div class="admin-form-group">
+            <label>名前</label>
+            <input type="text" id="vote-answer-name" class="admin-input" placeholder="匿名">
+          </div>
+          <div class="admin-form-group">
+            <label>選択肢 <span style="color:var(--red)">*</span></label>
+            <div id="vote-answer-choices" class="vote-choices-list"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>備考（任意）</label>
+            <textarea id="vote-answer-note" class="admin-input" rows="3" style="resize:vertical;font-family:'Noto Sans JP',sans-serif;" placeholder="一言メモなど（任意）"></textarea>
+          </div>
+          <div id="vote-answer-status" class="admin-status error"></div>
+          <button type="submit" id="vote-answer-submit-btn" class="admin-btn primary" style="width:100%;">回答する</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
   <!-- 連番募集 -->
   <div id="sec-renban" class="section">
     <div class="renban-header-row" style="flex-direction:column;align-items:flex-end;gap:4px;">
@@ -275,7 +674,6 @@
   <div id="sec-boshu" class="section">
     <div class="card">
       <div class="card-title">募集一覧</div>
-      <!-- 管理者専用：まとめて共有バー -->
       <div id="boshu-admin-bar" class="boshu-admin-bar" style="display:none;">
         <button class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="enterBoshuSelectMode()">まとめて共有</button>
       </div>
@@ -291,18 +689,173 @@
           <div class="renban-empty">読み込み中...</div>
         </div>
       </div>
-      <!-- 選択モード確認バー -->
       <div id="boshu-confirm-bar" class="boshu-confirm-bar" style="display:none;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="boshu-select-count" class="boshu-select-count">0件選択中</span>
           <button id="boshu-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleBoshuSelectAll()">全選択</button>
         </div>
         <div style="display:flex;gap:8px;">
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="boshu-include-schedule"> 今後の予定を追加</label>
           <button class="rsv-btn secondary" style="padding:8px 16px;flex:none;" onclick="exitBoshuSelectMode()">キャンセル</button>
           <button id="boshu-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareBoshuSelected()" disabled>共有する</button>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- コラム -->
+  <div id="sec-column" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="column-list-view" class="column-view active">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="showSection('gallery')">← ギャラリーへ戻る</button>
+      </div>
+      <div class="col-list-header">
+        <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openColumnNew()">＋ コラムを投稿</button>
+        <div id="col-login-hint" class="col-login-hint" style="display:none;">ログインが必要です。<button class="admin-btn sm" onclick="openLoginModal()">ログイン</button></div>
+      </div>
+      <div class="col-sort-bar">
+        <select id="col-sort-field" class="admin-select" onchange="colChangeSortField(this.value)">
+          <option value="createdAt">投稿日時</option>
+          <option value="authorName">投稿者</option>
+          <option value="title">タイトル</option>
+        </select>
+        <select id="col-sort-dir" class="admin-select" onchange="colChangeSortDir(this.value)">
+          <option value="desc">新しい順</option>
+          <option value="asc">古い順</option>
+        </select>
+        <select id="col-filter-genre" class="admin-select" onchange="colChangeGenre(this.value)">
+          <option value="">すべてのジャンル</option>
+          <option value="戦術・戦略">戦術・戦略</option>
+          <option value="牌効率">牌効率</option>
+          <option value="役・役満">役・役満</option>
+          <option value="観戦記">観戦記</option>
+          <option value="大会・イベント">大会・イベント</option>
+          <option value="日記・エッセイ">日記・エッセイ</option>
+          <option value="初心者向け">初心者向け</option>
+          <option value="ルール解説">ルール解説</option>
+          <option value="マナー・礼儀">マナー・礼儀</option>
+          <option value="その他">その他</option>
+        </select>
+        <label class="col-my-only-label" style="display:none;">
+          <input type="checkbox" id="col-my-only" onchange="colToggleMyOnly(this.checked)">
+          自分の記事のみ
+        </label>
+      </div>
+      <div id="column-list">
+        <div class="col-empty">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="column-detail-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <h2 id="col-detail-title" class="col-detail-title"></h2>
+        <div id="col-detail-meta" class="col-detail-meta"></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button id="col-detail-share-btn" class="admin-btn sm" onclick="shareColumn()">共有</button>
+          <div id="col-detail-actions" style="display:none;gap:8px;flex-wrap:wrap;">
+            <button id="col-detail-edit-btn" class="admin-btn sm">編集</button>
+            <button id="col-detail-delete-btn" class="admin-btn danger sm">削除</button>
+          </div>
+        </div>
+        <div id="col-detail-content" class="col-body"></div>
+      </div>
+    </div>
+
+    <!-- 編集ビュー -->
+    <div id="column-edit-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="if(colConfirmLeave())initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title" id="col-edit-heading">コラムを投稿</div>
+        <div class="admin-form-group">
+          <label>タイトル <span style="color:var(--red)">*</span></label>
+          <input type="text" id="col-edit-title" class="admin-input" placeholder="タイトルを入力">
+        </div>
+        <div class="admin-form-group">
+          <label>投稿者名</label>
+          <input type="text" id="col-edit-author" class="admin-input" placeholder="名前を入力">
+        </div>
+        <div class="admin-form-group">
+          <label>ジャンル</label>
+          <select id="col-edit-genre" class="admin-input">
+            <option value="">（未選択）</option>
+            <option value="戦術・戦略">戦術・戦略</option>
+            <option value="牌効率">牌効率</option>
+            <option value="役・役満">役・役満</option>
+            <option value="観戦記">観戦記</option>
+            <option value="大会・イベント">大会・イベント</option>
+            <option value="日記・エッセイ">日記・エッセイ</option>
+            <option value="初心者向け">初心者向け</option>
+            <option value="ルール解説">ルール解説</option>
+            <option value="マナー・礼儀">マナー・礼儀</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="admin-form-group">
+          <label>本文</label>
+          <div class="col-editor-toolbar">
+            <select class="admin-select col-toolbar-select" onchange="colFormatFontSize(this.value);this.value=''">
+              <option value="">文字サイズ</option>
+              <option value="small">小</option>
+              <option value="normal">普通</option>
+              <option value="large">大</option>
+              <option value="xlarge">特大</option>
+            </select>
+            <div class="col-color-btns">
+              <button type="button" class="col-color-btn" style="background:#e63946" onclick="colFormatColor('#e63946')" title="赤"></button>
+              <button type="button" class="col-color-btn" style="background:#ff7043" onclick="colFormatColor('#ff7043')" title="オレンジ"></button>
+              <button type="button" class="col-color-btn" style="background:#d4c045" onclick="colFormatColor('#d4c045')" title="黄"></button>
+              <button type="button" class="col-color-btn" style="background:#4caf82" onclick="colFormatColor('#4caf82')" title="緑"></button>
+              <button type="button" class="col-color-btn" style="background:#42a5f5" onclick="colFormatColor('#42a5f5')" title="青"></button>
+              <button type="button" class="col-color-btn" style="background:#ab47bc" onclick="colFormatColor('#ab47bc')" title="紫"></button>
+              <button type="button" class="col-color-btn" style="background:#c8a96e" onclick="colFormatColor('#c8a96e')" title="アクセント"></button>
+              <button type="button" class="col-color-btn" style="background:var(--text);border:1px solid var(--border)" onclick="colFormatColor('')" title="デフォルト"></button>
+            </div>
+            <div class="col-align-btns">
+              <button type="button" class="admin-btn sm" onclick="colFormatAlign('Left')" title="左揃え">左</button>
+              <button type="button" class="admin-btn sm" onclick="colFormatAlign('Center')" title="中央揃え">中</button>
+              <button type="button" class="admin-btn sm" onclick="colFormatAlign('Right')" title="右揃え">右</button>
+            </div>
+            <button type="button" class="admin-btn sm" onclick="colInsertImage()">画像</button>
+          </div>
+          <input type="file" id="col-img-file" accept="image/*" style="display:none" onchange="colHandleImageFile(this)">
+          <div style="position:relative;">
+            <div id="col-edit-body" class="col-editor" contenteditable="true" placeholder="本文を入力してください"></div>
+            <div id="col-img-picker" style="display:none;" class="col-img-picker">
+              <span class="col-img-picker-label">サイズ:</span>
+              <button type="button" onclick="colResizeSelectedImg('25%')">小</button>
+              <button type="button" onclick="colResizeSelectedImg('50%')">中</button>
+              <button type="button" onclick="colResizeSelectedImg('75%')">大</button>
+              <button type="button" onclick="colResizeSelectedImg('100%')">全幅</button>
+            </div>
+          </div>
+        </div>
+        <div class="admin-form-group" id="col-ai-panel" style="display:none;">
+          <label>AI執筆支援</label>
+          <div class="col-ai-btns">
+            <button type="button" id="col-ai-title-btn" class="admin-btn sm" onclick="colAiSuggestTitles()">📝 タイトル案</button>
+            <button type="button" id="col-ai-summary-btn" class="admin-btn sm" onclick="colAiSummarize()">📄 リード文案</button>
+            <button type="button" id="col-ai-proofread-btn" class="admin-btn sm" onclick="colAiProofread()">✂️ 校正チェック</button>
+          </div>
+          <div id="col-ai-status" class="admin-status"></div>
+          <div id="col-ai-result" class="col-ai-result"></div>
+        </div>
+        <div id="col-edit-status" class="admin-status error"></div>
+        <div class="col-submit-btns">
+          <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>
+          <button type="button" id="col-draft-btn" class="admin-btn" onclick="submitColumn('draft')">下書きとして保存</button>
+          <button type="button" class="admin-btn" onclick="if(colConfirmLeave())initColumn()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- スタンプカード -->
@@ -359,6 +912,43 @@
       <div class="card-title">ギャラリー</div>
       <div class="gallery-hub">
         <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本</button>
+        <button class="gallery-hub-btn" onclick="showSection('walk')">散歩ログ</button>
+        <button class="gallery-hub-btn" onclick="showSection('column')">コラム</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 散歩ログ -->
+  <div id="sec-walk" class="section">
+    <div class="card">
+      <div class="card-title">
+        散歩ログ
+        <button id="walk-add-btn" class="jare-add-btn" onclick="openWalkUpload()" style="display:none">＋ 追加</button>
+        <button id="walk-batch-geocode-btn" class="jare-add-btn" onclick="batchGeocodeWalkLogs()" style="display:none;font-size:12px;">住所を一括取得</button>
+      </div>
+      <button class="walk-all-routes-btn" onclick="showAllWalkRoutes()">全ルート表示</button>
+      <div id="walk-list"><div class="empty">読み込み中...</div></div>
+    </div>
+    <div id="walk-all-routes" style="display:none">
+      <div class="card">
+        <div class="walk-detail-header">
+          <button class="walk-back-btn" onclick="closeAllWalkRoutes()">← 一覧へ戻る</button>
+          <span class="walk-detail-title">全ルート</span>
+          <button id="walk-all-location-btn" class="jare-edit-btn" onclick="showAllWalkCurrentLocation()" style="margin-left:auto;font-size:12px;">現在地</button>
+        </div>
+        <div id="walk-all-map" class="walk-map"></div>
+      </div>
+    </div>
+    <div id="walk-detail" style="display:none">
+      <div class="card">
+        <div class="walk-detail-header">
+          <button class="walk-back-btn" onclick="closeWalkDetail()">← 一覧へ戻る</button>
+          <span id="walk-detail-title" class="walk-detail-title"></span>
+          <button id="walk-share-btn" class="jare-share-btn" style="display:none;margin-left:auto;" onclick="shareWalkDetail()">共有</button>
+          <button id="walk-delete-btn" class="jare-edit-btn" style="display:none;color:var(--red);border-color:var(--red);" onclick="deleteWalkLog()">削除</button>
+        </div>
+        <div id="walk-detail-meta" class="walk-detail-meta"></div>
+        <div id="walk-map" class="walk-map"></div>
       </div>
     </div>
   </div>
@@ -435,7 +1025,8 @@
         </div>
       </div>
       <div id="admin-status-gather" class="admin-status"></div>
-      <button class="admin-btn primary" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <button class="admin-btn primary" id="admin-gather-submit" style="width:100%;margin-bottom:8px;" onclick="submitAdminGather()">登録する</button>
+      <button class="admin-btn" id="admin-gather-cancel" style="width:100%;margin-bottom:8px;display:none;" onclick="_cancelEditGather()">キャンセル</button>
       <hr class="admin-divider">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px;">登録済みの対局</div>
       <div id="admin-gather-list" class="admin-gather-list">
@@ -464,6 +1055,169 @@
       <div id="admin-score-empty" class="admin-empty">対局を選択するとスコアを入力できます</div>
     </div>
   </div>
+
+  <!-- ── 管理者：スケジュール管理 ── -->
+  <div id="sec-admin-schedule" class="section">
+    <div class="card">
+      <div class="admin-section-title">スケジュール管理</div>
+      <div class="admin-form-group">
+        <label>日付 <span style="color:var(--red)">*</span></label>
+        <input type="date" id="admin-sch-date" class="admin-input">
+      </div>
+      <div class="admin-form-group">
+        <label>記号 <span style="color:var(--red)">*</span></label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="◎"> <span style="color:#4caf82;font-size:16px;">◎</span> 終日</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="〇"> <span style="color:#c8a96e;font-size:16px;">〇</span> 半日以上</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="△"> <span style="color:#e69a30;font-size:16px;">△</span> 短時間</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-mark" value="×" checked> <span style="color:#7a7060;font-size:16px;">×</span> 休み</label>
+        </div>
+      </div>
+      <div class="admin-form-group">
+        <label>備考（〇/△ の場合は必須）</label>
+        <input type="text" id="admin-sch-note" class="admin-input" placeholder="例：15時以降">
+      </div>
+      <div id="admin-status-schedule" class="admin-status"></div>
+      <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleEntry()">保存する</button>
+      <hr class="admin-divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">外部公開用URL</div>
+          <div style="font-size:11px;color:var(--dim);margin-top:2px;">ヘッダーなし・営業予定のみ表示</div>
+        </div>
+        <button class="admin-btn" onclick="copyPublicScheduleUrl()" id="admin-copy-public-url-btn">URLをコピー</button>
+      </div>
+      <hr class="admin-divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
+        <button id="admin-sch-sort-btn" class="admin-btn sm" onclick="toggleAdminSchSort()">↑ 昇順</button>
+      </div>
+      <div id="admin-schedule-list" class="admin-gather-list">
+        <div class="admin-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-admin-ai-discuss" class="section">
+    <div class="card">
+      <div class="admin-section-title">AI議論</div>
+
+      <!-- APIキー設定 -->
+      <div class="admin-form-group" style="margin-bottom:16px;">
+        <button type="button" class="admin-btn" style="width:100%;display:flex;justify-content:space-between;align-items:center;" onclick="toggleAiDiscKeysPanel()">
+          <span>APIキー設定</span>
+          <span id="ai-disc-keys-arrow">▼</span>
+        </button>
+        <div id="ai-disc-keys-body" style="display:none;margin-top:10px;">
+          <div class="admin-form-group">
+            <label>Gemini APIキー（複数アカウント可・1行に1つ）</label>
+            <textarea id="ai-disc-gemini-keys" class="admin-textarea" rows="3" placeholder="AIza...&#10;AIza...（複数登録すると検索リクエストを分散します）" autocomplete="off"></textarea>
+            <button type="button" class="admin-btn" style="width:100%;margin-top:6px;" onclick="testAiDiscApiKey('gemini')">確認</button>
+            <div id="ai-disc-gemini-test-status" class="admin-status"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>Groq APIキー</label>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="ai-disc-groq-key" class="admin-input" placeholder="gsk_..." autocomplete="off" style="flex:1;">
+              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('groq')">確認</button>
+            </div>
+            <div id="ai-disc-groq-test-status" class="admin-status"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>Groqモデル設定（空欄でデフォルト）</label>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🔵 ロジック</span>
+                <input type="text" id="ai-disc-model-logic" class="admin-input" placeholder="openai/gpt-oss-120b" autocomplete="off" style="flex:1;">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🟠 ノヴァ</span>
+                <input type="text" id="ai-disc-model-nova" class="admin-input" placeholder="openai/gpt-oss-20b" autocomplete="off" style="flex:1;">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🟢 ガード</span>
+                <input type="text" id="ai-disc-model-guard" class="admin-input" placeholder="llama-3.3-70b-versatile" autocomplete="off" style="flex:1;">
+              </div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」はGeminiを優先して発言します。Gemini APIキーは複数登録でき、Web検索の呼び出しを順番に分散して無料枠のレート制限を回避しやすくなります。モデル名は<a href="https://console.groq.com/docs/models" target="_blank" style="color:var(--accent)">Groqのモデル一覧</a>を参照。</p>
+          <div id="ai-disc-keys-status" class="admin-status"></div>
+          <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
+        </div>
+      </div>
+
+      <!-- 一覧画面 -->
+      <div id="ai-disc-list-screen" class="admin-sub-screen active">
+        <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="openNewAiDiscussion()">新しい議論を始める</button>
+        <div id="ai-disc-list" class="admin-gather-list">
+          <div class="admin-empty">読み込み中...</div>
+        </div>
+      </div>
+
+      <!-- 詳細・新規画面 -->
+      <div id="ai-disc-detail-screen" class="admin-sub-screen">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:12px;">
+          <button class="admin-btn sm" onclick="closeAiDiscussionDetail()">← 一覧に戻る</button>
+          <button class="admin-btn sm danger" id="ai-disc-delete-btn" style="display:none;" onclick="deleteAiDiscussion(_aiDiscCurrentId)">この議論を削除</button>
+        </div>
+
+        <div id="ai-disc-new-form">
+          <div class="admin-form-group">
+            <label>議論モード</label>
+            <select id="ai-disc-mode-select" class="admin-select">
+              <option value="default">デフォルト（ロジック・ノヴァ・ガード）</option>
+              <option value="magi">MAGI（メルキオール・バルタザール・カスパー）</option>
+              <option value="mahjong">麻雀格言会議（デジタル派・攻め師・降り師）</option>
+              <option value="sengoku">戦国軍議（軍師・猛将・家老）</option>
+              <option value="jikan">時間軸（歴史家・未来学者・実務家）</option>
+              <option value="devil">悪魔の代弁者（推進派・調停者・反対論者）</option>
+              <option value="ogiri">大喜利（ボケ太・シュール男爵・座布団）</option>
+              <option value="keiba">競馬予想（血統博士・気配師・オッズ番長）</option>
+              <option value="research">徹底調査（ファクト・トレンド・ヘッジ）</option>
+              <option value="search">検索モード（最新情報をWeb検索して回答）</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label>Web検索の併用（要Gemini APIキー）</label>
+            <select id="ai-disc-search-mode-select" class="admin-select">
+              <option value="none">使わない</option>
+              <option value="briefing">事前ブリーフィング（議論前に1回検索して共有）</option>
+              <option value="individual">個別検索（各AIが自分の視点で検索）</option>
+              <option value="advanced">発展検索（争点を検索で検証してから第2ラウンドへ）</option>
+              <option value="deep">徹底検索（個別検索と争点検証の両方を行う）</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label>議題・質問・条件</label>
+            <textarea id="ai-disc-topic-input" class="admin-textarea" rows="4" placeholder="議論したいテーマや質問を入力してください"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-run-btn" onclick="startAiDiscussion()">議論を実行</button>
+        </div>
+
+        <div id="ai-disc-rounds"></div>
+
+        <div id="ai-disc-continue-form" style="display:none;margin-top:16px;">
+          <hr class="admin-divider">
+          <div class="admin-form-group">
+            <label>追加の条件・質問</label>
+            <textarea id="ai-disc-continue-input" class="admin-textarea" rows="3" placeholder="追加の条件や質問を入力してください"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-run-continue-btn" onclick="continueAiDiscussion()">続きを実行</button>
+        </div>
+
+        <div id="ai-disc-status" class="admin-status" style="margin-top:12px;"></div>
+
+
+        <div id="ai-disc-auto-area" style="display:none;margin-top:16px;">
+          <div id="ai-disc-magi-header" class="magi-header" style="display:none;">MAGI SYSTEM</div>
+          <div class="ai-disc-round">
+            <div id="ai-disc-auto-preview" class="ai-disc-round-output"></div>
+          </div>
+          <button class="admin-btn primary" style="width:100%;margin-top:12px;" id="ai-disc-auto-save-btn" onclick="saveAiDiscussionAuto()">保存する</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </main>
 
 <script src="./schedule.js"></script>
@@ -471,6 +1225,8 @@
 <script src="./stats.js"></script>
 <script src="./schedule-ui.js"></script>
 <script src="./board.js"></script>
+<script src="./vote.js"></script>
+<script src="./column.js"></script>
 <script src="./gallery.js"></script>
 <script src="./renban.js"></script>
 <script src="./boshu.js"></script>
@@ -488,6 +1244,9 @@
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
       <div id="rsv-detail-info" class="rsv-date-info"></div>
+      <div id="rsv-detail-admin-btn-wrap" style="display:none;margin-bottom:8px;">
+        <button class="admin-btn sm" onclick="openAdminScheduleEdit(rsvCurrentDate)">営業予定を編集</button>
+      </div>
       <div class="rsv-section-title">登録済み予約</div>
       <div id="rsv-detail-list"></div>
       <div class="rb-btn-row" style="margin-top:12px;margin-bottom:2px;">
@@ -551,6 +1310,8 @@
             <label class="rsv-checkbox-item"><input type="checkbox" value="ボドゲ"><span>ボドゲ</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" value="飲み会"><span>飲み会</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" value="球蹴り"><span>球蹴り</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="パン作り"><span>パン作り</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="その他(料理部)"><span>その他(料理部)</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" id="rsv-other-check" value="その他" onchange="toggleOtherInput()"><span>その他</span></label>
           </div>
           <div class="rsv-other-wrap" id="rsv-other-wrap">
@@ -560,6 +1321,12 @@
         <div class="rsv-form-group">
           <label class="rsv-label">備考</label>
           <textarea id="rsv-note" class="rsv-textarea" placeholder="自由に入力（任意）"></textarea>
+        </div>
+        <div id="rsv-x-post-wrap" style="display:none;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="rsv-x-post-check" checked>
+            <span>X に自動ポストする</span>
+          </label>
         </div>
         <div class="rsv-btn-row">
           <button type="button" class="rsv-btn secondary" onclick="backToDetail()">戻る</button>
@@ -587,7 +1354,18 @@
         <span class="rsv-title">予約一覧</span>
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
+      <!-- 選択モード確認バー -->
+      <div id="rsv-list-confirm-bar" class="boshu-confirm-bar" style="display:none;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="exitRsvListSelectMode()">キャンセル</button>
+          <span id="rsv-list-select-count" class="boshu-select-count">0件選択中</span>
+          <button id="rsv-list-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleRsvListSelectAll()">全選択</button>
+        </div>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="rsv-include-schedule"> 今後の予定を追加</label>
+        <button id="rsv-list-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareRsvListSelected()" disabled>共有する</button>
+      </div>
       <div id="rsv-list-content"></div>
+      <div id="rsv-list-modal-btn-wrap" class="rsv-btn-row" style="display:none;padding-top:12px;"></div>
     </div>
 
   </div>
@@ -636,6 +1414,12 @@
           <label class="rb-label">備考</label>
           <textarea id="rb-event-note" class="rb-textarea" placeholder="座席や時間帯など自由に入力"></textarea>
         </div>
+        <div id="rb-x-post-wrap" style="display:none;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="rb-x-post-check" checked>
+            <span>X に自動ポストする</span>
+          </label>
+        </div>
         <div id="rb-form-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:4px;"></div>
         <div class="rb-btn-row">
           <button type="button" class="rb-btn secondary" onclick="closeRbModal()">キャンセル</button>
@@ -657,7 +1441,7 @@
       </div>
       <div id="rb-detail-btn-hint" style="font-size:11px;color:var(--dim);text-align:center;min-height:16px;margin-bottom:4px;"></div>
       <div class="rb-section-label" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>参加者一覧</span>
+        <span>参加状況</span>
         <span id="rb-count-summary" style="font-size:11px;font-weight:normal;color:var(--dim);"></span>
       </div>
       <div id="rb-all-participants" class="rb-participants"></div>
@@ -665,9 +1449,20 @@
         <button class="rb-btn secondary" style="flex:none;padding:11px 18px;" onclick="shareRenbanEvent()">共有</button>
         <button class="rb-btn secondary" onclick="closeRbModal()">閉じる</button>
       </div>
-      <div id="rb-detail-delete-row" style="display:none;margin-top:8px;">
-        <button id="rb-detail-delete-btn" class="rb-btn secondary" style="width:100%;color:var(--red);border-color:var(--red);">イベントを削除</button>
+      <div id="rb-detail-delete-row" style="display:none;margin-top:8px;gap:8px;">
+        <button id="rb-detail-edit-btn" class="rb-btn secondary" style="flex:1;">編集</button>
+        <button id="rb-detail-delete-btn" class="rb-btn secondary" style="flex:1;color:var(--red);border-color:var(--red);">削除</button>
       </div>
+    </div>
+
+    <!-- 期限切れ一覧 -->
+    <div id="rb-expired-screen" class="rb-screen">
+      <div class="rb-header">
+        <button class="rb-back" onclick="closeRbModal()">←</button>
+        <span class="rb-title">期限切れ一覧</span>
+        <button class="rb-close" onclick="closeRbModal()">✕</button>
+      </div>
+      <div id="rb-expired-screen-list" class="renban-list rb-expired-items"></div>
     </div>
 
     <!-- 参加 / 興味あり フォーム -->
@@ -725,6 +1520,24 @@
     <div class="mypage-section">
       <span class="mypage-label">連携アカウント</span>
       <div id="mypage-providers"></div>
+    </div>
+    <div id="mypage-theme-section" class="mypage-section" style="display:none;">
+      <span class="mypage-label">テーマプレビュー（管理者）</span>
+      <div class="mypage-theme-btns">
+        <button class="mypage-theme-btn" data-season="" onclick="setSeasonOverride(null)">自動</button>
+        <button class="mypage-theme-btn" data-season="sakura" onclick="setSeasonOverride('sakura')">🌸 桜</button>
+        <button class="mypage-theme-btn" data-season="midori" onclick="setSeasonOverride('midori')">🌿 新緑</button>
+        <button class="mypage-theme-btn" data-season="tsuyu"  onclick="setSeasonOverride('tsuyu')">🌧 梅雨</button>
+        <button class="mypage-theme-btn" data-season="natsu"  onclick="setSeasonOverride('natsu')">🌻 夏</button>
+        <button class="mypage-theme-btn" data-season="koyo"   onclick="setSeasonOverride('koyo')">🍁 紅葉</button>
+        <button class="mypage-theme-btn" data-season="fuyu"   onclick="setSeasonOverride('fuyu')">❄️ 冬</button>
+      </div>
+      <div class="mypage-theme-btns" style="margin-top:8px;">
+        <button class="mypage-theme-btn" id="night-toggle-btn" onclick="setNightOverride()">🌙 夜</button>
+      </div>
+      <div style="margin-top:10px;">
+        <button class="mypage-theme-btn" id="bg-preview-btn" onclick="toggleBgPreview()" style="width:100%;">背景を表示</button>
+      </div>
     </div>
     <button class="mypage-stamp-btn" onclick="closeMyPage();showSection('stamp')">スタンプカード 🎫</button>
     <button class="mypage-logout-btn" onclick="myPageSignOut()">ログアウト</button>
@@ -854,6 +1667,32 @@
     </button>
     <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です<br>（じゃれ本の閲覧にはログインが必要です）</p>
     <button class="login-close-btn" onclick="closeLoginModal()">閉じる</button>
+  </div>
+</div>
+
+<!-- 散歩ログ アップロードモーダル -->
+<div id="walk-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:24px 16px;">
+  <div class="jare-modal-box" style="width:min(420px,100%);">
+    <h3 style="margin:0 0 16px;font-size:16px;">散歩ログを追加</h3>
+    <div class="jare-form-row">
+      <label class="jare-form-label">タイトル（任意）</label>
+      <input type="text" id="walk-upload-title" class="admin-input" placeholder="例：代々木公園" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div class="jare-form-row">
+      <label class="jare-form-label">GPXファイル</label>
+      <input type="file" id="walk-upload-file" accept=".gpx" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" id="walk-skip-geocode">
+        住所の取得をスキップ
+      </label>
+    </div>
+    <div id="walk-upload-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;"></div>
+    <div class="jare-modal-actions">
+      <button class="jare-cancel-btn" onclick="closeWalkUpload()">キャンセル</button>
+      <button class="jare-submit-btn" id="walk-upload-submit-btn" onclick="submitWalkUpload()">登録する</button>
+    </div>
   </div>
 </div>
 </body>

@@ -2,6 +2,7 @@ const DATA_URL = './data.json';
 const COLORS = ['#c8a96e','#e63946','#4caf82','#42a5f5','#ab47bc','#ff7043','#26c6da','#d4e157','#ec407a','#26a69a'];
 const COL_KEYS = ['総成績','4麻成績','3麻成績','総半荘数','4麻半荘数','3麻半荘数','総チップ','4麻チップ','3麻チップ','4麻飛び','3麻飛び','連対率','1着率','プレイ時間','来店回数','総収支'];
 const COL_LABELS = {'総成績':'総成績','4麻成績':'4麻成績','3麻成績':'3麻成績','総半荘数':'半荘数(全)','4麻半荘数':'半荘数(4)','3麻半荘数':'半荘数(3)','総チップ':'チップ(全)','4麻チップ':'チップ(4)','3麻チップ':'チップ(3)','4麻飛び':'飛び(4)','3麻飛び':'飛び(3)','連対率':'連対率(4)','1着率':'1着率(3)','プレイ時間':'プレイ時間','来店回数':'来店','総収支':'収支'};
+const _isPublicMode = new URLSearchParams(location.search).get('public') === '1';
 
 let DATA = null;
 let filterStart = null;
@@ -13,6 +14,7 @@ let graphCol = '総成績';
 let chartInstance = null;
 let memberChartInstances = [];
 let currentSection = 'top';
+let _skipHashChange = false;
 
 // ── ユーティリティ ──
 const sc  = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
@@ -49,6 +51,7 @@ async function loadData() {
   initPeriod();
   initGraphControls();
   refresh();
+  _mergeFirestoreGathers();
   // data.json 読み込み完了後にハッシュルーティングが未適用なら再適用
   // （キャッシュ済みデータが DOMContentLoaded より先に返った場合の保険）
   if (location.hash === '#boshu' && currentSection !== 'boshu') {
@@ -63,7 +66,7 @@ function initPeriod() {
   const dates = DATA.gathers.map(g=>g.date).sort();
   if (!dates.length) return;
   filterStart = toDate(dates[0]);
-  filterEnd   = toDate(dates[dates.length-1]);
+  filterEnd   = new Date();
   document.getElementById('filter-start').value = dateStr(filterStart);
   document.getElementById('filter-end').value   = dateStr(filterEnd);
 
@@ -123,9 +126,27 @@ function filteredGathers() {
 // ── ナビ ──
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
-const _GALLERY = ['gallery','jare','jare-detail'];
-const _ADMIN = ['admin-members','admin-gather','admin-score'];
+const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss'];
+// schedule.js の元データのスナップショット（Firestore上書き前）
+const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
+// Firestore から読み込んだスケジュール上書きデータ
+let _firestoreSchedule = {};
+// セクションID → URLハッシュ のマッピング（異なる場合のみ記載）
+const _SECTION_TO_HASH = { top: '', jare: 'gallery', 'jare-detail': 'gallery', walk: 'walk', 'walk-detail': 'walk', column: 'gallery', 'column-detail': 'gallery' };
+// URLハッシュ → セクションID
+const _HASH_TO_SECTION = {
+  '': 'top', top: 'top',
+  ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
+  gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
+  renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote', column: 'column',
+};
+
 function showSection(id) {
+  if (_isPublicMode && id !== 'schedule') return;
+  if (typeof _colEditActive !== 'undefined' && _colEditActive && _colDirty) {
+    if (!colConfirmLeave()) return;
+  }
   currentSection = id;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
@@ -152,25 +173,27 @@ function showSection(id) {
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isGallery) {
-    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本'};
+    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本',walk:'散歩ログ',column:'コラム'};
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='renban'||id==='boshu'||id==='stamp'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
   if (id==='schedule') renderCalendar();
   if (id==='board') initBoard();
+  if (id==='vote') initVote();
   if (id==='renban') initRenban();
   if (id==='boshu') initBoshu();
   if (id==='stamp') initStampCard();
   if (id==='jare') initJare();
+  if (id==='walk') initWalk();
   if (id==='top') initTopPage();
   if (id==='feedback' && _registeredName) {
     const fbName = document.getElementById('fb-name');
@@ -179,6 +202,17 @@ function showSection(id) {
   if (id==='admin-members') initAdminMembers();
   if (id==='admin-gather') initAdminGather();
   if (id==='admin-score') initAdminScore();
+  if (id==='admin-schedule') initAdminSchedule();
+  if (id==='admin-ai-discuss') initAdminAiDiscuss();
+  if (id==='column') initColumn();
+
+  // URL ハッシュを更新（管理者セクションは除く）
+  if (!_ADMIN.includes(id)) {
+    const frag = id in _SECTION_TO_HASH ? _SECTION_TO_HASH[id] : id;
+    _skipHashChange = true;
+    history.replaceState(null, '', frag ? '#' + frag : location.pathname + location.search);
+    _skipHashChange = false;
+  }
 }
 
 // ── トップページ ──
@@ -286,6 +320,81 @@ async function renderTopSchedule() {
   }
 }
 
+async function generateScheduleCanvas() {
+  const W = 720, pad = 36, rowH = 44;
+  const MARK_COLORS = { '◎':'#98c379', '〇':'#61afef', '△':'#e5c07b', '×':'#e06c75' };
+  const DOW = ['日','月','火','水','木','金','土'];
+  const todayStr = new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Tokyo'});
+  const upcoming = Object.keys(SCHEDULE_DATA).sort()
+    .filter(d => d >= todayStr && SCHEDULE_DATA[d].mark !== '×').slice(0, 5);
+
+  // 予約件数を取得
+  const counts = {};
+  if (_db && upcoming.length) {
+    try {
+      const snaps = await Promise.all(upcoming.map(d => _db.collection('reservations').where('date', '==', d).get()));
+      upcoming.forEach((d, i) => { counts[d] = snaps[i].size; });
+    } catch(e) {}
+  }
+
+  const headerH = 64;
+  const totalH = headerH + Math.max(upcoming.length, 1) * rowH + 20;
+  await document.fonts.ready;
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = W * dpr; canvas.height = totalH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#21252b'; ctx.fillRect(0, 0, W, totalH);
+  ctx.fillStyle = '#528bff'; ctx.fillRect(0, 0, 6, totalH);
+
+  ctx.fillStyle = '#dde2ec';
+  ctx.font = "bold 20px 'Noto Sans JP', sans-serif";
+  ctx.fillText('今後の予定', pad, 40);
+  ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, 56); ctx.lineTo(W - pad, 56); ctx.stroke();
+
+  if (!upcoming.length) {
+    ctx.fillStyle = '#5c6370';
+    ctx.font = "16px 'Noto Sans JP', sans-serif";
+    ctx.fillText('予定なし', pad, headerH + 22);
+  } else {
+    upcoming.forEach((d, i) => {
+      const entry = SCHEDULE_DATA[d];
+      const [y, mo, day] = d.split('-').map(Number);
+      const dow = DOW[new Date(Date.UTC(y, mo - 1, day)).getUTCDay()];
+      const label = `${mo}月${day}日（${dow}）`;
+      const yp = headerH + i * rowH + 26;
+
+      ctx.fillStyle = MARK_COLORS[entry.mark] || '#dde2ec';
+      ctx.font = "bold 15px 'Noto Sans JP', sans-serif";
+      ctx.fillText(entry.mark, pad, yp);
+
+      ctx.fillStyle = '#dde2ec';
+      ctx.font = "15px 'Noto Sans JP', sans-serif";
+      ctx.fillText(label, pad + 28, yp);
+
+      if (entry.note) {
+        const lw = ctx.measureText(label).width;
+        ctx.fillStyle = '#5c6370';
+        ctx.font = "12px 'Noto Sans JP', sans-serif";
+        ctx.fillText(entry.note, pad + 28 + lw + 10, yp);
+      }
+
+      const cnt = counts[d];
+      if (cnt != null) {
+        const cntText = cnt > 0 ? `予約${cnt}件` : '予約なし';
+        ctx.fillStyle = cnt > 0 ? '#98c379' : '#5c6370';
+        ctx.font = "12px 'Noto Sans JP', sans-serif";
+        const tw = ctx.measureText(cntText).width;
+        ctx.fillText(cntText, W - pad - tw, yp);
+      }
+    });
+  }
+  return canvas;
+}
+
 let _topJareDocId = null;
 
 function goToTopJare() {
@@ -328,10 +437,12 @@ async function initTopPage() {
   }
   listEl.innerHTML = '<div class="empty">読み込み中...</div>';
   try {
-    const [rsvSnap, boardSnap, renbanSnap] = await Promise.all([
+    const [rsvSnap, boardSnap, renbanSnap, voteSnap, columnSnap] = await Promise.all([
       _db.collection('reservations').orderBy('createdAt', 'desc').limit(5).get(),
       _db.collection('board_comments').orderBy('ts', 'desc').limit(3).get(),
-      _db.collection('renban_events').orderBy('createdAt', 'desc').limit(3).get()
+      _db.collection('renban_events').orderBy('createdAt', 'desc').limit(3).get(),
+      _db.collection('vote_boxes').orderBy('createdAt', 'desc').limit(3).get(),
+      _db.collection('columns').orderBy('createdAt', 'desc').limit(3).get()
     ]);
     const items = [];
     rsvSnap.docs.forEach(doc => {
@@ -348,6 +459,18 @@ async function initTopPage() {
       const d = doc.data();
       const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
       items.push({ type: 'renban', ts, id: doc.id, title: d.title || '(無題)', owner: d.owner || '匿名' });
+    });
+    voteSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (d.status === 'draft') return;
+      const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
+      items.push({ type: 'vote', ts, id: doc.id, title: d.title || '(無題)', authorName: d.authorName || '匿名' });
+    });
+    columnSnap.docs.forEach(doc => {
+      const d = doc.data();
+      if (d.status !== 'published') return;
+      const ts = d.createdAt ? (d.createdAt.toMillis ? d.createdAt.toMillis() : 0) : 0;
+      items.push({ type: 'column', ts, id: doc.id, title: d.title || '(無題)', authorName: d.authorName || '匿名' });
     });
     items.sort((a, b) => b.ts - a.ts);
     if (!items.length) { listEl.innerHTML = '<div class="empty">更新はありません</div>'; return; }
@@ -368,11 +491,23 @@ async function initTopPage() {
           <span class="top-update-icon">💬</span>
           <div class="top-update-text"><strong>${_escHtml(item.name)}</strong>：${_escHtml(preview)}<div class="top-update-time">${timeStr}</div></div>
         </div>`;
-      } else {
-        const onclick = `showSection('renban');initRenban().then(()=>openRenbanDetail('${item.id}'))`;
+      } else if (item.type === 'renban') {
+        const onclick = `showSection('renban');openRenbanDetail('${item.id}')`;
         return `<div class="top-update-item top-update-link" onclick="${onclick}">
           <span class="top-update-icon">📢</span>
           <div class="top-update-text"><strong>${_escHtml(item.owner)}</strong> さんが <strong>${_escHtml(item.title)}</strong> の連番を募集しました<div class="top-update-time">${timeStr}</div></div>
+        </div>`;
+      } else if (item.type === 'vote') {
+        const onclick = `showSection('vote');openVoteDetail('${_escHtml(item.id)}')`;
+        return `<div class="top-update-item top-update-link" onclick="${onclick}">
+          <span class="top-update-icon">🗳️</span>
+          <div class="top-update-text"><strong>${_escHtml(item.authorName)}</strong> さんが投票箱 <strong>${_escHtml(item.title)}</strong> を作成しました<div class="top-update-time">${timeStr}</div></div>
+        </div>`;
+      } else if (item.type === 'column') {
+        const onclick = `showSection('column');openColumnDetail('${_escHtml(item.id)}')`;
+        return `<div class="top-update-item top-update-link" onclick="${onclick}">
+          <span class="top-update-icon">📝</span>
+          <div class="top-update-text"><strong>${_escHtml(item.authorName)}</strong> さんがコラム <strong>${_escHtml(item.title)}</strong> を投稿しました<div class="top-update-time">${timeStr}</div></div>
         </div>`;
       }
     }).join('');
@@ -381,7 +516,22 @@ async function initTopPage() {
   }
 }
 
-
+let _fsGathersMerged = false;
+async function _mergeFirestoreGathers() {
+  if (!_db || !DATA || _fsGathersMerged) return;
+  _fsGathersMerged = true;
+  try {
+    const snap = await _db.collection('admin_gathers').orderBy('date', 'asc').get();
+    const fsGathers = snap.docs.map(d => d.data()).filter(g => g.date && Array.isArray(g.members));
+    if (!fsGathers.length) return;
+    DATA.gathers = [...(DATA.gathers || []), ...fsGathers];
+    initPeriod();
+    refresh();
+  } catch(e) {
+    _fsGathersMerged = false;
+    console.warn('admin_gathers merge failed:', e);
+  }
+}
 
 loadData();
 
@@ -496,50 +646,69 @@ function initFirebase() {
       firebase.initializeApp(FIREBASE_CONFIG);
       _db = firebase.firestore();
       _auth = firebase.auth();
+      _mergeFirestoreGathers();
       _auth.onAuthStateChanged(user => {
         _currentUser = user;
         updateAuthUI(user);
       });
+      _loadFirestoreSchedule(); // スケジュール上書きデータを非同期で取得
     }
   } catch(e) {
     console.warn('Firebase init error:', e);
   }
   // ハッシュルーティング
-  const initHash = location.hash;
-  if (initHash.startsWith('#renban/')) {
-    const eventId = initHash.slice(8);
+  _routeHash(location.hash, true);
+
+  window.addEventListener('hashchange', () => {
+    if (_skipHashChange) return;
+    _routeHash(location.hash, false);
+  });
+}
+
+function _routeHash(hash, isInit) {
+  if (_isPublicMode) { showSection('schedule'); return; }
+  if (hash.startsWith('#renban/')) {
     showSection('renban');
-    initRenban().then(() => openRenbanDetail(eventId));
-  } else if (initHash.startsWith('#jare/')) {
-    const docId = initHash.slice(6);
+    initRenban().then(() => openRenbanDetail(hash.slice(8)));
+  } else if (hash.startsWith('#walk/')) {
+    showSection('walk');
+    initWalk();
+    openWalkDetail(hash.slice(6));
+  } else if (hash.startsWith('#jare/')) {
     showSection('jare');
     initJare();
-    showJareDetail(docId);
-  } else if (initHash.startsWith('#schedule/')) {
-    const dateStr = initHash.slice(10);
+    showJareDetail(hash.slice(6));
+  } else if (hash.startsWith('#schedule/')) {
     showSection('schedule');
-    renderCalendar().then(() => openDayDetail(dateStr));
-  } else if (initHash === '#boshu') {
-    showSection('boshu');
-  }
-
-  // 同一ページ内でハッシュが変わったときも対応（共有リンクをクリックした場合など）
-  window.addEventListener('hashchange', () => {
-    const h = location.hash;
-    if (h.startsWith('#renban/')) {
-      showSection('renban');
-      initRenban().then(() => openRenbanDetail(h.slice(8)));
-    } else if (h.startsWith('#jare/')) {
-      showSection('jare');
-      initJare();
-      showJareDetail(h.slice(6));
-    } else if (h.startsWith('#schedule/')) {
-      showSection('schedule');
-      renderCalendar().then(() => openDayDetail(h.slice(10)));
-    } else if (h === '#boshu') {
-      showSection('boshu');
+    renderCalendar().then(() => openDayDetail(hash.slice(10)));
+  } else if (hash.startsWith('#vote/')) {
+    showSection('vote');
+    openVoteDetail(hash.slice(6));
+  } else if (hash.startsWith('#column/')) {
+    showSection('column');
+    openColumnDetail(hash.slice(8));
+  } else {
+    const key = hash.slice(1);
+    if (_HASH_TO_SECTION[key] !== undefined) {
+      showSection(_HASH_TO_SECTION[key]);
     }
-  });
+    // hash が空・未知の場合はトップ（初期表示のまま）
+  }
+}
+
+// ── Firestoreスケジュール上書きデータ読み込み ──
+async function _loadFirestoreSchedule() {
+  if (!_db) return;
+  try {
+    const doc = await _db.collection('admin_config').doc('schedule').get();
+    if (doc.exists && doc.data().dates) {
+      _firestoreSchedule = doc.data().dates;
+      Object.assign(SCHEDULE_DATA, _firestoreSchedule); // SCHEDULE_DATAに上書きマージ
+      // すでにカレンダーが表示中なら再描画
+      if (currentSection === 'schedule') renderCalendar();
+      if (currentSection === 'top') renderTopSchedule();
+    }
+  } catch(e) { /* 読み込み失敗時はschedule.jsのデータをそのまま使用 */ }
 }
 
 // ── 認証UI更新 ──
@@ -636,6 +805,11 @@ function openMyPage() {
   if (badge) badge.style.display = _isAdmin ? '' : 'none';
   const managerBadge = document.getElementById('mypage-manager-badge');
   if (managerBadge) managerBadge.style.display = _isManager ? '' : 'none';
+  const themeSection = document.getElementById('mypage-theme-section');
+  if (themeSection) themeSection.style.display = _isAdmin ? '' : 'none';
+  document.querySelectorAll('.mypage-theme-btn').forEach(btn => {
+    btn.classList.toggle('active', _seasonOverride === null ? btn.dataset.season === '' : btn.dataset.season === _seasonOverride);
+  });
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
@@ -757,5 +931,88 @@ function _esc(s) {
 
 // alias used by renban.js and boshu.js
 const escHtml = _esc;
+
+const _SEASON_PARTICLES = {
+  sakura: `<ellipse cx="7" cy="10" rx="5" ry="7" fill="#ffb7c5"/>`,
+  midori: `<path d="M7 1C12 4 13 11 7 17 1 11 2 4 7 1Z" fill="#7aba6e"/>`,
+  tsuyu:  `<rect x="5" y="0" width="4" height="14" rx="2" fill="#8090c8" opacity="0.8"/>`,
+  natsu:  `<path d="M7 1L8.5 6H14L9.5 9L11 14.5L7 11L3 14.5L4.5 9L0 6H5.5Z" fill="#e8c040"/>`,
+  koyo:   `<path d="M7 0L8 4L11.5 2L10 6H14L11 8.5L13 13L9.5 10.5L7 15L4.5 10.5L1 13L3 8.5L0 6H4L2.5 2L6 4Z" fill="#d06030"/>`,
+  fuyu:   `<g stroke="#b8d4f0" stroke-width="1.5" stroke-linecap="round"><line x1="7" y1="1" x2="7" y2="17"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="2" y1="3" x2="12" y2="15"/><line x1="12" y1="3" x2="2" y2="15"/></g>`,
+};
+
+function _updateDecoParticles(season) {
+  const shape = _SEASON_PARTICLES[season] || _SEASON_PARTICLES.midori;
+  document.querySelectorAll('.deco-leaf').forEach(el => { el.innerHTML = shape; });
+}
+
+function setSeasonTheme() {
+  const m = new Date().getMonth() + 1;
+  const d = new Date().getDate();
+  let season;
+  if      ((m === 3 && d >= 15) || (m === 4 && d <= 14)) season = 'sakura';
+  else if ((m === 4 && d >= 15) || m === 5)               season = 'midori';
+  else if (m === 6)                                        season = 'tsuyu';
+  else if (m === 7 || m === 8)                             season = 'natsu';
+  else if (m >= 9 && m <= 11)                              season = 'koyo';
+  else                                                     season = 'fuyu';
+  document.body.dataset.season = season;
+  _updateDecoParticles(season);
+}
+
+let _seasonOverride = null;
+function setSeasonOverride(season) {
+  _seasonOverride = season;
+  if (season === null) setSeasonTheme();
+  else { document.body.dataset.season = season; _updateDecoParticles(season); }
+  document.querySelectorAll('.mypage-theme-btn').forEach(btn => {
+    btn.classList.toggle('active', _seasonOverride === null ? btn.dataset.season === '' : btn.dataset.season === season);
+  });
+}
+setSeasonTheme();
+
+function _applyNight() {
+  document.body.dataset.night = 'true';
+  delete document.body.dataset.season;
+}
+function _removeNight() {
+  delete document.body.dataset.night;
+  setSeasonTheme();
+}
+function setNightTheme() {
+  const h = new Date().getHours();
+  if (h >= 20 || h < 5) _applyNight();
+  else _removeNight();
+}
+setNightTheme();
+
+let _bgPreview = false;
+function toggleBgPreview() {
+  _bgPreview = !_bgPreview;
+  if (_bgPreview) {
+    showSection('top');
+    document.body.dataset.bgPreview = 'true';
+    closeMyPage();
+  } else {
+    delete document.body.dataset.bgPreview;
+  }
+  const btn = document.getElementById('bg-preview-btn');
+  if (btn) btn.classList.toggle('active', _bgPreview);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  if (_isPublicMode) document.body.classList.add('public-mode');
+  document.querySelector('header').addEventListener('click', () => {
+    if (_bgPreview) toggleBgPreview();
+  });
+});
+
+let _nightOverride = false;
+function setNightOverride() {
+  _nightOverride = !_nightOverride;
+  if (_nightOverride) _applyNight();
+  else _removeNight();
+  const btn = document.getElementById('night-toggle-btn');
+  if (btn) btn.classList.toggle('active', _nightOverride);
+}
 
 document.addEventListener('DOMContentLoaded', initFirebase);
