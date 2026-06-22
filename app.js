@@ -209,12 +209,28 @@ function showSection(id) {
   if (id==='swarm') initSwarm('main');
   if (id==='column') initColumn();
 
-  // URL ハッシュを更新（管理者セクションは除く）
-  if (!_ADMIN.includes(id)) {
+  // URL ハッシュを更新（管理者セクションは #admin/{name} 形式で反映）
+  _skipHashChange = true;
+  if (_ADMIN.includes(id)) {
+    history.replaceState(null, '', location.pathname + location.search + '#admin/' + id.slice(6));
+  } else {
     const frag = id in _SECTION_TO_HASH ? _SECTION_TO_HASH[id] : id;
-    _skipHashChange = true;
     history.replaceState(null, '', frag ? '#' + frag : location.pathname + location.search);
-    _skipHashChange = false;
+  }
+  _skipHashChange = false;
+}
+
+// 管理者ページへの直リンク（#admin/members 等）対応。管理者ログイン確定後にのみ開く
+function _handleAdminHashRoute() {
+  const m = location.hash.match(/^#admin\/([a-z-]+)$/);
+  if (!m) return;
+  const secId = 'admin-' + m[1];
+  if (!_ADMIN.includes(secId)) return;
+  if (_isAdmin) {
+    showSection(secId);
+  } else {
+    // 非管理者がアクセスした場合はハッシュを消してトップのまま
+    history.replaceState(null, '', location.pathname + location.search);
   }
 }
 
@@ -701,6 +717,9 @@ function _routeHash(hash, isInit) {
   } else if (hash.startsWith('#column/')) {
     showSection('column');
     openColumnDetail(hash.slice(8));
+  } else if (hash.startsWith('#admin/')) {
+    // 初期ロード時は認証未確定なので、updateAuthUI 側の確定後ハンドラに委ねる
+    if (!isInit) _handleAdminHashRoute();
   } else {
     const key = hash.slice(1);
     if (_HASH_TO_SECTION[key] !== undefined) {
@@ -741,7 +760,14 @@ function updateAuthUI(user) {
     userInfo.style.display = 'flex';
     const navSwarmBtn = document.getElementById('nav-swarm-btn');
     if (navSwarmBtn) navSwarmBtn.style.display = '';
-    _loadUserData(user);
+    _loadUserData(user).then(() => {
+      if (!wasResolved) {
+        // 管理者ページ直リンク（#admin/...）を認証確定後に開く
+        _handleAdminHashRoute();
+        // Swarm連携を直リンクで開いていた場合、ログイン情報確定後に再初期化
+        if (currentSection === 'swarm') initSwarm('main');
+      }
+    });
   } else {
     loginBtn.style.display = 'block';
     userInfo.style.display = 'none';

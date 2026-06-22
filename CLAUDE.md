@@ -90,7 +90,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 
 ### Hash-Based Routing
 
-`showSection(id)` handles all navigation. Mapping in `_HASH_TO_SECTION` / `_SECTION_TO_HASH`. Deep-link patterns: `#renban/{id}`, `#jare/{id}`, `#schedule/{YYYY-MM-DD}`, `#vote/{id}`. Admin section IDs are not reflected in the URL hash.
+`showSection(id)` handles all navigation. Mapping in `_HASH_TO_SECTION` / `_SECTION_TO_HASH`. Deep-link patterns: `#renban/{id}`, `#jare/{id}`, `#schedule/{YYYY-MM-DD}`, `#vote/{id}`, `#column/{id}`. Admin sections reflect as `#admin/{name}` (e.g. `admin-swarm` → `#admin/swarm`); on page load `_handleAdminHashRoute()` reopens them after auth resolves (only if `_isAdmin`, otherwise the hash is cleared). For init loads, `_routeHash` defers `#admin/...` handling to that post-auth handler; the `#swarm` deep link is similarly re-initialized after login resolves so account status renders correctly.
 
 ### Firestore Collections
 
