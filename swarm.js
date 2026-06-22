@@ -43,6 +43,11 @@ async function initSwarm(ns) {
   await _loadSwarmAccount(ns);
   _renderSwarmAccountStatus(ns);
   if (st.account && st.account.accessToken) {
+    // 連携済みの場合はアカウント連携パネルを初期状態で畳んでおく
+    const accountBody = document.getElementById(pfx+'-account-body');
+    const accountArrow = document.getElementById(pfx+'-account-arrow');
+    if (accountBody) accountBody.classList.remove('open');
+    if (accountArrow) accountArrow.classList.remove('open');
     fetchSwarmCheckins(ns);
   } else {
     _renderSwarmCheckinList(ns);
