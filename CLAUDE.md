@@ -28,7 +28,7 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 
 1. `schedule.js` — defines `SCHEDULE_DATA` global (must come before app.js)
 2. `app.js` — captures `_SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA)` at parse time
-3. `stats.js`, `schedule-ui.js`, `board.js`, `vote.js`, `gallery.js`, `renban.js`, `boshu.js`, `stamp.js`, `admin.js`
+3. `stats.js`, `schedule-ui.js`, `board.js`, `vote.js`, `column.js`, `gallery.js`, `renban.js`, `boshu.js`, `stamp.js`, `admin.js`, `swarm.js`
 
 ### Module Organization
 
@@ -44,6 +44,8 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 | **board.js** | 掲示板 — bulletin board comments |
 | **vote.js** | 投票箱 — poll/voting boxes with options, answers, deadlines |
 | **stamp.js** | Stamp card system |
+| **column.js** | コラム — long-form articles with rich-text editor |
+| **swarm.js** | Swarm連携 — Foursquare/Swarm OAuth check-in linking + X share; namespaced (`main`/`admin`) to support two independent Client IDs |
 | **schedule.js** | Static `SCHEDULE_DATA` object only |
 
 ### Global State (app.js)
@@ -94,7 +96,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 
 | Collection | Write Access |
 |-----------|-------------|
-| `admin_config` (`/main`, `/schedule`) | Admin only |
+| `admin_config` (`/main`, `/schedule`, `/swarm`, `/swarm_admin`) | Admin only |
 | `admin_gathers` | Admin only |
 | `reservations` | Anyone (own) + Admin |
 | `rsv_participants` | Anyone (own) + Admin |
@@ -107,6 +109,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 | `admin_secrets` (`/api_keys`) | Admin only (read+write) — Gemini/Groq API keys + per-persona model config |
 | `users` | Own UID only |
 | `stamp_cards` | Own UID only |
+| `swarm_accounts`, `swarm_accounts_admin` | Own UID only — Foursquare OAuth access tokens for the main-tab and admin-only Swarm integrations respectively |
 | `admins`, `managers` | Server only (client read-only) |
 
 ### Rating System (stats.js `calcRatings`)

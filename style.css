@@ -1206,11 +1206,38 @@
   }
   .admin-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .admin-empty { color: var(--dim); font-size: 13px; text-align: center; padding: 24px; }
+  .admin-card-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; background: none; border: none; cursor: pointer; text-align: left; font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .admin-card-body { display: none; }
+  .admin-card-body.open { display: block; }
   .admin-textarea { display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; -webkit-appearance: none; appearance: none; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 14px; line-height: 1.6; padding: 8px 12px; border-radius: 6px; resize: vertical; }
   .admin-textarea:focus { outline: none; border-color: var(--accent); }
   @media (max-width: 640px) {
     .admin-textarea { font-size: 16px; /* iOSズーム防止 */ }
   }
+
+  /* ── Swarm連携 ── */
+  .swarm-token-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .swarm-token-chip {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--accent);
+    font-family: monospace; font-size: 12px; padding: 4px 10px; border-radius: 12px; cursor: pointer;
+  }
+  .swarm-token-chip:hover { border-color: var(--accent); background: var(--surface); }
+  .swarm-template-preview {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; font-size: 13px; color: var(--text); line-height: 1.6;
+    margin-bottom: 16px; white-space: pre-wrap; word-break: break-word; min-height: 20px;
+  }
+  .swarm-venue-results { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .swarm-venue-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: border-color .2s; }
+  .swarm-venue-item:hover { border-color: var(--accent); }
+  .swarm-venue-name { font-size: 13px; font-weight: 700; }
+  .swarm-venue-addr { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .swarm-checkin-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .swarm-checkin-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+  .swarm-checkin-venue { font-weight: 700; font-size: 14px; color: var(--accent); }
+  .swarm-checkin-meta { font-size: 12px; color: var(--dim); margin-top: 4px; }
+  .swarm-checkin-shout { font-size: 13px; margin-top: 6px; line-height: 1.6; }
+  .swarm-checkin-actions { display: flex; gap: 8px; margin-top: 10px; }
 
   /* ── AI議論 ── */
   .ai-disc-round { margin-bottom: 12px; }

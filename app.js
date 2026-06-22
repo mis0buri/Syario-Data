@@ -127,7 +127,7 @@ function filteredGathers() {
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
 const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
-const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss','admin-swarm'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
@@ -140,6 +140,7 @@ const _HASH_TO_SECTION = {
   ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
   gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
   renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote', column: 'column',
+  swarm: 'swarm',
 };
 
 function showSection(id) {
@@ -177,12 +178,12 @@ function showSection(id) {
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論','admin-swarm':'Swarm連携'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||id==='swarm'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -204,6 +205,8 @@ function showSection(id) {
   if (id==='admin-score') initAdminScore();
   if (id==='admin-schedule') initAdminSchedule();
   if (id==='admin-ai-discuss') initAdminAiDiscuss();
+  if (id==='admin-swarm') initSwarm('admin');
+  if (id==='swarm') initSwarm('main');
   if (id==='column') initColumn();
 
   // URL ハッシュを更新（管理者セクションは除く）
@@ -650,12 +653,23 @@ function initFirebase() {
       _auth.onAuthStateChanged(user => {
         _currentUser = user;
         updateAuthUI(user);
+        if (typeof _swarmHandleAuthReady === 'function') _swarmHandleAuthReady(user);
       });
       _loadFirestoreSchedule(); // スケジュール上書きデータを非同期で取得
     }
   } catch(e) {
     console.warn('Firebase init error:', e);
   }
+
+  // SwarmのOAuth認証コールバック（#access_token=...）を検出して保持
+  const swarmTokenMatch = location.hash.match(/access_token=([^&]+)/);
+  if (swarmTokenMatch) {
+    window._swarmPendingToken = decodeURIComponent(swarmTokenMatch[1]);
+    window._swarmPendingNs = localStorage.getItem('swarm_pending_ns') || 'main';
+    localStorage.removeItem('swarm_pending_ns');
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
   // ハッシュルーティング
   _routeHash(location.hash, true);
 
@@ -725,6 +739,8 @@ function updateAuthUI(user) {
   if (user) {
     loginBtn.style.display = 'none';
     userInfo.style.display = 'flex';
+    const navSwarmBtn = document.getElementById('nav-swarm-btn');
+    if (navSwarmBtn) navSwarmBtn.style.display = '';
     _loadUserData(user);
   } else {
     loginBtn.style.display = 'block';
@@ -734,6 +750,8 @@ function updateAuthUI(user) {
     _isManager = false;
     const _navAdminBtn = document.getElementById('nav-admin-btn');
     if (_navAdminBtn) _navAdminBtn.style.display = 'none';
+    const _navSwarmBtn = document.getElementById('nav-swarm-btn');
+    if (_navSwarmBtn) _navSwarmBtn.style.display = 'none';
     _refreshBoardIfActive();
     _refreshJareIfActive();
   }
