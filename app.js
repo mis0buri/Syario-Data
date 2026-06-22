@@ -758,8 +758,6 @@ function updateAuthUI(user) {
   if (user) {
     loginBtn.style.display = 'none';
     userInfo.style.display = 'flex';
-    const navSwarmBtn = document.getElementById('nav-swarm-btn');
-    if (navSwarmBtn) navSwarmBtn.style.display = '';
     _loadUserData(user).then(() => {
       if (!wasResolved) {
         // 管理者ページ直リンク（#admin/...）を認証確定後に開く
@@ -776,8 +774,6 @@ function updateAuthUI(user) {
     _isManager = false;
     const _navAdminBtn = document.getElementById('nav-admin-btn');
     if (_navAdminBtn) _navAdminBtn.style.display = 'none';
-    const _navSwarmBtn = document.getElementById('nav-swarm-btn');
-    if (_navSwarmBtn) _navSwarmBtn.style.display = 'none';
     _refreshBoardIfActive();
     _refreshJareIfActive();
   }
