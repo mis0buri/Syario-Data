@@ -160,6 +160,7 @@ Two escape helpers in app.js — use them for all user-provided strings:
 
 - **Feedback form** → Discord webhook (`WEBHOOK_URL` hardcoded in app.js)
 - **First-time login** → separate Discord webhook (deduplicated via localStorage key `syario_loggedin_{uid}`)
+- **Google/X login** (`loginWithGoogle`/`loginWithTwitter`) — uses `signInWithPopup` on desktop, but `signInWithRedirect` on mobile (`_isMobileBrowser()` checks `navigator.userAgent`) since popups are frequently blocked or fail to open on mobile browsers and in-app browsers (LINE/X/Instagram). The redirect result is picked up via `_auth.getRedirectResult()` in `initFirebase()` to fire the first-time-login Discord notification.
 
 ### Adding a New Admin Section
 

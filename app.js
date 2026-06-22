@@ -671,6 +671,13 @@ function initFirebase() {
         updateAuthUI(user);
         if (typeof _swarmHandleAuthReady === 'function') _swarmHandleAuthReady(user);
       });
+      // スマホでのリダイレクトログイン完了後の結果を取得（Discord通知用）
+      _auth.getRedirectResult().then(result => {
+        if (result && result.user && result.credential) {
+          const providerName = result.credential.providerId === 'google.com' ? 'Google' : 'X';
+          _notifyDiscordLogin(result.user, providerName);
+        }
+      }).catch(e => console.warn('Redirect login error:', e));
       _loadFirestoreSchedule(); // スケジュール上書きデータを非同期で取得
     }
   } catch(e) {
@@ -789,11 +796,20 @@ function closeLoginModal() {
   document.getElementById('login-modal').classList.remove('open');
 }
 
+// スマホ（特にアプリ内ブラウザ）はポップアップが開かない/ブロックされるためリダイレクト方式を使う
+function _isMobileBrowser() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 // ── Google ログイン ──
 async function loginWithGoogle() {
   if (!_auth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  if (_isMobileBrowser()) {
+    _auth.signInWithRedirect(provider);
+    return;
+  }
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
     const result = await _auth.signInWithPopup(provider);
     _notifyDiscordLogin(result.user, 'Google');
     location.reload();
@@ -805,8 +821,12 @@ async function loginWithGoogle() {
 // ── X (Twitter) ログイン ──
 async function loginWithTwitter() {
   if (!_auth) return;
+  const provider = new firebase.auth.TwitterAuthProvider();
+  if (_isMobileBrowser()) {
+    _auth.signInWithRedirect(provider);
+    return;
+  }
   try {
-    const provider = new firebase.auth.TwitterAuthProvider();
     const result = await _auth.signInWithPopup(provider);
     _notifyDiscordLogin(result.user, 'X');
     location.reload();
