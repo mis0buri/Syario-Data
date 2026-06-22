@@ -66,13 +66,24 @@ async function _loadSwarmAccount(ns) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   st.account = null;
-  if (!_currentUser || !_db) return;
-  try {
-    const doc = await _db.collection(cfg.accountCollection).doc(_currentUser.uid).get();
-    if (doc.exists) st.account = doc.data();
-  } catch(e) {
-    console.warn('Swarmアカウント読み込みエラー:', e);
+  if (_currentUser && _db) {
+    try {
+      const doc = await _db.collection(cfg.accountCollection).doc(_currentUser.uid).get();
+      if (doc.exists) st.account = doc.data();
+    } catch(e) {
+      console.warn('Swarmアカウント読み込みエラー:', e);
+    }
+    if (st.account) return;
   }
+  // 未ログイン、またはFirestoreに連携情報がない場合はローカル保存分を使う
+  const local = localStorage.getItem(_swarmLocalAccountKey(ns));
+  if (local) {
+    try { st.account = JSON.parse(local); } catch(e) {}
+  }
+}
+
+function _swarmLocalAccountKey(ns) {
+  return 'swarm_local_account_' + ns;
 }
 
 function _renderSwarmAccountStatus(ns) {
@@ -85,21 +96,14 @@ function _renderSwarmAccountStatus(ns) {
   const connectFormEl = document.getElementById(pfx+'-connect-form');
   const linkedEl = document.getElementById(pfx+'-linked-info');
   if (adminConfigEl) adminConfigEl.style.display = _isAdmin ? '' : 'none';
-  if (!_currentUser) {
-    statusEl.textContent = 'Swarmと連携するには、まずこのページにログインしてください';
-    statusEl.style.display = '';
-    notConfiguredEl.style.display = 'none';
-    connectFormEl.style.display = 'none';
-    linkedEl.style.display = 'none';
-    return;
-  }
   statusEl.style.display = 'none';
   if (st.account && st.account.accessToken) {
     notConfiguredEl.style.display = 'none';
     connectFormEl.style.display = 'none';
     linkedEl.style.display = '';
-    document.getElementById(pfx+'-linked-user').textContent =
-      '連携済み' + ((ns !== 'main' || _isAdmin) && st.config && st.config.clientId ? '（Client ID: ' + st.config.clientId + '）' : '');
+    const clientIdSuffix = (ns !== 'main' || _isAdmin) && st.config && st.config.clientId ? '（Client ID: ' + st.config.clientId + '）' : '';
+    const loginHint = _currentUser ? '' : '　※ログインすると連携情報が保存され、機種変更後も復元できます';
+    document.getElementById(pfx+'-linked-user').textContent = '連携済み' + clientIdSuffix + loginHint;
   } else if (st.config && st.config.clientId) {
     notConfiguredEl.style.display = 'none';
     connectFormEl.style.display = '';
@@ -142,7 +146,6 @@ function connectSwarmAccount(ns) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   const statusEl = document.getElementById(cfg.idPrefix+'-status-connect');
-  if (!requireLogin('Swarm連携')) return;
   if (!st.config || !st.config.clientId) {
     statusEl.textContent = 'サイト管理者がまだ設定していません';
     statusEl.className = 'admin-status error';
@@ -153,37 +156,55 @@ function connectSwarmAccount(ns) {
   location.href = `https://foursquare.com/oauth2/authenticate?client_id=${encodeURIComponent(st.config.clientId)}&response_type=token&redirect_uri=${redirectUri}`;
 }
 
-// app.jsのonAuthStateChangedから呼ばれる（OAuthコールバック後のトークンをFirestoreへ保存）
-async function _swarmHandleAuthReady(user) {
-  if (!user) {
-    Object.keys(_swarmState).forEach(ns => { _swarmState[ns].account = null; });
-    return;
-  }
-  if (!window._swarmPendingToken) return;
-  const accessToken = window._swarmPendingToken;
-  const ns = SWARM_NS[window._swarmPendingNs] ? window._swarmPendingNs : 'main';
-  delete window._swarmPendingToken;
-  delete window._swarmPendingNs;
+// ns の連携情報を保存する（ログイン中はFirestore、未ログインならローカルに保存し、後でログインした際に引き継ぐ）
+async function _saveSwarmAccount(ns, accessToken, user) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
-  try {
-    await _db.collection(cfg.accountCollection).doc(user.uid).set({
-      accessToken,
-      linkedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    st.account = { accessToken };
-    const activeSectionId = ns === 'main' ? 'swarm' : 'admin-swarm';
-    if (currentSection === activeSectionId) {
-      _renderSwarmAccountStatus(ns);
-      fetchSwarmCheckins(ns);
+  if (user && _db) {
+    try {
+      await _db.collection(cfg.accountCollection).doc(user.uid).set({
+        accessToken,
+        linkedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch(e) {
+      console.warn('Swarmアカウント保存エラー:', e);
+      return;
     }
-  } catch(e) {
-    console.warn('Swarmアカウント保存エラー:', e);
+  } else {
+    localStorage.setItem(_swarmLocalAccountKey(ns), JSON.stringify({ accessToken }));
+  }
+  st.account = { accessToken };
+  const activeSectionId = ns === 'main' ? 'swarm' : 'admin-swarm';
+  if (currentSection === activeSectionId) {
+    _renderSwarmAccountStatus(ns);
+    fetchSwarmCheckins(ns);
+  }
+}
+
+// app.jsのonAuthStateChangedから呼ばれる（OAuthコールバック後のトークン保存／ログイン時のローカル連携情報の引き継ぎ）
+async function _swarmHandleAuthReady(user) {
+  if (window._swarmPendingToken) {
+    const accessToken = window._swarmPendingToken;
+    const ns = SWARM_NS[window._swarmPendingNs] ? window._swarmPendingNs : 'main';
+    delete window._swarmPendingToken;
+    delete window._swarmPendingNs;
+    await _saveSwarmAccount(ns, accessToken, user);
+  }
+  if (user) {
+    // ログイン前（未ログイン状態）にローカル保存していた連携情報をFirestoreへ引き継ぐ
+    for (const ns of Object.keys(SWARM_NS)) {
+      const local = localStorage.getItem(_swarmLocalAccountKey(ns));
+      if (!local) continue;
+      try {
+        const data = JSON.parse(local);
+        if (data && data.accessToken) await _saveSwarmAccount(ns, data.accessToken, user);
+      } catch(e) {}
+      localStorage.removeItem(_swarmLocalAccountKey(ns));
+    }
   }
 }
 
 async function unlinkSwarmAccount(ns) {
-  if (!_currentUser || !_db) return;
   if (!confirm('Swarmとの連携を解除しますか？')) return;
   await _unlinkSwarmAccountSilent(ns);
 }
@@ -191,7 +212,6 @@ async function unlinkSwarmAccount(ns) {
 // 別アカウントへの切り替え: Foursquareは既存のログイン状態を使って再連携してしまうため、
 // ログアウト用ページを別タブで開いてから連携解除する
 function switchSwarmAccount(ns) {
-  if (!_currentUser || !_db) return;
   if (!confirm('別のSwarmアカウントに切り替えますか？\n新しいタブでFoursquareのログアウトページを開きます。ログアウト後、このタブで再度「Swarmと連携する」を押してください。')) return;
   window.open('https://foursquare.com/logout', '_blank');
   _unlinkSwarmAccountSilent(ns);
@@ -201,7 +221,10 @@ async function _unlinkSwarmAccountSilent(ns) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   try {
-    await _db.collection(cfg.accountCollection).doc(_currentUser.uid).delete();
+    if (_currentUser && _db) {
+      await _db.collection(cfg.accountCollection).doc(_currentUser.uid).delete();
+    }
+    localStorage.removeItem(_swarmLocalAccountKey(ns));
     st.account = null;
     st.checkins = [];
     _renderSwarmAccountStatus(ns);

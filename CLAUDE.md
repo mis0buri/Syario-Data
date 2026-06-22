@@ -45,7 +45,7 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 | **vote.js** | 投票箱 — poll/voting boxes with options, answers, deadlines |
 | **stamp.js** | Stamp card system |
 | **column.js** | コラム — long-form articles with rich-text editor |
-| **swarm.js** | Swarm連携 — Foursquare/Swarm OAuth check-in linking + X share; namespaced (`main`/`admin`) to support two independent Client IDs |
+| **swarm.js** | Swarm連携 — Foursquare/Swarm OAuth check-in linking + X share; namespaced (`main`/`admin`) to support two independent Client IDs; usable without login (account stored in `localStorage` key `swarm_local_account_{ns}`, migrated to Firestore on later login) |
 | **schedule.js** | Static `SCHEDULE_DATA` object only |
 
 ### Global State (app.js)
