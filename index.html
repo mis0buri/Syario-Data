@@ -753,6 +753,10 @@
           <button class="admin-btn primary" style="width:100%" onclick="submitSwarmCheckin('main')">チェックインする</button>
         </div>
         <div id="swarm-status-checkin" class="admin-status"></div>
+        <div id="swarm-quick-share" class="swarm-checkin-actions" style="display:none;margin-top:10px;">
+          <button class="admin-btn sm primary" onclick="postSwarmCheckinToX('main', 0)">Xに投稿</button>
+          <button class="admin-btn sm" onclick="copySwarmCheckinText('main', 0)">テキストをコピー</button>
+        </div>
       </div>
     </div>
 
@@ -792,8 +796,8 @@
           <div class="admin-form-group">
             <label>取得件数</label>
             <select id="swarm-fetch-limit" class="admin-select">
-              <option value="10">10件</option>
-              <option value="25" selected>25件</option>
+              <option value="10" selected>10件</option>
+              <option value="25">25件</option>
               <option value="50">50件</option>
               <option value="100">100件</option>
             </select>
@@ -1437,6 +1441,10 @@
           <button class="admin-btn primary" style="width:100%" onclick="submitSwarmCheckin('admin')">チェックインする</button>
         </div>
         <div id="aswarm-status-checkin" class="admin-status"></div>
+        <div id="aswarm-quick-share" class="swarm-checkin-actions" style="display:none;margin-top:10px;">
+          <button class="admin-btn sm primary" onclick="postSwarmCheckinToX('admin', 0)">Xに投稿</button>
+          <button class="admin-btn sm" onclick="copySwarmCheckinText('admin', 0)">テキストをコピー</button>
+        </div>
       </div>
     </div>
 
@@ -1476,8 +1484,8 @@
           <div class="admin-form-group">
             <label>取得件数</label>
             <select id="aswarm-fetch-limit" class="admin-select">
-              <option value="10">10件</option>
-              <option value="25" selected>25件</option>
+              <option value="10" selected>10件</option>
+              <option value="25">25件</option>
               <option value="50">50件</option>
               <option value="100">100件</option>
             </select>

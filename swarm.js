@@ -1,5 +1,5 @@
 // ── Swarm連携機能 ──
-const SWARM_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state} {url}";
+const SWARM_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state}\n{url}";
 const SWARM_FOURSQUARE_API_VERSION = '20231010';
 
 // ns（名前空間）ごとに別々のFoursquareアプリ／連携状態を持てるようにする
@@ -266,6 +266,8 @@ async function searchSwarmVenues(ns) {
     statusEl.className = 'admin-status error';
     return;
   }
+  const quickShareEl = document.getElementById(cfg.idPrefix+'-quick-share');
+  if (quickShareEl) quickShareEl.style.display = 'none';
   const query = document.getElementById(cfg.idPrefix+'-venue-query').value.trim();
   const near = document.getElementById(cfg.idPrefix+'-venue-near').value.trim();
   let locationParam = '';
@@ -327,9 +329,18 @@ function selectSwarmVenue(ns, idx) {
   const st = _swarmState[ns];
   const venue = st.venueResults[idx];
   if (!venue) return;
+  // 同じ場所をもう一度クリックしたら確認してそのままチェックイン
+  if (st.selectedVenue && st.selectedVenue.id === venue.id) {
+    if (confirm(`${venue.name || ''}にチェックインしますか？`)) {
+      submitSwarmCheckin(ns);
+    }
+    return;
+  }
   st.selectedVenue = venue;
   document.getElementById(cfg.idPrefix+'-selected-venue').textContent = venue.name || '';
   document.getElementById(cfg.idPrefix+'-checkin-form').style.display = '';
+  const quickShareEl = document.getElementById(cfg.idPrefix+'-quick-share');
+  if (quickShareEl) quickShareEl.style.display = 'none';
 }
 
 async function submitSwarmCheckin(ns) {
@@ -374,6 +385,8 @@ async function submitSwarmCheckin(ns) {
     if (newCheckin) {
       st.checkins.unshift(newCheckin);
       _renderSwarmCheckinList(ns);
+      const quickShareEl = document.getElementById(cfg.idPrefix+'-quick-share');
+      if (quickShareEl) quickShareEl.style.display = '';
     }
     document.getElementById(cfg.idPrefix+'-checkin-shout').value = '';
     document.getElementById(cfg.idPrefix+'-checkin-form').style.display = 'none';
@@ -439,7 +452,7 @@ async function fetchSwarmCheckins(ns) {
     statusEl.className = 'admin-status error';
     return;
   }
-  const limit = document.getElementById(cfg.idPrefix+'-fetch-limit').value || '25';
+  const limit = document.getElementById(cfg.idPrefix+'-fetch-limit').value || '10';
   const proxyPrefix = (st.config && st.config.proxyPrefix) || '';
   const apiUrl = `https://api.foursquare.com/v2/users/self/checkins?oauth_token=${encodeURIComponent(st.account.accessToken)}&v=${SWARM_FOURSQUARE_API_VERSION}&limit=${encodeURIComponent(limit)}`;
   statusEl.textContent = '取得中...';
