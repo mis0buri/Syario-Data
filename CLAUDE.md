@@ -22,6 +22,10 @@ Open `http://localhost:8000`. No automated tests. Test on iOS Safari for layout 
 
 ## Architecture
 
+### Standalone Pages
+
+`swarm-app.html` / `swarm-app.css` / `swarm-app.js` — a self-contained Swarm連携 page, fully decoupled from `index.html`'s SPA (no hash routing, no shared globals, no `firebase-auth-compat.js`). It reads the same `admin_config/swarm` Firestore doc (public read) for the shared Foursquare Client ID/proxy, and shares the unauthenticated-link `localStorage` key `swarm_local_account_main` with `swarm.js`'s `main` namespace so an anonymous link made on either page shows up on both. It does **not** sync with Firestore-backed accounts created by users logged into the main site. Edit `swarm.js` for the in-SPA Swarm tab; edit `swarm-app.js` for this standalone page — the two are intentionally independent and not kept in sync automatically.
+
 ### Script Load Order
 
 Scripts load sequentially at bottom of `<body>` — **order matters**:
