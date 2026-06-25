@@ -13,7 +13,7 @@ const SWARM_APP_FIREBASE_CONFIG = {
   appId: "1:494285110412:web:ee00a71bd8866a68890fa9"
 };
 
-const SWARM_APP_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state}\n{url}";
+const SWARM_APP_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state} {url}";
 const SWARM_APP_API_VERSION = '20231010';
 const SWARM_APP_LOCAL_KEY = 'swarm_local_account_main';
 const SWARM_APP_TEMPLATE_KEY = 'swarm_template';

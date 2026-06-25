@@ -1,5 +1,5 @@
 // ── Swarm連携機能 ──
-const SWARM_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state}\n{url}";
+const SWARM_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state} {url}";
 const SWARM_FOURSQUARE_API_VERSION = '20231010';
 
 // ns（名前空間）ごとに別々のFoursquareアプリ／連携状態を持てるようにする
