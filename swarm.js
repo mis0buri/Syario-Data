@@ -6,8 +6,8 @@ const SWARM_FOURSQUARE_API_VERSION = '20231010';
 // main  = メインタブ「Swarm連携」（サイト全体で共有するClient ID。誰でも連携可能）
 // admin = 管理者メニュー「Swarm連携」（管理者専用の別アプリ・別Client ID）
 const SWARM_NS = {
-  main:  { idPrefix: 'swarm',  configDoc: 'swarm',       accountCollection: 'swarm_accounts',       templateKey: 'swarm_template' },
-  admin: { idPrefix: 'aswarm', configDoc: 'swarm_admin',  accountCollection: 'swarm_accounts_admin',  templateKey: 'swarm_template_admin' }
+  main:  { idPrefix: 'swarm',  configDoc: 'swarm',       accountCollection: 'swarm_accounts' },
+  admin: { idPrefix: 'aswarm', configDoc: 'swarm_admin',  accountCollection: 'swarm_accounts_admin' }
 };
 
 const _swarmState = {
@@ -28,8 +28,6 @@ async function initSwarm(ns) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   const pfx = cfg.idPrefix;
-  document.getElementById(pfx+'-template-input').value = localStorage.getItem(cfg.templateKey) || SWARM_DEFAULT_TEMPLATE;
-  updateSwarmTemplatePreview(ns);
 
   await _loadSwarmConfig(ns);
   if (ns !== 'main' || _isAdmin) {
@@ -399,31 +397,8 @@ async function submitSwarmCheckin(ns) {
   }
 }
 
-// ── テンプレート編集 ──
-function insertSwarmToken(ns, token) {
-  const cfg = SWARM_NS[ns];
-  const ta = document.getElementById(cfg.idPrefix+'-template-input');
-  const start = ta.selectionStart || ta.value.length;
-  const end = ta.selectionEnd || ta.value.length;
-  ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
-  ta.focus();
-  ta.selectionStart = ta.selectionEnd = start + token.length;
-  updateSwarmTemplatePreview(ns);
-}
-
-function updateSwarmTemplatePreview(ns) {
-  const cfg = SWARM_NS[ns];
-  const template = document.getElementById(cfg.idPrefix+'-template-input').value;
-  localStorage.setItem(cfg.templateKey, template);
-  const sample = {
-    venue: { name: '雀荘シャリオ', location: { city: '渋谷区', state: '東京都', country: '日本', lat: 35.6595, lng: 139.7005 } },
-    shout: '今日も連戦！',
-    id: 'sample'
-  };
-  document.getElementById(cfg.idPrefix+'-template-preview').textContent = _buildSwarmPostText(sample, template);
-}
-
-function _buildSwarmPostText(checkin, template) {
+// ── 投稿テキスト生成（固定フォーマット） ──
+function _buildSwarmPostText(checkin) {
   const venue = checkin.venue || {};
   const loc = venue.location || {};
   const url = checkin.id ? `https://www.swarmapp.com/checkin/${checkin.id}` : '';
@@ -437,7 +412,7 @@ function _buildSwarmPostText(checkin, template) {
     '{shout}': checkin.shout || '',
     '{url}': url
   };
-  let text = template;
+  let text = SWARM_DEFAULT_TEMPLATE;
   Object.keys(tokenMap).forEach(key => { text = text.split(key).join(tokenMap[key]); });
   return text;
 }
@@ -506,21 +481,17 @@ function _renderSwarmCheckinList(ns) {
 }
 
 function postSwarmCheckinToX(ns, idx) {
-  const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   const checkin = st.checkins[idx];
   if (!checkin) return;
-  const template = document.getElementById(cfg.idPrefix+'-template-input').value || SWARM_DEFAULT_TEMPLATE;
-  const text = _buildSwarmPostText(checkin, template);
+  const text = _buildSwarmPostText(checkin);
   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
 }
 
 function copySwarmCheckinText(ns, idx) {
-  const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   const checkin = st.checkins[idx];
   if (!checkin) return;
-  const template = document.getElementById(cfg.idPrefix+'-template-input').value || SWARM_DEFAULT_TEMPLATE;
-  const text = _buildSwarmPostText(checkin, template);
+  const text = _buildSwarmPostText(checkin);
   navigator.clipboard.writeText(text).catch(() => {});
 }

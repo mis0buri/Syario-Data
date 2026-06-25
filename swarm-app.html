@@ -79,31 +79,6 @@
   <!-- ③ 共有 -->
   <section class="sw-card">
     <h2 class="sw-card-title">共有</h2>
-    <div class="sw-subsection">
-      <button type="button" class="sw-subtoggle" onclick="toggleTemplate()">
-        <span>投稿テンプレート</span>
-        <span class="sw-arrow" id="template-arrow">▼</span>
-      </button>
-      <div class="sw-subbody" id="template-body">
-        <div class="sw-form-group">
-          <textarea id="template-input" class="sw-input" rows="3" oninput="updateTemplatePreview()"></textarea>
-        </div>
-        <div class="sw-token-chips">
-          <button type="button" class="sw-chip" onclick="insertToken('{venue}')">{venue}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{area}')">{area}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{state}')">{state}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{country}')">{country}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{lat}')">{lat}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{lng}')">{lng}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{shout}')">{shout}</button>
-          <button type="button" class="sw-chip" onclick="insertToken('{url}')">{url}</button>
-        </div>
-        <div class="sw-template-preview" id="template-preview"></div>
-      </div>
-    </div>
-
-    <hr class="sw-divider">
-
     <div class="sw-form-group">
       <label>取得件数</label>
       <select id="fetch-limit" class="sw-select">

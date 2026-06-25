@@ -1216,17 +1216,6 @@
   }
 
   /* ── Swarm連携 ── */
-  .swarm-token-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-  .swarm-token-chip {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--accent);
-    font-family: monospace; font-size: 12px; padding: 4px 10px; border-radius: 12px; cursor: pointer;
-  }
-  .swarm-token-chip:hover { border-color: var(--accent); background: var(--surface); }
-  .swarm-template-preview {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    padding: 10px 12px; font-size: 13px; color: var(--text); line-height: 1.6;
-    margin-bottom: 16px; white-space: pre-wrap; word-break: break-word; min-height: 20px;
-  }
   .swarm-venue-results { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   .swarm-venue-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: border-color .2s; }
   .swarm-venue-item:hover { border-color: var(--accent); }

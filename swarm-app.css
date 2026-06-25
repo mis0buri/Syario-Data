@@ -190,55 +190,6 @@ textarea.sw-input { min-height: unset; resize: vertical; }
 
 .sw-checkin-actions { display: flex; gap: 8px; }
 
-.sw-subsection { border: 1.5px solid var(--sw-border); border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
-.sw-subtoggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 14px;
-  background: #FFF8F1;
-  border: none;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 800;
-  color: var(--sw-text);
-  cursor: pointer;
-}
-.sw-arrow { transition: transform .2s ease; font-size: 11px; color: var(--sw-dim); }
-.sw-arrow.open { transform: rotate(180deg); }
-.sw-subbody {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .25s ease;
-  padding: 0 14px;
-}
-.sw-subbody.open { max-height: 600px; padding: 12px 14px 14px; }
-
-.sw-token-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.sw-chip {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1.5px solid var(--sw-border);
-  background: #fff;
-  color: var(--sw-orange-dark);
-  cursor: pointer;
-  font-family: inherit;
-}
-.sw-chip:hover { background: #FFF1E2; }
-
-.sw-template-preview {
-  font-size: 12.5px;
-  color: var(--sw-dim);
-  background: #FFFBF7;
-  border-radius: 8px;
-  padding: 8px 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
 .sw-checkin-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .sw-checkin-card {
   border: 1.5px solid var(--sw-border);

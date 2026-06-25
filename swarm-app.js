@@ -16,7 +16,6 @@ const SWARM_APP_FIREBASE_CONFIG = {
 const SWARM_APP_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state} {url}";
 const SWARM_APP_API_VERSION = '20231010';
 const SWARM_APP_LOCAL_KEY = 'swarm_local_account_main';
-const SWARM_APP_TEMPLATE_KEY = 'swarm_template';
 
 let _db = null;
 let _config = null;
@@ -32,9 +31,6 @@ function _esc(s) {
 async function init() {
   firebase.initializeApp(SWARM_APP_FIREBASE_CONFIG);
   _db = firebase.firestore();
-
-  document.getElementById('template-input').value = localStorage.getItem(SWARM_APP_TEMPLATE_KEY) || SWARM_APP_DEFAULT_TEMPLATE;
-  updateTemplatePreview();
 
   // OAuthコールバック（#access_token=...）を検出して保存
   const m = location.hash.match(/access_token=([^&]+)/);
@@ -274,29 +270,8 @@ async function submitCheckin() {
   }
 }
 
-// ── テンプレート編集 ──
-function insertToken(token) {
-  const ta = document.getElementById('template-input');
-  const start = ta.selectionStart || ta.value.length;
-  const end = ta.selectionEnd || ta.value.length;
-  ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
-  ta.focus();
-  ta.selectionStart = ta.selectionEnd = start + token.length;
-  updateTemplatePreview();
-}
-
-function updateTemplatePreview() {
-  const template = document.getElementById('template-input').value;
-  localStorage.setItem(SWARM_APP_TEMPLATE_KEY, template);
-  const sample = {
-    venue: { name: '雀荘シャリオ', location: { city: '渋谷区', state: '東京都', country: '日本', lat: 35.6595, lng: 139.7005 } },
-    shout: '今日も連戦！',
-    id: 'sample'
-  };
-  document.getElementById('template-preview').textContent = buildPostText(sample, template);
-}
-
-function buildPostText(checkin, template) {
+// ── 投稿テキスト生成（固定フォーマット） ──
+function buildPostText(checkin) {
   const venue = checkin.venue || {};
   const loc = venue.location || {};
   const url = checkin.id ? `https://www.swarmapp.com/checkin/${checkin.id}` : '';
@@ -310,16 +285,9 @@ function buildPostText(checkin, template) {
     '{shout}': checkin.shout || '',
     '{url}': url
   };
-  let text = template;
+  let text = SWARM_APP_DEFAULT_TEMPLATE;
   Object.keys(tokenMap).forEach(key => { text = text.split(key).join(tokenMap[key]); });
   return text;
-}
-
-function toggleTemplate() {
-  const body = document.getElementById('template-body');
-  const arrow = document.getElementById('template-arrow');
-  const open = body.classList.toggle('open');
-  arrow.classList.toggle('open', open);
 }
 
 // ── チェックイン取得 ──
@@ -384,16 +352,14 @@ function renderCheckinList() {
 function postCheckinToX(idx) {
   const checkin = _checkins[idx];
   if (!checkin) return;
-  const template = document.getElementById('template-input').value || SWARM_APP_DEFAULT_TEMPLATE;
-  const text = buildPostText(checkin, template);
+  const text = buildPostText(checkin);
   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
 }
 
 function copyCheckinText(idx) {
   const checkin = _checkins[idx];
   if (!checkin) return;
-  const template = document.getElementById('template-input').value || SWARM_APP_DEFAULT_TEMPLATE;
-  const text = buildPostText(checkin, template);
+  const text = buildPostText(checkin);
   navigator.clipboard.writeText(text).catch(() => {});
 }
 
