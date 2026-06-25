@@ -26,6 +26,8 @@ Open `http://localhost:8000`. No automated tests. Test on iOS Safari for layout 
 
 `swarm-app.html` / `swarm-app.css` / `swarm-app.js` — a self-contained Swarm連携 page, fully decoupled from `index.html`'s SPA (no hash routing, no shared globals, no `firebase-auth-compat.js`). It reads the same `admin_config/swarm` Firestore doc (public read) for the shared Foursquare Client ID/proxy, and shares the unauthenticated-link `localStorage` key `swarm_local_account_main` with `swarm.js`'s `main` namespace so an anonymous link made on either page shows up on both. It does **not** sync with Firestore-backed accounts created by users logged into the main site. Edit `swarm.js` for the in-SPA Swarm tab; edit `swarm-app.js` for this standalone page — the two are intentionally independent and not kept in sync automatically.
 
+`swarm/index.html` is a clean-URL mirror of `swarm-app.html` (served at `/swarm/` on GitHub Pages), referencing the same `swarm-app.css`/`swarm-app.js` via `../` paths. Since `connectAccount()` in `swarm-app.js` builds the Foursquare OAuth `redirect_uri` from `location.origin + location.pathname`, **the `/swarm/` path is a distinct redirect URI from `/swarm-app.html`** and must be separately registered in the Foursquare app's OAuth settings, or the "Swarmと連携する" button will fail with a redirect URI mismatch. When editing the Swarm checkin/account logic, keep both `swarm-app.html` and `swarm/index.html` in sync manually (they're plain copies, not templated).
+
 ### Script Load Order
 
 Scripts load sequentially at bottom of `<body>` — **order matters**:
