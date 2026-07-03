@@ -1531,9 +1531,22 @@
         <button type="button" class="admin-btn primary" style="width:100%;margin-top:12px" id="transit-search-btn" onclick="searchTransit()">検索</button>
         <div id="transit-status" class="admin-status"></div>
         <div id="transit-history" class="transit-history"></div>
+        <div class="transit-note" style="text-align:center"><a href="https://transit.yahoo.co.jp/diainfo" target="_blank" rel="noopener" class="transit-ext-link">運行情報まとめ（Yahoo!路線情報）↗</a></div>
       </div>
 
       <div id="transit-results-card" class="card" style="display:none">
+        <div class="transit-via-section" style="margin-bottom:10px">
+          <button type="button" class="jare-ocr-toggle" onclick="toggleTransitLines()">
+            <span>🚋 運行情報の確認・路線の除外</span>
+            <span class="jare-ocr-arrow" id="transit-lines-arrow">▼</span>
+          </button>
+          <div class="jare-ocr-body" id="transit-lines-body">
+            <div class="transit-note" style="margin:0 0 8px">各路線の運行情報を確認し、支障のある路線を除外して迂回路を検索できます</div>
+            <div id="transit-lines-list"></div>
+            <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="searchTransitDetour()">チェックした路線を除外して再検索</button>
+          </div>
+        </div>
+        <div id="transit-detour-note" class="transit-note" style="display:none;margin:0 0 8px"></div>
         <div class="transit-seg-row">
           <button type="button" id="transit-sort-time" class="active" onclick="sortTransitResults('time')">時間順</button>
           <button type="button" id="transit-sort-fare" onclick="sortTransitResults('fare')">運賃順</button>

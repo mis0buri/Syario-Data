@@ -17,6 +17,8 @@ let _trEnabled = {};           // 駅id → 有効フラグ（falseのみ記録�
 let _trSel = {};               // 入力キー → 確定済み駅 {id, name}
 let _trJourneys = [];
 let _trSort = 'time';
+let _trExclude = [];           // 迂回検索で除外する路線名（routeName完全一致）
+let _trIsDetour = false;
 const _trTimer = {};
 const _trAbort = {};
 
@@ -299,9 +301,11 @@ function _trStatus(msg, isErr) {
 }
 
 // ── 検索 ──
-async function searchTransit() {
+async function searchTransit(detour) {
   const btn = document.getElementById('transit-search-btn');
   const isFL = _trType === 'first' || _trType === 'last';
+  if (!detour) _trExclude = [];
+  _trIsDetour = !!(detour && _trExclude.length);
   const vias = isFL ? [] : ['via1', 'via2', 'via3'].map(k => _trSel[k]).filter(Boolean);
 
   let pairs = []; // [{from, to, myst}]
@@ -325,19 +329,19 @@ async function searchTransit() {
 
   btn.disabled = true;
   _trStatus('検索中...');
-  const n = _trMode === 'free' ? 4 : 3;
+  const n = detour ? 6 : (_trMode === 'free' ? 4 : 3);
   const results = await Promise.all(pairs.map(pr =>
-    _trFetchPlan(pr, vias, n).then(js => ({ pr, js })).catch(e => ({ pr, err: e }))
+    _trFetchPlan(pr, vias, n, detour).then(js => ({ pr, js })).catch(e => ({ pr, err: e }))
   ));
   btn.disabled = false;
 
-  _trJourneys = [];
+  const all = [];
   results.forEach(r => {
-    if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.pr.myst || ''; _trJourneys.push(j); });
+    if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.pr.myst || ''; all.push(j); });
   });
   const failed = results.filter(r => r.err);
 
-  if (!_trJourneys.length) {
+  if (!all.length) {
     const msg = failed.length
       ? '検索に失敗しました: ' + failed[0].err.message
       : '経路が見つかりませんでした' + (_trType === 'last' ? '（この日の運行が終了している可能性があります）' : '');
@@ -346,12 +350,54 @@ async function searchTransit() {
     return;
   }
   _trStatus(failed.length ? '一部の検索に失敗しました' : '');
-  if (_trMode === 'free') _trSaveHistory(_trSel.from, _trSel.to);
+  if (_trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
+
+  _trRenderLinePanel(all);
+  _trJourneys = _trExclude.length
+    ? all.filter(j => !j.legs.some(l => l.kind === 'transit' && _trExclude.includes(l.routeName)))
+    : all;
+
+  const note = document.getElementById('transit-detour-note');
+  if (_trIsDetour) {
+    note.style.display = '';
+    note.textContent = _trJourneys.length
+      ? `${_trExclude.join('・')} を除外した迂回路です`
+      : '除外条件では経路が見つかりませんでした。チェックを減らして再検索してください';
+  } else {
+    note.style.display = 'none';
+  }
   document.getElementById('transit-results-card').style.display = '';
   sortTransitResults(_trSort);
 }
 
-async function _trFetchPlan(pr, vias, n) {
+// ── 運行情報の確認・路線除外（迂回） ──
+function _trRenderLinePanel(journeys) {
+  const lines = [];
+  journeys.forEach(j => j.legs.forEach(l => {
+    if (l.kind === 'transit' && !lines.includes(l.routeName)) lines.push(l.routeName);
+  }));
+  document.getElementById('transit-lines-list').innerHTML = lines.map(name =>
+    `<div class="transit-line-row">
+      <label><input type="checkbox" class="transit-line-cb" data-line="${_escHtml(name)}"${_trExclude.includes(name) ? ' checked' : ''}><span>${_esc(name)}</span></label>
+      <a href="https://search.yahoo.co.jp/realtime/search?p=${encodeURIComponent(name)}" target="_blank" rel="noopener">運行情報 ↗</a>
+    </div>`
+  ).join('');
+}
+
+function searchTransitDetour() {
+  _trExclude = Array.from(document.querySelectorAll('.transit-line-cb:checked')).map(cb => cb.dataset.line);
+  if (!_trExclude.length) { _trStatus('除外する路線にチェックを入れてください', true); return; }
+  searchTransit(true);
+}
+
+function toggleTransitLines() {
+  const body = document.getElementById('transit-lines-body');
+  const arrow = document.getElementById('transit-lines-arrow');
+  const open = body.classList.toggle('open');
+  arrow.classList.toggle('open', open);
+}
+
+async function _trFetchPlan(pr, vias, n, detour) {
   const p = new URLSearchParams({
     from: pr.from.id, to: pr.to.id,
     fromLabel: pr.from.name, toLabel: pr.to.name,
@@ -362,6 +408,7 @@ async function _trFetchPlan(pr, vias, n) {
   const t = document.getElementById('transit-time').value;
   if (t && _trType !== 'first' && _trType !== 'last') p.set('time', t);
   vias.forEach(v => { p.append('via', v.id); p.append('viaLabel', v.name); });
+  if (detour) p.set('maxTransfers', '5'); // 迂回時は乗換回数を緩めて候補を広げる
   const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString());
   const j = await res.json().catch(() => null);
   if (!res.ok) {
@@ -440,7 +487,7 @@ function renderTransitResults() {
     return `<div class="transit-route-card">
       <button type="button" class="transit-route-head" onclick="toggleTransitRoute(${i})">
         <span class="transit-route-time">${_trFmtTime(j.departureSecs)} → ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}）</span>
-        <span class="transit-route-meta">${fare}・乗換${j.transferCount}回${myst}</span>
+        <span class="transit-route-meta">${_trIsDetour ? '<span class="transit-detour-badge">迂回路</span>' : ''}${fare}・乗換${j.transferCount}回${myst}</span>
       </button>
       <div class="transit-route-body${i === 0 ? ' open' : ''}" id="transit-route-body-${i}">
         ${j.legs.map(_trRenderLeg).join('')}
