@@ -53,7 +53,7 @@ async function initBoshu() {
       const cats = (r.categories || []).map(c =>
         c === 'その他' && r.otherText ? `その他(${r.otherText})` : c);
       if (!byDate[r.date]) byDate[r.date] = [];
-      byDate[r.date].push({ name: r.name || '匿名', cats });
+      byDate[r.date].push({ name: r.name || '匿名', cats, note: r.note || '' });
     });
     await Promise.all(Object.keys(byDate).map(async date => {
       let joins = [], interests = [];
@@ -151,7 +151,7 @@ function _boshuRender() {
         ? `<span style="color:#4caf82;margin-left:8px;">✅ ${jCnt}</span><span style="color:#61afef;margin-left:6px;">👀 ${iCnt}</span>`
         : '';
       const entries    = rsvs.map(r => {
-        const cats = r.cats.filter(c => !/^その他/.test(c)).join('・') || '';
+        const cats = r.cats.filter(c => c !== 'その他').join('・') || '';
         return `<div class="boshu-rsv-entry">
           <span>👤 ${escHtml(r.name)}</span>
           ${cats ? `<span class="boshu-rsv-cats">${escHtml(cats)}</span>` : ''}
@@ -251,7 +251,7 @@ async function shareBoshuSelected() {
     }
   }
   if (!items.length) return;
-  // 予約を先、その中で日付順。連番を後、その中で日付順
+  // 予約→連番の順で日付ソート
   items.sort((a, b) => {
     if (a.type !== b.type) return a.type === 'rsv' ? -1 : 1;
     const da = a.type === 'renban' ? a.ev.date : a.date;
@@ -259,19 +259,24 @@ async function shareBoshuSelected() {
     return da < db2 ? -1 : da > db2 ? 1 : 0;
   });
 
+  // 0件のカテゴリにプレースホルダーを追加
+  const hasRsv    = items.some(it => it.type === 'rsv');
+  const hasRenban = items.some(it => it.type === 'renban');
+  if (!hasRsv)    items.unshift({ type: 'placeholder', label: '予約なし',    color: '#528bff' });
+  if (!hasRenban) items.push(   { type: 'placeholder', label: '連番募集なし', color: '#c8a96e' });
+
   await document.fonts.ready;
 
   // 各カード高さ計算
   const calcRenbanH = (ev, joins, interests) => {
     const rowsN = 4 + (ev.owner ? 1 : 0) + (ev.note ? 1 : 0);
-    const allP  = [...joins, ...interests].slice(0, 5);
-    const hasMore = (joins.length + interests.length) > 5;
-    const pTotal  = allP.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0);
-    const pSecH   = allP.length ? 16 + 22 + pTotal + (hasMore ? pRowH : 0) + 12 : 0;
+    const psSecH = ps => ps.length ? 8 + 18 + 18 + ps.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0) + 12 : 0;
+    const pSecH = psSecH(joins) + psSecH(interests);
     return 60 + 50 + 16 + rowsN * rowH + pSecH + 28;
   };
   const calcRsvH = (rsvs, joins, interests) => {
-    const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH : 48;
+    const rsvNoteEx = rsvs.reduce((s, r) => s + (r.note ? noteRowH : 0), 0);
+    const rsvSecH = rsvs.length > 0 ? 48 + rsvs.length * rowH + rsvNoteEx : 48;
     const hasPart = joins.length > 0 || interests.length > 0;
     const pSecH   = hasPart
       ? 30 + 24 + joins.length * rowH + (interests.length > 0 ? 16 + 24 + interests.length * rowH : 0) + 20
@@ -279,7 +284,9 @@ async function shareBoshuSelected() {
     return 154 + rsvSecH + pSecH;
   };
 
+  const PLACEHOLDER_H = 130;
   const heights = items.map(it =>
+    it.type === 'placeholder' ? PLACEHOLDER_H :
     it.type === 'renban'
       ? calcRenbanH(it.ev, it.joins, it.interests)
       : calcRsvH(it.rsvs, it.joins, it.interests));
@@ -300,7 +307,13 @@ async function shareBoshuSelected() {
   for (let i = 0; i < items.length; i++) {
     const it = items[i], cardH = heights[i];
 
-    if (it.type === 'renban') {
+    if (it.type === 'placeholder') {
+      ctx.fillStyle = it.color;
+      ctx.fillRect(0, curY, 6, cardH);
+      ctx.fillStyle = '#5c6370';
+      ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+      ctx.fillText(it.label, pad, curY + Math.round(cardH / 2) + 8);
+    } else if (it.type === 'renban') {
       // ── 連番募集カード ──
       const { ev, joins, interests } = it;
       const evDateDisplay = (ev.dates && ev.dates.length ? ev.dates : (ev.date ? [ev.date] : [])).join(', ');
@@ -337,27 +350,22 @@ async function shareBoshuSelected() {
         ctx.fillText(vs, vx, y);
         y += rowH;
       });
-      const allP = [
-        ...joins.map(p => ({ name: p.name||'匿名', note: p.note||'', t:'join' })),
-        ...interests.map(p => ({ name: p.name||'匿名', note: p.note||'', t:'interest' })),
-      ].slice(0, 5);
-      const totalP = joins.length + interests.length;
-      if (allP.length) {
+      const drawRenbanPs = (ps, icon, label, color) => {
+        if (!ps.length) return;
         y += 8;
         ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W-pad, y); ctx.stroke();
-        y += 20;
-        ctx.fillStyle = '#7f848e';
-        ctx.font = "12px 'Noto Sans JP', sans-serif";
-        ctx.fillText('参加者', pad, y);
-        y += pRowH - 2;
-        allP.forEach(p => {
-          const icon = p.t === 'join' ? '✅' : '👀';
+        y += 18;
+        ctx.fillStyle = color;
+        ctx.font = "11px 'Noto Sans JP', sans-serif";
+        ctx.fillText(label, pad, y);
+        y += 18;
+        ps.forEach(p => {
           ctx.fillStyle = '#dde2ec';
           ctx.font = "14px 'Noto Sans JP', sans-serif";
-          let nm = p.name;
+          let nm = p.name||'匿名';
           while (ctx.measureText(`${icon} ${nm}…`).width > W-pad*2-20 && nm.length) nm = nm.slice(0,-1);
-          if (nm !== p.name) nm += '…';
+          if (nm !== (p.name||'匿名')) nm += '…';
           ctx.fillText(`${icon} ${nm}`, pad+16, y);
           y += pRowH;
           if (p.note) {
@@ -370,12 +378,9 @@ async function shareBoshuSelected() {
             y += noteRowH;
           }
         });
-        if (totalP > 5) {
-          ctx.fillStyle = '#7f848e';
-          ctx.font = "12px 'Noto Sans JP', sans-serif";
-          ctx.fillText(`… 他 ${totalP-5} 人`, pad+16, y);
-        }
-      }
+      };
+      drawRenbanPs(joins,     '✅', '参加',    '#4caf82');
+      drawRenbanPs(interests, '👀', '興味あり', '#61afef');
 
     } else {
       // ── 予約カード ──
@@ -427,6 +432,12 @@ async function shareBoshuSelected() {
             ctx.fillText('  ' + rsv.cats.join(' / '), pad + nw, rY);
           }
           rY += rowH;
+          if (rsv.note) {
+            ctx.fillStyle = '#7f848e';
+            ctx.font = "13px 'Noto Sans JP', sans-serif";
+            ctx.fillText('📝 ' + rsv.note, pad + 12, rY);
+            rY += noteRowH;
+          }
         });
       }
       rY += 14;
@@ -466,20 +477,28 @@ async function shareBoshuSelected() {
 
   const shareUrl  = location.origin + location.pathname + '#boshu';
   const shareText = `各種募集一覧\n${shareUrl}`;
+  const includeSchedule = document.getElementById('boshu-include-schedule')?.checked;
 
-  canvas.toBlob(async blob => {
-    const file = new File([blob], 'boshu-matome.png', { type:'image/png' });
-    if (navigator.canShare && navigator.canShare({ files:[file] })) {
-      try { await navigator.share({ files:[file], text: shareText }); return; }
-      catch(e) { if (e.name === 'AbortError') return; }
-    }
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href = url; a.download = 'boshu-matome.png'; a.click();
-    URL.revokeObjectURL(url);
-    try { await navigator.clipboard.writeText(shareText); } catch {}
-    _boshuToast('画像をダウンロード・URLをコピーしました');
-  }, 'image/png');
+  const toBlob = c => new Promise(resolve => c.toBlob(resolve, 'image/png'));
+  const mainBlob = await toBlob(canvas);
+  const schedBlob = includeSchedule ? await toBlob(await generateScheduleCanvas()) : null;
+
+  const files = [new File([mainBlob], 'boshu-matome.png', { type:'image/png' })];
+  if (schedBlob) files.push(new File([schedBlob], 'schedule.png', { type:'image/png' }));
+
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, text: shareText }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  files.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    const a = document.createElement('a');
+    a.href = url; a.download = f.name;
+    if (i > 0) setTimeout(() => { a.click(); URL.revokeObjectURL(url); }, i * 300);
+    else { a.click(); URL.revokeObjectURL(url); }
+  });
+  try { await navigator.clipboard.writeText(shareText); } catch {}
+  _boshuToast('画像をダウンロード・URLをコピーしました');
 }
 
 function _boshuToast(msg) {

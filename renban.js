@@ -1,9 +1,11 @@
 // ── 連番募集 ──
+const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
 let _rbDatePicker = null;
 let _rbDeadlinePicker = null;
+let _rbEditMode = false;
 
 function openRbModal() {
   document.getElementById('rb-overlay').classList.add('open');
@@ -20,7 +22,7 @@ async function shareRenbanEvent() {
 
   // ── canvas画像生成 ──
   const dpr = window.devicePixelRatio || 1;
-  const W = 720, pad = 36, rowH = 32, pRowH = 28;
+  const W = 720, pad = 36, rowH = 32, pRowH = 28, noteRowH = 20;
   const dateDisplay = (evDates.length ? evDates : (ev.date ? [ev.date] : [])).join(', ');
   const rows = [
     ...(ev.owner ? [['募集者', ev.owner]] : []),
@@ -31,18 +33,11 @@ async function shareRenbanEvent() {
     ['参加 / 興味', `✅ ${joinCount}人　👀 ${interestCount}人`],
   ];
 
-  // 参加者リスト（参加→興味あり順、最大5人）
-  const noteRowH = 20;
-  const allP = [
-    ...joins.map(p => ({ name: p.name || '匿名', note: p.note || '', t: 'join' })),
-    ...interests.map(p => ({ name: p.name || '匿名', note: p.note || '', t: 'interest' })),
-  ].slice(0, 5);
-  const totalP = joinCount + interestCount;
-  const hasMore = totalP > 5;
-  const pTotalH = allP.reduce((sum, p) => sum + pRowH + (p.note ? noteRowH : 0), 0);
-  const pSectionH = allP.length > 0
-    ? (16 + 22 + pTotalH + (hasMore ? pRowH : 0) + 12)
-    : 0;
+  const joinPs = joins.map(p => ({ name: p.name || '匿名', note: p.note || '' }));
+  const interestPs = interests.map(p => ({ name: p.name || '匿名', note: p.note || '' }));
+  const psRowsH = ps => ps.reduce((s, p) => s + pRowH + (p.note ? noteRowH : 0), 0);
+  const psSectionH = ps => ps.length ? 8 + 18 + 18 + psRowsH(ps) + 12 : 0;
+  const pSectionH = psSectionH(joinPs) + psSectionH(interestPs);
 
   const H = 60 + 50 + 16 + rows.length * rowH + pSectionH + 28;
   const canvas = document.createElement('canvas');
@@ -91,42 +86,39 @@ async function shareRenbanEvent() {
     y += rowH;
   });
 
-  // 参加者セクション
-  if (allP.length > 0) {
+  // 参加者セクション描画ヘルパー
+  const drawPs = (ps, icon, label, color) => {
+    if (!ps.length) return;
     y += 8;
     ctx.strokeStyle = '#3a3f4b'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
-    y += 20;
-    ctx.fillStyle = '#7f848e';
-    ctx.font = "12px 'Noto Sans JP', sans-serif";
-    ctx.fillText('参加者', pad, y);
-    y += pRowH - 2;
-    allP.forEach(p => {
-      const icon = p.t === 'join' ? '✅' : '👀';
+    y += 18;
+    ctx.fillStyle = color;
+    ctx.font = "11px 'Noto Sans JP', sans-serif";
+    ctx.fillText(label, pad, y);
+    y += 18;
+    ps.forEach(p => {
       ctx.fillStyle = '#dde2ec';
       ctx.font = "14px 'Noto Sans JP', sans-serif";
-      let nameStr = p.name;
-      while (ctx.measureText(icon + ' ' + nameStr + '…').width > W - pad * 2 - 20 && nameStr.length > 0) nameStr = nameStr.slice(0, -1);
-      if (nameStr !== p.name) nameStr += '…';
-      ctx.fillText(`${icon} ${nameStr}`, pad + 16, y);
+      let nm = p.name;
+      while (ctx.measureText(`${icon} ${nm}…`).width > W - pad * 2 - 20 && nm.length > 0) nm = nm.slice(0, -1);
+      if (nm !== p.name) nm += '…';
+      ctx.fillText(`${icon} ${nm}`, pad + 16, y);
       y += pRowH;
       if (p.note) {
         ctx.fillStyle = '#7f848e';
         ctx.font = "12px 'Noto Sans JP', sans-serif";
-        let noteStr = p.note;
-        const maxNoteW = W - pad * 2 - 36;
-        while (ctx.measureText(noteStr + '…').width > maxNoteW && noteStr.length > 0) noteStr = noteStr.slice(0, -1);
-        if (noteStr !== p.note) noteStr += '…';
-        ctx.fillText(noteStr, pad + 32, y);
+        let nt = p.note;
+        while (ctx.measureText(nt + '…').width > W - pad * 2 - 36 && nt.length > 0) nt = nt.slice(0, -1);
+        if (nt !== p.note) nt += '…';
+        ctx.fillText(nt, pad + 32, y);
         y += noteRowH;
       }
     });
-    if (hasMore) {
-      ctx.fillStyle = '#7f848e';
-      ctx.font = "12px 'Noto Sans JP', sans-serif";
-      ctx.fillText(`… 他 ${totalP - 5} 人`, pad + 16, y);
-    }
-  }
+  };
+
+  drawPs(joinPs, '✅', '参加', '#4caf82');
+  drawPs(interestPs, '👀', '興味あり', '#61afef');
 
   canvas.toBlob(async blob => {
     const file = new File([blob], `renban-${eventId}.png`, { type: 'image/png' });
@@ -254,6 +246,8 @@ function renderRenbanList(events) {
 }
 
 function openRenbanForm() {
+  _rbEditMode = false;
+  document.querySelector('#rb-form-screen .rb-title').textContent = '募集を登録する';
   document.getElementById('rb-event-owner').value = _registeredName || '';
   document.getElementById('rb-event-title').value = '';
   document.getElementById('rb-event-max').value = '';
@@ -268,15 +262,41 @@ function openRenbanForm() {
 
   const btn = document.getElementById('rb-form-submit-btn');
   btn.disabled = false; btn.textContent = '登録する';
+  const xWrap = document.getElementById('rb-x-post-wrap');
+  if (xWrap) xWrap.style.display = _isAdmin ? '' : 'none';
   rbShowScreen('rb-form-screen');
   openRbModal();
+}
+
+function openRenbanEditForm() {
+  if (!_rbCurrentEvent) return;
+  const { ev, dates } = _rbCurrentEvent;
+  _rbEditMode = true;
+  document.querySelector('#rb-form-screen .rb-title').textContent = '募集を編集する';
+  document.getElementById('rb-event-owner').value = ev.owner || '';
+  document.getElementById('rb-event-title').value = ev.title || '';
+  document.getElementById('rb-event-max').value = ev.maxPeople || '';
+  document.getElementById('rb-event-note').value = ev.note || '';
+  document.getElementById('rb-form-status').textContent = '';
+
+  const fpOpts = { locale: 'ja', dateFormat: 'Y-m-d', disableMobile: true };
+  if (_rbDatePicker) _rbDatePicker.destroy();
+  if (_rbDeadlinePicker) _rbDeadlinePicker.destroy();
+  _rbDatePicker = flatpickr('#rb-event-date', { ...fpOpts, mode: 'multiple', conjunction: ', ', defaultDate: dates.length ? dates : null });
+  _rbDeadlinePicker = flatpickr('#rb-event-deadline', { ...fpOpts, defaultDate: ev.deadline || null });
+
+  const btn = document.getElementById('rb-form-submit-btn');
+  btn.disabled = false; btn.textContent = '保存する';
+  const xWrap = document.getElementById('rb-x-post-wrap');
+  if (xWrap) xWrap.style.display = 'none';
+  rbShowScreen('rb-form-screen');
 }
 
 async function submitRenbanEvent(e) {
   e.preventDefault();
   if (!_db) return;
   const btn = document.getElementById('rb-form-submit-btn');
-  btn.disabled = true; btn.textContent = '登録中...';
+  btn.disabled = true; btn.textContent = _rbEditMode ? '保存中...' : '登録中...';
   document.getElementById('rb-form-status').textContent = '';
   const owner = document.getElementById('rb-event-owner').value.trim();
   const title = document.getElementById('rb-event-title').value.trim();
@@ -286,7 +306,7 @@ async function submitRenbanEvent(e) {
   }).sort() : [];
   if (!datesArr.length) {
     document.getElementById('rb-form-status').textContent = '日付を選択してください';
-    btn.disabled = false; btn.textContent = '登録する'; return;
+    btn.disabled = false; btn.textContent = _rbEditMode ? '保存する' : '登録する'; return;
   }
   const date = datesArr[0]; // 最早日付をソート用に保存
   const maxRaw = document.getElementById('rb-event-max').value.trim();
@@ -294,34 +314,59 @@ async function submitRenbanEvent(e) {
   const note = document.getElementById('rb-event-note').value.trim();
   const maxPeople = maxRaw ? parseInt(maxRaw) : null;
   try {
-    const rbPayload = {
-      owner, title, date, dates: datesArr, maxPeople, deadline, note,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    if (_currentUser) rbPayload.uid = _currentUser.uid;
-    await _db.collection('renban_events').add(rbPayload);
-    try {
-      const dateDisplay = datesArr.join(', ');
-      const lines = [
-        `📢 **連番募集が登録されました**`,
-        `👤 **登録者**: ${owner}`,
-        `🎫 **イベント名**: ${title}`,
-        `📅 **日付**: ${dateDisplay}`,
-        `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
-        `⏰ **期限**: ${deadline || '期限なし'}`,
-        note ? `📝 **備考**: ${note}` : null,
-      ].filter(Boolean).join('\n');
-      await fetch('https://discord.com/api/webhooks/1486240216544051210/afDq63OkXXpy-E-JAh2XbGdanIfymsKHHbMX4IBi6baaV86YiXdHX9LaMo5fdtonNRn4', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: lines })
-      });
-    } catch(e) { console.warn('Discord通知失敗:', e); }
-    closeRbModal();
-    initRenban();
+    if (_rbEditMode && _rbCurrentEventId) {
+      await _db.collection('renban_events').doc(_rbCurrentEventId).update({ owner, title, date, dates: datesArr, maxPeople, deadline, note });
+      btn.disabled = false;
+      await openRenbanDetail(_rbCurrentEventId);
+    } else {
+      const rbPayload = {
+        owner, title, date, dates: datesArr, maxPeople, deadline, note,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (_currentUser) rbPayload.uid = _currentUser.uid;
+      const rbRef = await _db.collection('renban_events').add(rbPayload);
+      try {
+        const dateDisplay = datesArr.join(', ');
+        const lines = [
+          `📢 **連番募集が登録されました**`,
+          `👤 **登録者**: ${owner}`,
+          `🎫 **イベント名**: ${title}`,
+          `📅 **日付**: ${dateDisplay}`,
+          `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
+          `⏰ **期限**: ${deadline || '期限なし'}`,
+          note ? `📝 **備考**: ${note}` : null,
+        ].filter(Boolean).join('\n');
+        await fetch('https://discord.com/api/webhooks/1486240216544051210/afDq63OkXXpy-E-JAh2XbGdanIfymsKHHbMX4IBi6baaV86YiXdHX9LaMo5fdtonNRn4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: lines })
+        });
+      } catch(e) { console.warn('Discord通知失敗:', e); }
+      const xPostCheck = document.getElementById('rb-x-post-check');
+      if (MAKE_RENBAN_WEBHOOK_URL && (!_isAdmin || xPostCheck.checked)) {
+        try {
+          await fetch(MAKE_RENBAN_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'renban',
+              owner,
+              title,
+              dates: datesArr.join('、'),
+              maxPeople: maxPeople ? maxPeople + '人まで' : '上限なし',
+              deadline: deadline || '期限なし',
+              note: note || '',
+              url: location.origin + location.pathname + '#renban/' + rbRef.id,
+            })
+          });
+        } catch(e) { console.warn('Make通知失敗:', e); }
+      }
+      closeRbModal();
+      initRenban();
+    }
   } catch(err) {
     document.getElementById('rb-form-status').textContent = 'エラー: ' + err.message;
-    btn.disabled = false; btn.textContent = '登録する';
+    btn.disabled = false; btn.textContent = _rbEditMode ? '保存する' : '登録する';
   }
 }
 
@@ -391,7 +436,10 @@ async function openRenbanDetail(eventId) {
       }).join('');
     };
 
-    document.getElementById('rb-all-participants').innerHTML = renderGrouped(participants);
+    const joinSection     = joins.length     ? `<div class="rb-ps-group-header" style="color:var(--green,#4caf82);font-size:12px;font-weight:bold;margin:8px 0 4px;">✅ 参加</div>${renderGrouped(joins)}` : '';
+    const interestSection = interests.length ? `<div class="rb-ps-group-header" style="color:#61afef;font-size:12px;font-weight:bold;margin:12px 0 4px;">👀 興味あり</div>${renderGrouped(interests)}` : '';
+    document.getElementById('rb-all-participants').innerHTML =
+      (joinSection || interestSection) ? joinSection + interestSection : '<div class="rb-no-participants">まだいません</div>';
     const uniqueJoins    = _countUniqueParticipants(joins);
     const uniqueInterests = _countUniqueParticipants(interests);
     const countSummary = document.getElementById('rb-count-summary');
@@ -400,12 +448,14 @@ async function openRenbanDetail(eventId) {
     }
     _rbCurrentEvent = { ev, dates, isMultiDate, joinCount: uniqueJoins, interestCount: uniqueInterests, joins, interests, participants };
 
-    // イベント削除ボタン（本人/管理者のみ）
-    const canDeleteEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
+    // イベント編集・削除ボタン（本人/管理者のみ）
+    const canManageEvent = (ev.uid && _currentUser && ev.uid === _currentUser.uid) || _isAdmin;
     const deleteRow = document.getElementById('rb-detail-delete-row');
-    if (deleteRow) deleteRow.style.display = canDeleteEvent ? '' : 'none';
+    if (deleteRow) deleteRow.style.display = canManageEvent ? 'flex' : 'none';
     const deleteBtn = document.getElementById('rb-detail-delete-btn');
     if (deleteBtn) deleteBtn.onclick = () => deleteRenbanEvent(eventId);
+    const editBtn = document.getElementById('rb-detail-edit-btn');
+    if (editBtn) editBtn.onclick = () => openRenbanEditForm();
 
     // 参加ボタンの制御
     const isCreator = _currentUser && ev.uid && ev.uid === _currentUser.uid;

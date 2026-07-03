@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>シャリオ</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -29,6 +32,7 @@
     <button data-nav="gallery" onclick="showSection('gallery')">ギャラリー</button>
     <button data-nav="schedule" onclick="showSection('schedule')">営業予定</button>
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
+    <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
@@ -54,6 +58,8 @@
 <!-- ギャラリーサブナビ -->
 <div id="subnav-gallery" class="subnav" style="display:none">
   <button class="active" onclick="showSection('jare')">じゃれ本</button>
+  <button onclick="showSection('walk')">散歩ログ</button>
+  <button onclick="showSection('column')">コラム</button>
 </div>
 
 <!-- 管理者サブナビ -->
@@ -62,6 +68,7 @@
   <button onclick="showSection('admin-gather')">対局登録</button>
   <button onclick="showSection('admin-score')">スコア入力</button>
   <button onclick="showSection('admin-schedule')">スケジュール</button>
+  <button onclick="showSection('admin-ai-discuss')">AI議論</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -523,6 +530,132 @@
     </div>
   </div>
 
+  <!-- 投票箱 -->
+  <div id="sec-vote" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="vote-list-view" class="vote-view active">
+      <div class="vote-list-header">
+        <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openVoteAddForm()">＋ 投票箱を作成</button>
+        <button id="vote-select-mode-btn" class="rsv-btn" style="flex:none;padding:8px 16px;" onclick="enterVoteSelectMode()">選択して共有</button>
+      </div>
+      <div id="vote-select-bar" class="vote-select-bar" style="display:none;">
+        <span id="vote-select-count">0件選択中</span>
+        <button id="vote-select-all-btn" class="admin-btn sm" onclick="toggleVoteSelectAll()">全選択</button>
+        <button id="vote-share-exec-btn" class="rsv-btn x-post" onclick="shareVoteListSelected()" disabled>画像を共有</button>
+        <button class="admin-btn sm" onclick="exitVoteSelectMode()">キャンセル</button>
+      </div>
+      <div id="vote-list">
+        <div class="vote-empty">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="vote-detail-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
+        <div class="vote-detail-toggle">
+          <button id="vote-toggle-option" class="vote-toggle-btn active" onclick="toggleVoteDetailMode('option')">選択肢別</button>
+          <button id="vote-toggle-voter" class="vote-toggle-btn" onclick="toggleVoteDetailMode('voter')">解答者別</button>
+        </div>
+      </div>
+      <div class="card">
+        <div id="vote-expired-notice" class="vote-expired-notice" style="display:none;">この投票箱は期限切れのため、回答できません。</div>
+        <h2 id="vote-detail-title" class="vote-detail-title"></h2>
+        <div id="vote-detail-meta" class="vote-detail-meta"></div>
+        <div id="vote-detail-delete-row" style="display:none;margin-bottom:12px;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button id="vote-detail-share-btn" class="admin-btn sm" style="display:none;">共有</button>
+          <button id="vote-detail-edit-btn" class="admin-btn sm" style="display:none;">編集</button>
+          <button id="vote-detail-delete-btn" class="admin-btn danger sm">投票箱を削除</button>
+        </div>
+        <div id="vote-detail-content"></div>
+      </div>
+      <div class="vote-answer-btn-wrap">
+        <button id="vote-answer-btn" class="rsv-btn primary" style="padding:10px 32px;">解答する</button>
+      </div>
+    </div>
+
+    <!-- 追加フォームビュー -->
+    <div id="vote-add-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" onclick="initVote()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div id="vote-add-form-title" class="vote-form-title">投票箱を作成</div>
+        <div id="vote-add-login-warn" class="vote-login-warn">
+          ⚠ ログインしていない場合、後から変更・削除できません
+        </div>
+        <form onsubmit="submitVoteBox(event)">
+          <div class="admin-form-group">
+            <label>名前</label>
+            <input type="text" id="vote-add-name" class="admin-input" placeholder="名前を入力">
+          </div>
+          <div class="admin-form-group">
+            <label>質問 <span style="color:var(--red)">*</span></label>
+            <input type="text" id="vote-add-title" class="admin-input" placeholder="質問を入力" required>
+          </div>
+          <div class="admin-form-group">
+            <label>選択肢 <span style="color:var(--red)">*</span>（最低2つ）</label>
+            <div id="vote-options-container"></div>
+            <button type="button" class="admin-btn sm" style="margin-top:6px;" onclick="_voteAddOptionRow()">＋ 選択肢を追加</button>
+          </div>
+          <div class="admin-form-group">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-add-allow-other">
+              「その他（自由入力）」を追加
+            </label>
+          </div>
+          <div class="admin-form-group">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-add-multiple">
+              複数回答を許可
+            </label>
+          </div>
+          <div class="admin-form-group">
+            <label>期限（今日〜最長1ヶ月）</label>
+            <input type="date" id="vote-add-deadline" class="admin-input">
+          </div>
+          <div id="vote-x-post-wrap" class="admin-form-group" style="display:none;">
+            <label class="vote-check-label">
+              <input type="checkbox" id="vote-x-post-check" checked>
+              X(Twitter)に自動ポスト
+            </label>
+          </div>
+          <div id="vote-add-status" class="admin-status error"></div>
+          <button type="submit" id="vote-add-submit-btn" class="admin-btn primary" style="width:100%;">投票箱を作成</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 解答フォームビュー -->
+    <div id="vote-answer-view" class="vote-view">
+      <div class="vote-detail-back-row">
+        <button class="vote-back-btn" id="vote-answer-back-btn" onclick="if(_voteCurrentBoxId)openVoteDetail(_voteCurrentBoxId);else initVote()">← 詳細へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title">解答フォーム</div>
+        <div class="vote-answer-box-title" id="vote-answer-box-title"></div>
+        <form onsubmit="submitVoteAnswer(event)">
+          <div class="admin-form-group">
+            <label>名前</label>
+            <input type="text" id="vote-answer-name" class="admin-input" placeholder="匿名">
+          </div>
+          <div class="admin-form-group">
+            <label>選択肢 <span style="color:var(--red)">*</span></label>
+            <div id="vote-answer-choices" class="vote-choices-list"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>備考（任意）</label>
+            <textarea id="vote-answer-note" class="admin-input" rows="3" style="resize:vertical;font-family:'Noto Sans JP',sans-serif;" placeholder="一言メモなど（任意）"></textarea>
+          </div>
+          <div id="vote-answer-status" class="admin-status error"></div>
+          <button type="submit" id="vote-answer-submit-btn" class="admin-btn primary" style="width:100%;">回答する</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
   <!-- 連番募集 -->
   <div id="sec-renban" class="section">
     <div class="renban-header-row" style="flex-direction:column;align-items:flex-end;gap:4px;">
@@ -541,7 +674,6 @@
   <div id="sec-boshu" class="section">
     <div class="card">
       <div class="card-title">募集一覧</div>
-      <!-- 管理者専用：まとめて共有バー -->
       <div id="boshu-admin-bar" class="boshu-admin-bar" style="display:none;">
         <button class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="enterBoshuSelectMode()">まとめて共有</button>
       </div>
@@ -557,18 +689,173 @@
           <div class="renban-empty">読み込み中...</div>
         </div>
       </div>
-      <!-- 選択モード確認バー -->
       <div id="boshu-confirm-bar" class="boshu-confirm-bar" style="display:none;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="boshu-select-count" class="boshu-select-count">0件選択中</span>
           <button id="boshu-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleBoshuSelectAll()">全選択</button>
         </div>
         <div style="display:flex;gap:8px;">
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="boshu-include-schedule"> 今後の予定を追加</label>
           <button class="rsv-btn secondary" style="padding:8px 16px;flex:none;" onclick="exitBoshuSelectMode()">キャンセル</button>
           <button id="boshu-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareBoshuSelected()" disabled>共有する</button>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- コラム -->
+  <div id="sec-column" class="section">
+
+    <!-- 一覧ビュー -->
+    <div id="column-list-view" class="column-view active">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="showSection('gallery')">← ギャラリーへ戻る</button>
+      </div>
+      <div class="col-list-header">
+        <button class="rsv-btn primary" style="flex:none;padding:8px 20px;" onclick="openColumnNew()">＋ コラムを投稿</button>
+        <div id="col-login-hint" class="col-login-hint" style="display:none;">ログインが必要です。<button class="admin-btn sm" onclick="openLoginModal()">ログイン</button></div>
+      </div>
+      <div class="col-sort-bar">
+        <select id="col-sort-field" class="admin-select" onchange="colChangeSortField(this.value)">
+          <option value="createdAt">投稿日時</option>
+          <option value="authorName">投稿者</option>
+          <option value="title">タイトル</option>
+        </select>
+        <select id="col-sort-dir" class="admin-select" onchange="colChangeSortDir(this.value)">
+          <option value="desc">新しい順</option>
+          <option value="asc">古い順</option>
+        </select>
+        <select id="col-filter-genre" class="admin-select" onchange="colChangeGenre(this.value)">
+          <option value="">すべてのジャンル</option>
+          <option value="戦術・戦略">戦術・戦略</option>
+          <option value="牌効率">牌効率</option>
+          <option value="役・役満">役・役満</option>
+          <option value="観戦記">観戦記</option>
+          <option value="大会・イベント">大会・イベント</option>
+          <option value="日記・エッセイ">日記・エッセイ</option>
+          <option value="初心者向け">初心者向け</option>
+          <option value="ルール解説">ルール解説</option>
+          <option value="マナー・礼儀">マナー・礼儀</option>
+          <option value="その他">その他</option>
+        </select>
+        <label class="col-my-only-label" style="display:none;">
+          <input type="checkbox" id="col-my-only" onchange="colToggleMyOnly(this.checked)">
+          自分の記事のみ
+        </label>
+      </div>
+      <div id="column-list">
+        <div class="col-empty">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 詳細ビュー -->
+    <div id="column-detail-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <h2 id="col-detail-title" class="col-detail-title"></h2>
+        <div id="col-detail-meta" class="col-detail-meta"></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button id="col-detail-share-btn" class="admin-btn sm" onclick="shareColumn()">共有</button>
+          <div id="col-detail-actions" style="display:none;gap:8px;flex-wrap:wrap;">
+            <button id="col-detail-edit-btn" class="admin-btn sm">編集</button>
+            <button id="col-detail-delete-btn" class="admin-btn danger sm">削除</button>
+          </div>
+        </div>
+        <div id="col-detail-content" class="col-body"></div>
+      </div>
+    </div>
+
+    <!-- 編集ビュー -->
+    <div id="column-edit-view" class="column-view">
+      <div class="col-back-row">
+        <button class="vote-back-btn" onclick="if(colConfirmLeave())initColumn()">← 一覧へ戻る</button>
+      </div>
+      <div class="card">
+        <div class="vote-form-title" id="col-edit-heading">コラムを投稿</div>
+        <div class="admin-form-group">
+          <label>タイトル <span style="color:var(--red)">*</span></label>
+          <input type="text" id="col-edit-title" class="admin-input" placeholder="タイトルを入力">
+        </div>
+        <div class="admin-form-group">
+          <label>投稿者名</label>
+          <input type="text" id="col-edit-author" class="admin-input" placeholder="名前を入力">
+        </div>
+        <div class="admin-form-group">
+          <label>ジャンル</label>
+          <select id="col-edit-genre" class="admin-input">
+            <option value="">（未選択）</option>
+            <option value="戦術・戦略">戦術・戦略</option>
+            <option value="牌効率">牌効率</option>
+            <option value="役・役満">役・役満</option>
+            <option value="観戦記">観戦記</option>
+            <option value="大会・イベント">大会・イベント</option>
+            <option value="日記・エッセイ">日記・エッセイ</option>
+            <option value="初心者向け">初心者向け</option>
+            <option value="ルール解説">ルール解説</option>
+            <option value="マナー・礼儀">マナー・礼儀</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="admin-form-group">
+          <label>本文</label>
+          <div class="col-editor-toolbar">
+            <select class="admin-select col-toolbar-select" onchange="colFormatFontSize(this.value);this.value=''">
+              <option value="">文字サイズ</option>
+              <option value="small">小</option>
+              <option value="normal">普通</option>
+              <option value="large">大</option>
+              <option value="xlarge">特大</option>
+            </select>
+            <div class="col-color-btns">
+              <button type="button" class="col-color-btn" style="background:#e63946" onclick="colFormatColor('#e63946')" title="赤"></button>
+              <button type="button" class="col-color-btn" style="background:#ff7043" onclick="colFormatColor('#ff7043')" title="オレンジ"></button>
+              <button type="button" class="col-color-btn" style="background:#d4c045" onclick="colFormatColor('#d4c045')" title="黄"></button>
+              <button type="button" class="col-color-btn" style="background:#4caf82" onclick="colFormatColor('#4caf82')" title="緑"></button>
+              <button type="button" class="col-color-btn" style="background:#42a5f5" onclick="colFormatColor('#42a5f5')" title="青"></button>
+              <button type="button" class="col-color-btn" style="background:#ab47bc" onclick="colFormatColor('#ab47bc')" title="紫"></button>
+              <button type="button" class="col-color-btn" style="background:#c8a96e" onclick="colFormatColor('#c8a96e')" title="アクセント"></button>
+              <button type="button" class="col-color-btn" style="background:var(--text);border:1px solid var(--border)" onclick="colFormatColor('')" title="デフォルト"></button>
+            </div>
+            <div class="col-align-btns">
+              <button type="button" class="admin-btn sm" onclick="colFormatAlign('Left')" title="左揃え">左</button>
+              <button type="button" class="admin-btn sm" onclick="colFormatAlign('Center')" title="中央揃え">中</button>
+              <button type="button" class="admin-btn sm" onclick="colFormatAlign('Right')" title="右揃え">右</button>
+            </div>
+            <button type="button" class="admin-btn sm" onclick="colInsertImage()">画像</button>
+          </div>
+          <input type="file" id="col-img-file" accept="image/*" style="display:none" onchange="colHandleImageFile(this)">
+          <div style="position:relative;">
+            <div id="col-edit-body" class="col-editor" contenteditable="true" placeholder="本文を入力してください"></div>
+            <div id="col-img-picker" style="display:none;" class="col-img-picker">
+              <span class="col-img-picker-label">サイズ:</span>
+              <button type="button" onclick="colResizeSelectedImg('25%')">小</button>
+              <button type="button" onclick="colResizeSelectedImg('50%')">中</button>
+              <button type="button" onclick="colResizeSelectedImg('75%')">大</button>
+              <button type="button" onclick="colResizeSelectedImg('100%')">全幅</button>
+            </div>
+          </div>
+        </div>
+        <div class="admin-form-group" id="col-ai-panel" style="display:none;">
+          <label>AI執筆支援</label>
+          <div class="col-ai-btns">
+            <button type="button" id="col-ai-title-btn" class="admin-btn sm" onclick="colAiSuggestTitles()">📝 タイトル案</button>
+            <button type="button" id="col-ai-summary-btn" class="admin-btn sm" onclick="colAiSummarize()">📄 リード文案</button>
+            <button type="button" id="col-ai-proofread-btn" class="admin-btn sm" onclick="colAiProofread()">✂️ 校正チェック</button>
+          </div>
+          <div id="col-ai-status" class="admin-status"></div>
+          <div id="col-ai-result" class="col-ai-result"></div>
+        </div>
+        <div id="col-edit-status" class="admin-status error"></div>
+        <div class="col-submit-btns">
+          <button type="button" id="col-publish-btn" class="admin-btn primary" onclick="submitColumn('published')">公開する</button>
+          <button type="button" id="col-draft-btn" class="admin-btn" onclick="submitColumn('draft')">下書きとして保存</button>
+          <button type="button" class="admin-btn" onclick="if(colConfirmLeave())initColumn()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- スタンプカード -->
@@ -625,6 +912,43 @@
       <div class="card-title">ギャラリー</div>
       <div class="gallery-hub">
         <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本</button>
+        <button class="gallery-hub-btn" onclick="showSection('walk')">散歩ログ</button>
+        <button class="gallery-hub-btn" onclick="showSection('column')">コラム</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 散歩ログ -->
+  <div id="sec-walk" class="section">
+    <div class="card">
+      <div class="card-title">
+        散歩ログ
+        <button id="walk-add-btn" class="jare-add-btn" onclick="openWalkUpload()" style="display:none">＋ 追加</button>
+        <button id="walk-batch-geocode-btn" class="jare-add-btn" onclick="batchGeocodeWalkLogs()" style="display:none;font-size:12px;">住所を一括取得</button>
+      </div>
+      <button class="walk-all-routes-btn" onclick="showAllWalkRoutes()">全ルート表示</button>
+      <div id="walk-list"><div class="empty">読み込み中...</div></div>
+    </div>
+    <div id="walk-all-routes" style="display:none">
+      <div class="card">
+        <div class="walk-detail-header">
+          <button class="walk-back-btn" onclick="closeAllWalkRoutes()">← 一覧へ戻る</button>
+          <span class="walk-detail-title">全ルート</span>
+          <button id="walk-all-location-btn" class="jare-edit-btn" onclick="showAllWalkCurrentLocation()" style="margin-left:auto;font-size:12px;">現在地</button>
+        </div>
+        <div id="walk-all-map" class="walk-map"></div>
+      </div>
+    </div>
+    <div id="walk-detail" style="display:none">
+      <div class="card">
+        <div class="walk-detail-header">
+          <button class="walk-back-btn" onclick="closeWalkDetail()">← 一覧へ戻る</button>
+          <span id="walk-detail-title" class="walk-detail-title"></span>
+          <button id="walk-share-btn" class="jare-share-btn" style="display:none;margin-left:auto;" onclick="shareWalkDetail()">共有</button>
+          <button id="walk-delete-btn" class="jare-edit-btn" style="display:none;color:var(--red);border-color:var(--red);" onclick="deleteWalkLog()">削除</button>
+        </div>
+        <div id="walk-detail-meta" class="walk-detail-meta"></div>
+        <div id="walk-map" class="walk-map"></div>
       </div>
     </div>
   </div>
@@ -756,9 +1080,141 @@
       <div id="admin-status-schedule" class="admin-status"></div>
       <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleEntry()">保存する</button>
       <hr class="admin-divider">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">外部公開用URL</div>
+          <div style="font-size:11px;color:var(--dim);margin-top:2px;">ヘッダーなし・営業予定のみ表示</div>
+        </div>
+        <button class="admin-btn" onclick="copyPublicScheduleUrl()" id="admin-copy-public-url-btn">URLをコピー</button>
+      </div>
+      <hr class="admin-divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;">Firestore管理の日程 <span style="font-size:11px;font-weight:normal;color:var(--dim)">（schedule.jsより優先されます）</span></div>
+        <button id="admin-sch-sort-btn" class="admin-btn sm" onclick="toggleAdminSchSort()">↑ 昇順</button>
+      </div>
       <div id="admin-schedule-list" class="admin-gather-list">
         <div class="admin-empty">読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-admin-ai-discuss" class="section">
+    <div class="card">
+      <div class="admin-section-title">AI議論</div>
+
+      <!-- APIキー設定 -->
+      <div class="admin-form-group" style="margin-bottom:16px;">
+        <button type="button" class="admin-btn" style="width:100%;display:flex;justify-content:space-between;align-items:center;" onclick="toggleAiDiscKeysPanel()">
+          <span>APIキー設定</span>
+          <span id="ai-disc-keys-arrow">▼</span>
+        </button>
+        <div id="ai-disc-keys-body" style="display:none;margin-top:10px;">
+          <div class="admin-form-group">
+            <label>Gemini APIキー（複数アカウント可・1行に1つ）</label>
+            <textarea id="ai-disc-gemini-keys" class="admin-textarea" rows="3" placeholder="AIza...&#10;AIza...（複数登録すると検索リクエストを分散します）" autocomplete="off"></textarea>
+            <button type="button" class="admin-btn" style="width:100%;margin-top:6px;" onclick="testAiDiscApiKey('gemini')">確認</button>
+            <div id="ai-disc-gemini-test-status" class="admin-status"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>Groq APIキー</label>
+            <div style="display:flex;gap:8px;">
+              <input type="password" id="ai-disc-groq-key" class="admin-input" placeholder="gsk_..." autocomplete="off" style="flex:1;">
+              <button type="button" class="admin-btn" style="white-space:nowrap;" onclick="testAiDiscApiKey('groq')">確認</button>
+            </div>
+            <div id="ai-disc-groq-test-status" class="admin-status"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>Groqモデル設定（空欄でデフォルト）</label>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🔵 ロジック</span>
+                <input type="text" id="ai-disc-model-logic" class="admin-input" placeholder="openai/gpt-oss-120b" autocomplete="off" style="flex:1;">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🟠 ノヴァ</span>
+                <input type="text" id="ai-disc-model-nova" class="admin-input" placeholder="openai/gpt-oss-20b" autocomplete="off" style="flex:1;">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;width:72px;flex-shrink:0;">🟢 ガード</span>
+                <input type="text" id="ai-disc-model-guard" class="admin-input" placeholder="llama-3.3-70b-versatile" autocomplete="off" style="flex:1;">
+              </div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--dim);">議論の実行にはGroq APIキーが必要です。Gemini APIキーを設定すると「ノヴァ」はGeminiを優先して発言します。Gemini APIキーは複数登録でき、Web検索の呼び出しを順番に分散して無料枠のレート制限を回避しやすくなります。モデル名は<a href="https://console.groq.com/docs/models" target="_blank" style="color:var(--accent)">Groqのモデル一覧</a>を参照。</p>
+          <div id="ai-disc-keys-status" class="admin-status"></div>
+          <button class="admin-btn primary" style="width:100%;" onclick="saveAiDiscApiKeys()">保存する</button>
+        </div>
+      </div>
+
+      <!-- 一覧画面 -->
+      <div id="ai-disc-list-screen" class="admin-sub-screen active">
+        <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="openNewAiDiscussion()">新しい議論を始める</button>
+        <div id="ai-disc-list" class="admin-gather-list">
+          <div class="admin-empty">読み込み中...</div>
+        </div>
+      </div>
+
+      <!-- 詳細・新規画面 -->
+      <div id="ai-disc-detail-screen" class="admin-sub-screen">
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:12px;">
+          <button class="admin-btn sm" onclick="closeAiDiscussionDetail()">← 一覧に戻る</button>
+          <button class="admin-btn sm danger" id="ai-disc-delete-btn" style="display:none;" onclick="deleteAiDiscussion(_aiDiscCurrentId)">この議論を削除</button>
+        </div>
+
+        <div id="ai-disc-new-form">
+          <div class="admin-form-group">
+            <label>議論モード</label>
+            <select id="ai-disc-mode-select" class="admin-select">
+              <option value="default">デフォルト（ロジック・ノヴァ・ガード）</option>
+              <option value="magi">MAGI（メルキオール・バルタザール・カスパー）</option>
+              <option value="mahjong">麻雀格言会議（デジタル派・攻め師・降り師）</option>
+              <option value="sengoku">戦国軍議（軍師・猛将・家老）</option>
+              <option value="jikan">時間軸（歴史家・未来学者・実務家）</option>
+              <option value="devil">悪魔の代弁者（推進派・調停者・反対論者）</option>
+              <option value="ogiri">大喜利（ボケ太・シュール男爵・座布団）</option>
+              <option value="keiba">競馬予想（血統博士・気配師・オッズ番長）</option>
+              <option value="research">徹底調査（ファクト・トレンド・ヘッジ）</option>
+              <option value="search">検索モード（最新情報をWeb検索して回答）</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label>Web検索の併用（要Gemini APIキー）</label>
+            <select id="ai-disc-search-mode-select" class="admin-select">
+              <option value="none">使わない</option>
+              <option value="briefing">事前ブリーフィング（議論前に1回検索して共有）</option>
+              <option value="individual">個別検索（各AIが自分の視点で検索）</option>
+              <option value="advanced">発展検索（争点を検索で検証してから第2ラウンドへ）</option>
+              <option value="deep">徹底検索（個別検索と争点検証の両方を行う）</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label>議題・質問・条件</label>
+            <textarea id="ai-disc-topic-input" class="admin-textarea" rows="4" placeholder="議論したいテーマや質問を入力してください"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-run-btn" onclick="startAiDiscussion()">議論を実行</button>
+        </div>
+
+        <div id="ai-disc-rounds"></div>
+
+        <div id="ai-disc-continue-form" style="display:none;margin-top:16px;">
+          <hr class="admin-divider">
+          <div class="admin-form-group">
+            <label>追加の条件・質問</label>
+            <textarea id="ai-disc-continue-input" class="admin-textarea" rows="3" placeholder="追加の条件や質問を入力してください"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%;" id="ai-disc-run-continue-btn" onclick="continueAiDiscussion()">続きを実行</button>
+        </div>
+
+        <div id="ai-disc-status" class="admin-status" style="margin-top:12px;"></div>
+
+
+        <div id="ai-disc-auto-area" style="display:none;margin-top:16px;">
+          <div id="ai-disc-magi-header" class="magi-header" style="display:none;">MAGI SYSTEM</div>
+          <div class="ai-disc-round">
+            <div id="ai-disc-auto-preview" class="ai-disc-round-output"></div>
+          </div>
+          <button class="admin-btn primary" style="width:100%;margin-top:12px;" id="ai-disc-auto-save-btn" onclick="saveAiDiscussionAuto()">保存する</button>
+        </div>
       </div>
     </div>
   </div>
@@ -769,6 +1225,8 @@
 <script src="./stats.js"></script>
 <script src="./schedule-ui.js"></script>
 <script src="./board.js"></script>
+<script src="./vote.js"></script>
+<script src="./column.js"></script>
 <script src="./gallery.js"></script>
 <script src="./renban.js"></script>
 <script src="./boshu.js"></script>
@@ -786,6 +1244,9 @@
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
       <div id="rsv-detail-info" class="rsv-date-info"></div>
+      <div id="rsv-detail-admin-btn-wrap" style="display:none;margin-bottom:8px;">
+        <button class="admin-btn sm" onclick="openAdminScheduleEdit(rsvCurrentDate)">営業予定を編集</button>
+      </div>
       <div class="rsv-section-title">登録済み予約</div>
       <div id="rsv-detail-list"></div>
       <div class="rb-btn-row" style="margin-top:12px;margin-bottom:2px;">
@@ -849,6 +1310,8 @@
             <label class="rsv-checkbox-item"><input type="checkbox" value="ボドゲ"><span>ボドゲ</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" value="飲み会"><span>飲み会</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" value="球蹴り"><span>球蹴り</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="パン作り"><span>パン作り</span></label>
+            <label class="rsv-checkbox-item"><input type="checkbox" value="その他(料理部)"><span>その他(料理部)</span></label>
             <label class="rsv-checkbox-item"><input type="checkbox" id="rsv-other-check" value="その他" onchange="toggleOtherInput()"><span>その他</span></label>
           </div>
           <div class="rsv-other-wrap" id="rsv-other-wrap">
@@ -858,6 +1321,12 @@
         <div class="rsv-form-group">
           <label class="rsv-label">備考</label>
           <textarea id="rsv-note" class="rsv-textarea" placeholder="自由に入力（任意）"></textarea>
+        </div>
+        <div id="rsv-x-post-wrap" style="display:none;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="rsv-x-post-check" checked>
+            <span>X に自動ポストする</span>
+          </label>
         </div>
         <div class="rsv-btn-row">
           <button type="button" class="rsv-btn secondary" onclick="backToDetail()">戻る</button>
@@ -885,7 +1354,18 @@
         <span class="rsv-title">予約一覧</span>
         <button class="rsv-close" onclick="closeRsvModal()">✕</button>
       </div>
+      <!-- 選択モード確認バー -->
+      <div id="rsv-list-confirm-bar" class="boshu-confirm-bar" style="display:none;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="exitRsvListSelectMode()">キャンセル</button>
+          <span id="rsv-list-select-count" class="boshu-select-count">0件選択中</span>
+          <button id="rsv-list-select-all-btn" class="rsv-btn secondary" style="padding:5px 12px;flex:none;font-size:12px;" onclick="toggleRsvListSelectAll()">全選択</button>
+        </div>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="rsv-include-schedule"> 今後の予定を追加</label>
+        <button id="rsv-list-share-exec-btn" class="rsv-btn primary" style="padding:8px 20px;flex:none;" onclick="shareRsvListSelected()" disabled>共有する</button>
+      </div>
       <div id="rsv-list-content"></div>
+      <div id="rsv-list-modal-btn-wrap" class="rsv-btn-row" style="display:none;padding-top:12px;"></div>
     </div>
 
   </div>
@@ -934,6 +1414,12 @@
           <label class="rb-label">備考</label>
           <textarea id="rb-event-note" class="rb-textarea" placeholder="座席や時間帯など自由に入力"></textarea>
         </div>
+        <div id="rb-x-post-wrap" style="display:none;margin-bottom:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="rb-x-post-check" checked>
+            <span>X に自動ポストする</span>
+          </label>
+        </div>
         <div id="rb-form-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:4px;"></div>
         <div class="rb-btn-row">
           <button type="button" class="rb-btn secondary" onclick="closeRbModal()">キャンセル</button>
@@ -955,7 +1441,7 @@
       </div>
       <div id="rb-detail-btn-hint" style="font-size:11px;color:var(--dim);text-align:center;min-height:16px;margin-bottom:4px;"></div>
       <div class="rb-section-label" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>参加者一覧</span>
+        <span>参加状況</span>
         <span id="rb-count-summary" style="font-size:11px;font-weight:normal;color:var(--dim);"></span>
       </div>
       <div id="rb-all-participants" class="rb-participants"></div>
@@ -963,8 +1449,9 @@
         <button class="rb-btn secondary" style="flex:none;padding:11px 18px;" onclick="shareRenbanEvent()">共有</button>
         <button class="rb-btn secondary" onclick="closeRbModal()">閉じる</button>
       </div>
-      <div id="rb-detail-delete-row" style="display:none;margin-top:8px;">
-        <button id="rb-detail-delete-btn" class="rb-btn secondary" style="width:100%;color:var(--red);border-color:var(--red);">イベントを削除</button>
+      <div id="rb-detail-delete-row" style="display:none;margin-top:8px;gap:8px;">
+        <button id="rb-detail-edit-btn" class="rb-btn secondary" style="flex:1;">編集</button>
+        <button id="rb-detail-delete-btn" class="rb-btn secondary" style="flex:1;color:var(--red);border-color:var(--red);">削除</button>
       </div>
     </div>
 
@@ -1180,6 +1667,32 @@
     </button>
     <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です<br>（じゃれ本の閲覧にはログインが必要です）</p>
     <button class="login-close-btn" onclick="closeLoginModal()">閉じる</button>
+  </div>
+</div>
+
+<!-- 散歩ログ アップロードモーダル -->
+<div id="walk-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:400;align-items:center;justify-content:center;padding:24px 16px;">
+  <div class="jare-modal-box" style="width:min(420px,100%);">
+    <h3 style="margin:0 0 16px;font-size:16px;">散歩ログを追加</h3>
+    <div class="jare-form-row">
+      <label class="jare-form-label">タイトル（任意）</label>
+      <input type="text" id="walk-upload-title" class="admin-input" placeholder="例：代々木公園" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div class="jare-form-row">
+      <label class="jare-form-label">GPXファイル</label>
+      <input type="file" id="walk-upload-file" accept=".gpx" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" id="walk-skip-geocode">
+        住所の取得をスキップ
+      </label>
+    </div>
+    <div id="walk-upload-status" style="font-size:12px;color:var(--red);min-height:18px;margin-bottom:8px;"></div>
+    <div class="jare-modal-actions">
+      <button class="jare-cancel-btn" onclick="closeWalkUpload()">キャンセル</button>
+      <button class="jare-submit-btn" id="walk-upload-submit-btn" onclick="submitWalkUpload()">登録する</button>
+    </div>
   </div>
 </div>
 </body>
