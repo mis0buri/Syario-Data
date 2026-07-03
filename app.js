@@ -141,6 +141,7 @@ const _HASH_TO_SECTION = {
   gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
   renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote', column: 'column',
   swarm: 'swarm',
+  transit: 'transit',
 };
 
 function showSection(id) {
@@ -183,7 +184,7 @@ function showSection(id) {
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||id==='swarm'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||id==='swarm'||id==='transit'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -207,6 +208,7 @@ function showSection(id) {
   if (id==='admin-ai-discuss') initAdminAiDiscuss();
   if (id==='admin-swarm') initSwarm('admin');
   if (id==='swarm') initSwarm('main');
+  if (id==='transit') initTransit();
   if (id==='column') initColumn();
 
   // URL ハッシュを更新（管理者セクションは #admin/{name} 形式で反映）
@@ -724,6 +726,9 @@ function _routeHash(hash, isInit) {
   } else if (hash.startsWith('#column/')) {
     showSection('column');
     openColumnDetail(hash.slice(8));
+  } else if (hash.startsWith('#transit/')) {
+    showSection('transit');
+    showTransitView(hash.slice(9));
   } else if (hash.startsWith('#admin/')) {
     // 初期ロード時は認証未確定なので、updateAuthUI 側の確定後ハンドラに委ねる
     if (!isInit) _handleAdminHashRoute();

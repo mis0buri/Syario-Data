@@ -51,6 +51,7 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 | **vote.js** | 投票箱 — poll/voting boxes with options, answers, deadlines |
 | **stamp.js** | Stamp card system |
 | **column.js** | コラム — long-form articles with rich-text editor |
+| **transit.js** | 乗換案内 — journey search via `api.transit.ls8h.com` (no auth, CORS-enabled). Sub-views inside `#sec-transit` (menu/search/dep/home/settings) with `#transit/{view}` deep links via `showTransitView()`. 最寄り駅 list stored in `/users/{uid}.transitStations` when logged in, else localStorage `transit_my_stations` (auto-migrated on login). API times are seconds from service-date midnight (may exceed 86400) — convert with `_trFmtTime()` |
 | **swarm.js** | Swarm連携 — Foursquare/Swarm OAuth check-in linking + X share; namespaced (`main`/`admin`) to support two independent Client IDs; usable without login (account stored in `localStorage` key `swarm_local_account_{ns}`, migrated to Firestore on later login) |
 | **schedule.js** | Static `SCHEDULE_DATA` object only |
 

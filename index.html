@@ -35,6 +35,7 @@
     <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="swarm" id="nav-swarm-btn" onclick="showSection('swarm')">Swarm連携</button>
+    <button data-nav="transit" onclick="showSection('transit')">乗換案内</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
   </nav>
@@ -1453,6 +1454,112 @@
       </div>
     </div>
   </div>
+
+  <!-- 乗換案内 -->
+  <div id="sec-transit" class="section">
+
+    <!-- トップメニュー -->
+    <div id="transit-view-menu">
+      <div class="card">
+        <div class="transit-menu">
+          <button type="button" class="transit-menu-btn" onclick="showTransitView('search')">乗換案内</button>
+          <button type="button" class="transit-menu-btn" id="transit-menu-dep" onclick="showTransitView('dep')">出発（最寄り駅〜）</button>
+          <button type="button" class="transit-menu-btn" id="transit-menu-home" onclick="showTransitView('home')">帰宅（〜最寄り駅）</button>
+          <button type="button" class="transit-menu-btn" onclick="showTransitView('settings')">最寄り駅設定</button>
+        </div>
+        <div class="transit-note" id="transit-menu-note" style="display:none">最寄り駅を設定すると「出発」「帰宅」が使えます</div>
+      </div>
+    </div>
+
+    <!-- 検索画面（乗換案内・出発・帰宅 共用） -->
+    <div id="transit-view-search" style="display:none">
+      <div class="card">
+        <button type="button" class="transit-back" onclick="showTransitView('menu')">← 戻る</button>
+        <div class="transit-title" id="transit-search-title">乗換案内</div>
+
+        <div class="transit-od">
+          <div class="admin-form-group" id="transit-from-wrap" style="position:relative;order:1">
+            <label id="transit-from-label">出発駅</label>
+            <input type="text" id="transit-from" class="admin-input" placeholder="駅名を入力して候補から選択" autocomplete="off">
+            <div class="transit-suggest" id="transit-from-suggest"></div>
+          </div>
+          <div class="admin-form-group" id="transit-my-block" style="display:none;order:1">
+            <label id="transit-my-label">出発：最寄り駅</label>
+            <div id="transit-my-toggles" class="transit-my-toggles"></div>
+          </div>
+          <div class="transit-swap-row" style="order:2"><button type="button" class="admin-btn sm" onclick="swapTransit()">⇅ 入れ替え</button></div>
+          <div class="admin-form-group" id="transit-to-wrap" style="position:relative;order:3">
+            <label id="transit-to-label">到着駅</label>
+            <input type="text" id="transit-to" class="admin-input" placeholder="駅名を入力して候補から選択" autocomplete="off">
+            <div class="transit-suggest" id="transit-to-suggest"></div>
+          </div>
+        </div>
+
+        <div class="transit-datetime-row">
+          <input type="date" id="transit-date" class="admin-input">
+          <input type="time" id="transit-time" class="admin-input">
+        </div>
+        <div class="transit-seg-row" id="transit-type-row">
+          <button type="button" class="active" onclick="setTransitType('departure', this)">出発</button>
+          <button type="button" onclick="setTransitType('arrival', this)">到着</button>
+          <button type="button" onclick="setTransitType('first', this)">始発</button>
+          <button type="button" onclick="setTransitType('last', this)">終電</button>
+        </div>
+
+        <div class="transit-via-section">
+          <button type="button" class="jare-ocr-toggle" onclick="toggleTransitVia()">
+            <span>経由駅を指定</span>
+            <span class="jare-ocr-arrow" id="transit-via-arrow">▼</span>
+          </button>
+          <div class="jare-ocr-body" id="transit-via-body">
+            <div class="transit-note" id="transit-via-note" style="display:none">始発・終電検索では経由駅は指定できません</div>
+            <div class="admin-form-group" style="position:relative">
+              <input type="text" id="transit-via1" class="admin-input" placeholder="経由駅1（任意）" autocomplete="off">
+              <div class="transit-suggest" id="transit-via1-suggest"></div>
+            </div>
+            <div class="admin-form-group" style="position:relative">
+              <input type="text" id="transit-via2" class="admin-input" placeholder="経由駅2（任意）" autocomplete="off">
+              <div class="transit-suggest" id="transit-via2-suggest"></div>
+            </div>
+            <div class="admin-form-group" style="position:relative;margin-bottom:0">
+              <input type="text" id="transit-via3" class="admin-input" placeholder="経由駅3（任意）" autocomplete="off">
+              <div class="transit-suggest" id="transit-via3-suggest"></div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="admin-btn primary" style="width:100%;margin-top:12px" id="transit-search-btn" onclick="searchTransit()">検索</button>
+        <div id="transit-status" class="admin-status"></div>
+        <div id="transit-history" class="transit-history"></div>
+      </div>
+
+      <div id="transit-results-card" class="card" style="display:none">
+        <div class="transit-seg-row">
+          <button type="button" id="transit-sort-time" class="active" onclick="sortTransitResults('time')">時間順</button>
+          <button type="button" id="transit-sort-fare" onclick="sortTransitResults('fare')">運賃順</button>
+        </div>
+        <div id="transit-results"></div>
+      </div>
+    </div>
+
+    <!-- 最寄り駅設定 -->
+    <div id="transit-view-settings" style="display:none">
+      <div class="card">
+        <button type="button" class="transit-back" onclick="showTransitView('menu')">← 戻る</button>
+        <div class="transit-title">最寄り駅設定</div>
+        <div class="admin-form-group" style="position:relative">
+          <label>駅を追加（最大5件・候補の選択で追加されます）</label>
+          <input type="text" id="transit-st-add" class="admin-input" placeholder="駅名を入力" autocomplete="off">
+          <div class="transit-suggest" id="transit-st-add-suggest"></div>
+        </div>
+        <div id="transit-st-status" class="admin-status"></div>
+        <div id="transit-st-list" class="transit-st-list"></div>
+        <div class="transit-note" id="transit-st-note"></div>
+      </div>
+    </div>
+
+    <div class="transit-attribution">経路・時刻データ: 公共交通オープンデータ（api.transit.ls8h.com）</div>
+  </div>
 </main>
 
 <script src="./schedule.js"></script>
@@ -1468,6 +1575,7 @@
 <script src="./stamp.js"></script>
 <script src="./admin.js"></script>
 <script src="./swarm.js"></script>
+<script src="./transit.js"></script>
 
 <!-- ── 予約モーダル ── -->
 <div id="rsv-overlay" class="rsv-overlay" onclick="rsvOverlayClick(event)">
