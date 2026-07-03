@@ -491,10 +491,45 @@ function renderTransitResults() {
       </button>
       <div class="transit-route-body${i === 0 ? ' open' : ''}" id="transit-route-body-${i}">
         ${j.legs.map(_trRenderLeg).join('')}
+        ${!j.fare ? `<div class="transit-note" id="transit-pf-${i}" style="margin:6px 0 0">${j._pf || `<button type="button" class="admin-btn sm" onclick="calcPartialFare(${i})">区間ごとの運賃を算出</button>`}</div>` : ''}
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="copyTransitRoute(${i})">テキストをコピー</button>
       </div>
     </div>`;
   }).join('');
+}
+
+function _trSecsToHHMM(secs) {
+  const s = ((Math.round(secs) % 86400) + 86400) % 86400;
+  return String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+}
+
+// 運賃不明ルートの区間ごと運賃を、乗車区間単位の再検索で参考値として算出
+async function calcPartialFare(i) {
+  const j = _trJourneys[i];
+  const el = document.getElementById('transit-pf-' + i);
+  if (!j || !el) return;
+  el.textContent = '算出中...';
+  const legs = j.legs.filter(l => l.kind === 'transit');
+  const d = document.getElementById('transit-date').value.replace(/-/g, '');
+  const rows = await Promise.all(legs.map(async leg => {
+    try {
+      const p = new URLSearchParams({ from: leg.from.id, to: leg.to.id, type: 'departure', numItineraries: '1' });
+      if (d) p.set('date', d);
+      p.set('time', _trSecsToHHMM(leg.departureSecs));
+      const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString());
+      const json = await res.json();
+      const fare = res.ok && json.journeys && json.journeys[0] && json.journeys[0].fare;
+      return { leg, fare: fare ? fare.ticket : null };
+    } catch (e) { return { leg, fare: null }; }
+  }));
+  const known = rows.filter(r => r.fare != null);
+  const total = known.reduce((s, r) => s + r.fare, 0);
+  j._pf = rows.map(r =>
+    `${_esc(r.leg.from.name)}→${_esc(r.leg.to.name)} ${r.fare != null ? '¥' + r.fare.toLocaleString() : '不明'}`
+  ).join('<br>') + (known.length
+    ? `<br>判明分合計: ¥${total.toLocaleString()}（参考値・実際の通し運賃と異なる場合があります）`
+    : '<br>運賃情報は取得できませんでした');
+  el.innerHTML = j._pf;
 }
 
 function toggleTransitRoute(i) {
