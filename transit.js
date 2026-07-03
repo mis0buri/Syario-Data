@@ -161,10 +161,14 @@ function toggleTransitMyStation(id, on) {
 
 // ── 駅サジェスト ──
 async function _trSuggest(q, signal) {
-  const res = await fetch(`${TRANSIT_API}/api/v1/locations/suggest?q=${encodeURIComponent(q)}&limit=8`, { signal });
+  // places/suggestを使うと所在地（description）が取れる。駅・停留所のみに絞る
+  const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(q)}&limit=12`, { signal });
   if (!res.ok) return [];
   const j = await res.json();
-  return j.stations || [];
+  return (j.places || [])
+    .filter(p => p.kind === 'station' || p.kind === 'stop')
+    .slice(0, 8)
+    .map(p => ({ id: p.endpoint, name: p.name, nameKana: p.nameKana, desc: p.description }));
 }
 
 function _trBindSuggest(key, onPick) {
@@ -182,7 +186,7 @@ function _trBindSuggest(key, onPick) {
         const sts = await _trSuggest(q, _trAbort[key].signal);
         box._sts = sts;
         box.innerHTML = sts.length
-          ? sts.map((st, i) => `<div class="transit-suggest-item" data-i="${i}">${_esc(st.name)}<span class="transit-suggest-kana">${_esc(st.nameKana || '')}</span></div>`).join('')
+          ? sts.map((st, i) => `<div class="transit-suggest-item" data-i="${i}">${_esc(st.name)}<span class="transit-suggest-kana">${_esc(st.desc || st.nameKana || '')}</span></div>`).join('')
           : '<div class="transit-suggest-item" style="cursor:default;color:var(--dim)">該当する駅がありません</div>';
         box.classList.add('open');
       } catch (e) { /* 中断・通信エラーは無視 */ }
