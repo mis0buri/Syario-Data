@@ -493,6 +493,7 @@ function renderTransitResults() {
         ${j.legs.map(_trRenderLeg).join('')}
         ${!j.fare ? `<div class="transit-note" id="transit-pf-${i}" style="margin:6px 0 0">${j._pf || `<button type="button" class="admin-btn sm" onclick="calcPartialFare(${i})">区間ごとの運賃を算出</button>`}</div>` : ''}
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="copyTransitRoute(${i})">テキストをコピー</button>
+        <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="shareTransitRoute(${i})">画像で共有</button>
       </div>
     </div>`;
   }).join('');
@@ -575,6 +576,181 @@ function copyTransitRoute(i) {
   const fare = j.fare ? '・¥' + j.fare.ticket.toLocaleString() : '';
   const text = `${from} ${_trFmtTime(j.departureSecs)} → ${to} ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}${fare}・乗換${j.transferCount}回）`;
   navigator.clipboard.writeText(text).catch(() => {});
+}
+
+// ── 経路を画像で共有 ──
+// gallery.js の shareWalkDetail() と同じ方針：Canvasで画像生成 → toBlob → Web Share API（files対応時）
+// → 非対応ならURL共有 or ダウンロードにフォールバック
+async function shareTransitRoute(i) {
+  const j = _trJourneys[i];
+  if (!j || !j.legs.length) return;
+
+  const btn = document.querySelector(`#transit-route-body-${i} button[onclick="shareTransitRoute(${i})"]`);
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+
+  try {
+    const dateStr = document.getElementById('transit-date').value || '';
+    const fromName = j.legs[0].from.name;
+    const toName = j.legs[j.legs.length - 1].to.name;
+
+    const canvas = _trBuildRouteCanvas(j, dateStr);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('画像の生成に失敗しました');
+
+    // ファイル名に使えない文字（パス区切り・記号等）を除去
+    const safe = s => (s || '').replace(/[\\/:*?"<>|]/g, '');
+    const file = new File([blob], `transit_${safe(fromName)}_${safe(toName)}.png`, { type: 'image/png' });
+
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        throw new Error('files not supported');
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      // ファイル共有不可の場合はダウンロードにフォールバック
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') alert('共有に失敗しました: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+  }
+}
+
+// 経路journeyをCanvasに描画して返す（高DPI対応のため内部解像度は2倍で描画）
+function _trBuildRouteCanvas(j, dateStr) {
+  const W = 1080, dpr = 2, PAD = 40;
+  const TRANSIT_LEG_H = 116, WALK_LEG_H = 46, LEG_GAP = 10;
+  const legsH = j.legs.reduce((s, leg) => s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + LEG_GAP, 0);
+
+  const headerH = 76;      // アプリ名＋日付
+  const bigRouteH = 76;    // 出発駅 → 到着駅
+  const metaH = 92;        // 時刻・所要時間／運賃・乗換
+  const timelineTopGap = 24;
+  const footerH = 56;
+  const H = PAD + headerH + bigRouteH + metaH + timelineTopGap + legsH + footerH + PAD;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // 背景（明るいテーマ）
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  let y = PAD;
+
+  // ── ヘッダ：アプリ名＋検索日付 ──
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
+  ctx.fillStyle = '#333333';
+  ctx.fillText('シャリオ 乗換案内', PAD, y + 24);
+  if (dateStr) {
+    ctx.font = "16px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#888888';
+    const w = ctx.measureText(dateStr).width;
+    ctx.fillText(dateStr, W - PAD - w, y + 22);
+  }
+  y += headerH;
+
+  // ── 出発駅 → 到着駅（大きく） ──
+  const fromName = j.legs[0].from.name;
+  const toName = j.legs[j.legs.length - 1].to.name;
+  const routeText = `${fromName} → ${toName}`;
+  let bigSize = 40;
+  ctx.font = `bold ${bigSize}px 'Noto Sans JP', sans-serif`;
+  while (ctx.measureText(routeText).width > W - PAD * 2 && bigSize > 20) {
+    bigSize -= 2;
+    ctx.font = `bold ${bigSize}px 'Noto Sans JP', sans-serif`;
+  }
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillText(routeText, PAD, y + bigSize);
+  y += bigRouteH;
+
+  // ── 出発〜到着時刻・所要時間／運賃・乗換回数 ──
+  ctx.font = "bold 24px 'Noto Sans JP', sans-serif";
+  ctx.fillStyle = '#222222';
+  ctx.fillText(
+    `${_trFmtTime(j.departureSecs)} → ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}）`,
+    PAD, y + 24
+  );
+  const fareText = j.fare
+    ? '¥' + j.fare.ticket.toLocaleString() + (j.fare.ic !== undefined ? `（IC ¥${j.fare.ic.toLocaleString()}）` : '')
+    : '運賃不明';
+  ctx.font = "16px 'Noto Sans JP', sans-serif";
+  ctx.fillStyle = '#666666';
+  ctx.fillText(`${fareText}・乗換${j.transferCount}回`, PAD, y + 54);
+  y += metaH;
+
+  // 区切り線
+  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  y += timelineTopGap;
+
+  // ── 本体：縦タイムライン ──
+  const barX = PAD;
+  const textX = PAD + 20;
+  j.legs.forEach(leg => {
+    if (leg.kind === 'walk') {
+      const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
+      ctx.strokeStyle = '#bbbbbb'; ctx.lineWidth = 2;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath(); ctx.moveTo(barX + 3, y + 6); ctx.lineTo(barX + 3, y + WALK_LEG_H - 8); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "14px 'Noto Sans JP', sans-serif";
+      ctx.fillStyle = '#888888';
+      ctx.fillText(`┊ 徒歩 ${dur}`, textX, y + WALK_LEG_H / 2 + 5);
+      y += WALK_LEG_H + LEG_GAP;
+      return;
+    }
+
+    const color = leg.color ? (leg.color.charAt(0) === '#' ? leg.color : '#' + leg.color) : '#999999';
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, y + 4, 6, TRANSIT_LEG_H - 16);
+
+    const pf = st => st.platformCode ? `〔${st.platformCode}番線〕` : '';
+
+    ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillText(
+      `● ${_trFmtTime(leg.departureSecs)} ${leg.from.name}${pf(leg.from)}`,
+      textX, y + 22
+    );
+
+    ctx.font = "14px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#555555';
+    ctx.fillText(
+      `${leg.headwayBased ? '約 ' : ''}${leg.routeName}${leg.headsign ? '・' + leg.headsign + '方面' : ''}`,
+      textX, y + 48
+    );
+
+    ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillText(
+      `● ${_trFmtTime(leg.arrivalSecs)} ${leg.to.name}${pf(leg.to)}`,
+      textX, y + 76
+    );
+
+    y += TRANSIT_LEG_H + LEG_GAP;
+  });
+
+  y += footerH - 24;
+
+  // ── 出典表記 ──
+  ctx.font = "12px 'Noto Sans JP', sans-serif";
+  ctx.fillStyle = '#aaaaaa';
+  ctx.fillText('経路・時刻データ: api.transit.ls8h.com', PAD, y);
+
+  return canvas;
 }
 
 // ── 検索履歴（乗換案内のみ） ──
