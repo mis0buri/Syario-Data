@@ -519,15 +519,20 @@ async function _trResolveStationId(name) {
   return _trStIdCache[name];
 }
 
-async function _trLegFare(from, to, date, time) {
+// routeNameを指定すると、複数候補の中から元のルートと同じ路線を使う候補を優先して採用する
+// （再検索の第1候補が元ルートと別の路線になり、共通区間なのに不明/不一致になるのを防ぐ）
+async function _trLegFare(from, to, date, time, routeName) {
   try {
-    const p = new URLSearchParams({ from, to, type: 'departure', numItineraries: '1' });
+    const p = new URLSearchParams({ from, to, type: 'departure', numItineraries: '3' });
     if (date) p.set('date', date);
     p.set('time', time);
     const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString());
     const json = await res.json();
-    const fare = res.ok && json.journeys && json.journeys[0] && json.journeys[0].fare;
-    return fare ? fare.ticket : null;
+    const journeys = (res.ok && json.journeys) || [];
+    if (!journeys.length) return null;
+    const sameRoute = routeName && journeys.find(jr => jr.legs.some(l => l.kind === 'transit' && l.routeName === routeName));
+    const pick = sameRoute || journeys.find(jr => jr.fare) || journeys[0];
+    return pick.fare ? pick.fare.ticket : null;
   } catch (e) { return null; }
 }
 
@@ -540,11 +545,11 @@ async function calcPartialFare(i) {
   const d = document.getElementById('transit-date').value.replace(/-/g, '');
   const rows = await Promise.all(legs.map(async leg => {
     const time = _trSecsToHHMM(leg.departureSecs);
-    let fare = await _trLegFare(leg.from.id, leg.to.id, d, time);
+    let fare = await _trLegFare(leg.from.id, leg.to.id, d, time, leg.routeName);
     if (fare == null) {
       // ホーム単位IDで検索できない場合は駅名から駅IDを引き直して再試行
       const [fid, tid] = await Promise.all([_trResolveStationId(leg.from.name), _trResolveStationId(leg.to.name)]);
-      if (fid && tid && fid !== tid) fare = await _trLegFare(fid, tid, d, time);
+      if (fid && tid && fid !== tid) fare = await _trLegFare(fid, tid, d, time, leg.routeName);
     }
     return { leg, fare };
   }));
