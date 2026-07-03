@@ -634,7 +634,7 @@ function shareTransitRoute(i) {
 // 経路journeyをCanvasに描画して返す（高DPI対応のため内部解像度は2倍で描画）
 function _trBuildRouteCanvas(j, dateStr) {
   const W = 1080, dpr = 2, PAD = 40;
-  const TRANSIT_LEG_H = 116, WALK_LEG_H = 46, LEG_GAP = 10;
+  const TRANSIT_LEG_H = 116, WALK_LEG_H = 28, LEG_GAP = 10;
   const legsH = j.legs.reduce((s, leg) => s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + LEG_GAP, 0);
 
   const headerH = 76;      // アプリ名＋日付
@@ -650,20 +650,20 @@ function _trBuildRouteCanvas(j, dateStr) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  // 背景（明るいテーマ）
-  ctx.fillStyle = '#ffffff';
+  // 背景（散歩ログ共有画像と同系統のダークテーマ）
+  ctx.fillStyle = '#1a1b1e';
   ctx.fillRect(0, 0, W, H);
 
   let y = PAD;
 
-  // ── ヘッダ：アプリ名＋検索日付 ──
+  // ── ヘッダ：アプリ名（アクセントカラー）＋検索日付 ──
   ctx.textBaseline = 'alphabetic';
   ctx.font = "bold 22px 'Noto Sans JP', sans-serif";
-  ctx.fillStyle = '#333333';
+  ctx.fillStyle = '#00E5FF';
   ctx.fillText('シャリオ 乗換案内', PAD, y + 24);
   if (dateStr) {
     ctx.font = "16px 'Noto Sans JP', sans-serif";
-    ctx.fillStyle = '#888888';
+    ctx.fillStyle = '#a0a0a0';
     const w = ctx.measureText(dateStr).width;
     ctx.fillText(dateStr, W - PAD - w, y + 22);
   }
@@ -679,13 +679,13 @@ function _trBuildRouteCanvas(j, dateStr) {
     bigSize -= 2;
     ctx.font = `bold ${bigSize}px 'Noto Sans JP', sans-serif`;
   }
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = '#e8e6e3';
   ctx.fillText(routeText, PAD, y + bigSize);
   y += bigRouteH;
 
   // ── 出発〜到着時刻・所要時間／運賃・乗換回数 ──
   ctx.font = "bold 24px 'Noto Sans JP', sans-serif";
-  ctx.fillStyle = '#222222';
+  ctx.fillStyle = '#e8e6e3';
   ctx.fillText(
     `${_trFmtTime(j.departureSecs)} → ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}）`,
     PAD, y + 24
@@ -694,12 +694,12 @@ function _trBuildRouteCanvas(j, dateStr) {
     ? '¥' + j.fare.ticket.toLocaleString() + (j.fare.ic !== undefined ? `（IC ¥${j.fare.ic.toLocaleString()}）` : '')
     : '運賃不明';
   ctx.font = "16px 'Noto Sans JP', sans-serif";
-  ctx.fillStyle = '#666666';
+  ctx.fillStyle = '#a0a0a0';
   ctx.fillText(`${fareText}・乗換${j.transferCount}回`, PAD, y + 54);
   y += metaH;
 
   // 区切り線
-  ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+  ctx.strokeStyle = '#333333'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
   y += timelineTopGap;
 
@@ -709,39 +709,41 @@ function _trBuildRouteCanvas(j, dateStr) {
   j.legs.forEach(leg => {
     if (leg.kind === 'walk') {
       const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
-      ctx.strokeStyle = '#bbbbbb'; ctx.lineWidth = 2;
+      // 徒歩は1行の小さい注記なのでWALK_LEG_H(=28)の縦中央に破線バーとテキストを収める
+      ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
       ctx.setLineDash([2, 4]);
-      ctx.beginPath(); ctx.moveTo(barX + 3, y + 6); ctx.lineTo(barX + 3, y + WALK_LEG_H - 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(barX + 3, y + 4); ctx.lineTo(barX + 3, y + WALK_LEG_H - 4); ctx.stroke();
       ctx.setLineDash([]);
       ctx.font = "14px 'Noto Sans JP', sans-serif";
-      ctx.fillStyle = '#888888';
+      ctx.fillStyle = '#a0a0a0';
       ctx.fillText(`┊ 徒歩 ${dur}`, textX, y + WALK_LEG_H / 2 + 5);
       y += WALK_LEG_H + LEG_GAP;
       return;
     }
 
-    const color = leg.color ? (leg.color.charAt(0) === '#' ? leg.color : '#' + leg.color) : '#999999';
+    // colorが無い場合は暗背景でも視認できるグレーをデフォルトに
+    const color = leg.color ? (leg.color.charAt(0) === '#' ? leg.color : '#' + leg.color) : '#888888';
     ctx.fillStyle = color;
     ctx.fillRect(barX, y + 4, 6, TRANSIT_LEG_H - 16);
 
     const pf = st => st.platformCode ? `〔${st.platformCode}番線〕` : '';
 
     ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
-    ctx.fillStyle = '#1a1a1a';
+    ctx.fillStyle = '#e8e6e3';
     ctx.fillText(
       `● ${_trFmtTime(leg.departureSecs)} ${leg.from.name}${pf(leg.from)}`,
       textX, y + 22
     );
 
     ctx.font = "14px 'Noto Sans JP', sans-serif";
-    ctx.fillStyle = '#555555';
+    ctx.fillStyle = '#a0a0a0';
     ctx.fillText(
       `${leg.headwayBased ? '約 ' : ''}${leg.routeName}${leg.headsign ? '・' + leg.headsign + '方面' : ''}`,
       textX, y + 48
     );
 
     ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
-    ctx.fillStyle = '#1a1a1a';
+    ctx.fillStyle = '#e8e6e3';
     ctx.fillText(
       `● ${_trFmtTime(leg.arrivalSecs)} ${leg.to.name}${pf(leg.to)}`,
       textX, y + 76
@@ -754,7 +756,7 @@ function _trBuildRouteCanvas(j, dateStr) {
 
   // ── 出典表記 ──
   ctx.font = "12px 'Noto Sans JP', sans-serif";
-  ctx.fillStyle = '#aaaaaa';
+  ctx.fillStyle = '#666666';
   ctx.fillText('経路・時刻データ: api.transit.ls8h.com', PAD, y);
 
   return canvas;
