@@ -504,6 +504,33 @@ function _trSecsToHHMM(secs) {
 }
 
 // 運賃不明ルートの区間ごと運賃を、乗車区間単位の再検索で参考値として算出
+const _trStIdCache = {};
+
+// 駅名から駅単位のID（親駅）を引く。legのIDはホーム単位で/planに使えないことがあるための救済
+async function _trResolveStationId(name) {
+  if (name in _trStIdCache) return _trStIdCache[name];
+  try {
+    const res = await fetch(`${TRANSIT_API}/api/v1/locations/suggest?q=${encodeURIComponent(name)}&limit=3`);
+    const j = await res.json();
+    const sts = j.stations || [];
+    const st = sts.find(s => s.name === name) || sts[0];
+    _trStIdCache[name] = st ? st.id : null;
+  } catch (e) { _trStIdCache[name] = null; }
+  return _trStIdCache[name];
+}
+
+async function _trLegFare(from, to, date, time) {
+  try {
+    const p = new URLSearchParams({ from, to, type: 'departure', numItineraries: '1' });
+    if (date) p.set('date', date);
+    p.set('time', time);
+    const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString());
+    const json = await res.json();
+    const fare = res.ok && json.journeys && json.journeys[0] && json.journeys[0].fare;
+    return fare ? fare.ticket : null;
+  } catch (e) { return null; }
+}
+
 async function calcPartialFare(i) {
   const j = _trJourneys[i];
   const el = document.getElementById('transit-pf-' + i);
@@ -512,15 +539,14 @@ async function calcPartialFare(i) {
   const legs = j.legs.filter(l => l.kind === 'transit');
   const d = document.getElementById('transit-date').value.replace(/-/g, '');
   const rows = await Promise.all(legs.map(async leg => {
-    try {
-      const p = new URLSearchParams({ from: leg.from.id, to: leg.to.id, type: 'departure', numItineraries: '1' });
-      if (d) p.set('date', d);
-      p.set('time', _trSecsToHHMM(leg.departureSecs));
-      const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString());
-      const json = await res.json();
-      const fare = res.ok && json.journeys && json.journeys[0] && json.journeys[0].fare;
-      return { leg, fare: fare ? fare.ticket : null };
-    } catch (e) { return { leg, fare: null }; }
+    const time = _trSecsToHHMM(leg.departureSecs);
+    let fare = await _trLegFare(leg.from.id, leg.to.id, d, time);
+    if (fare == null) {
+      // ホーム単位IDで検索できない場合は駅名から駅IDを引き直して再試行
+      const [fid, tid] = await Promise.all([_trResolveStationId(leg.from.name), _trResolveStationId(leg.to.name)]);
+      if (fid && tid && fid !== tid) fare = await _trLegFare(fid, tid, d, time);
+    }
+    return { leg, fare };
   }));
   const known = rows.filter(r => r.fare != null);
   const total = known.reduce((s, r) => s + r.fare, 0);
