@@ -34,6 +34,8 @@
     <button data-nav="board" onclick="showSection('board')">掲示板</button>
     <button data-nav="vote" onclick="showSection('vote')">投票箱</button>
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
+    <button data-nav="swarm" id="nav-swarm-btn" onclick="showSection('swarm')">Swarm連携</button>
+    <button data-nav="transit" onclick="showSection('transit')">乗換案内</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
   </nav>
@@ -69,6 +71,7 @@
   <button onclick="showSection('admin-score')">スコア入力</button>
   <button onclick="showSection('admin-schedule')">スケジュール</button>
   <button onclick="showSection('admin-ai-discuss')">AI議論</button>
+  <button onclick="showSection('admin-swarm')">Swarm連携</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -670,6 +673,123 @@
     </div>
   </div>
 
+  <!-- ── Swarm連携（ログインユーザー向け） ── -->
+  <div id="sec-swarm" class="section">
+    <!-- ① アカウント連携 -->
+    <div class="card">
+      <button type="button" class="admin-card-toggle" onclick="toggleSwarmPanel('swarm-account-body','swarm-account-arrow')">
+        <span>アカウント連携</span>
+        <span class="jare-ocr-arrow open" id="swarm-account-arrow">▼</span>
+      </button>
+      <div class="admin-card-body open" id="swarm-account-body">
+        <div id="swarm-admin-config" style="display:none">
+          <div class="jare-ocr-note" style="margin-bottom:10px">以下はサイト全体で共有される設定です（管理者のみ変更できます）</div>
+          <div class="admin-form-group">
+            <label>Foursquare Client ID</label>
+            <input type="text" id="swarm-client-id" class="admin-input" placeholder="Foursquare Developer Consoleで取得したClient ID">
+          </div>
+          <div class="admin-form-group">
+            <label>リダイレクトURI（Foursquare側にも登録してください）</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="swarm-redirect-uri" class="admin-input" readonly style="flex:1">
+              <button type="button" class="admin-btn sm" onclick="copySwarmRedirectUri('main')">コピー</button>
+            </div>
+          </div>
+          <div class="admin-form-group">
+            <label>CORSプロキシ（任意）</label>
+            <input type="text" id="swarm-proxy-prefix" class="admin-input" placeholder="例: https://corsproxy.io/?">
+            <div class="jare-ocr-note" style="margin-top:4px">Foursquare APIへの直接リクエストがCORSでブロックされる場合に、プロキシのURLを先頭に付与します</div>
+          </div>
+          <div id="swarm-status-settings" class="admin-status"></div>
+          <button class="admin-btn" style="width:100%;margin-bottom:14px" onclick="saveSwarmConfig('main')">設定を保存</button>
+          <hr class="admin-divider">
+        </div>
+
+        <div id="swarm-account-status" class="admin-empty">読み込み中...</div>
+        <div id="swarm-not-configured" class="admin-empty" style="display:none">サイト管理者がまだFoursquare連携の設定をしていません</div>
+        <div id="swarm-connect-form" style="display:none">
+          <div id="swarm-status-connect" class="admin-status"></div>
+          <button class="admin-btn primary" style="width:100%" onclick="connectSwarmAccount('main')">Swarmと連携する</button>
+        </div>
+        <div id="swarm-linked-info" style="display:none">
+          <div class="admin-form-group">
+            <label>連携中のSwarmアカウント</label>
+            <div id="swarm-linked-user" style="font-size:13px;color:var(--text)"></div>
+          </div>
+          <button class="admin-btn" style="width:100%;margin-bottom:8px" onclick="switchSwarmAccount('main')">別のアカウントに切り替える</button>
+          <div class="jare-ocr-note" style="margin-bottom:14px">Foursquareは既にログイン済みのアカウントで再連携されるため、切り替えには一度Foursquare側からログアウトする必要があります。上のボタンを押すとログアウト用ページが新しいタブで開きます。ログアウトできたらこのタブに戻り「Swarmと連携する」を押してください。</div>
+          <button class="admin-btn danger" style="width:100%" onclick="unlinkSwarmAccount('main')">連携を解除する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② チェックイン -->
+    <div class="card">
+      <button type="button" class="admin-card-toggle" onclick="toggleSwarmPanel('swarm-checkin-body','swarm-checkin-arrow')">
+        <span>チェックイン</span>
+        <span class="jare-ocr-arrow open" id="swarm-checkin-arrow">▼</span>
+      </button>
+      <div class="admin-card-body open" id="swarm-checkin-body">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">※ここからのチェックインはSwarmのメイヤーカウントに含まれません</div>
+        <div class="admin-form-group">
+          <label>検索キーワード（未入力なら現在地から近いスポットを表示）</label>
+          <input type="text" id="swarm-venue-query" class="admin-input" placeholder="店名・施設名など（任意）">
+        </div>
+        <div class="admin-form-group">
+          <label>場所（未入力なら現在地を使用）</label>
+          <input type="text" id="swarm-venue-near" class="admin-input" placeholder="例: 渋谷区">
+        </div>
+        <button class="admin-btn" style="width:100%;margin-bottom:8px;" onclick="searchSwarmVenues('main')">場所を検索</button>
+        <div id="swarm-venue-results" class="swarm-venue-results"></div>
+
+        <div id="swarm-checkin-form" style="display:none;margin-top:12px;">
+          <hr class="admin-divider">
+          <div class="admin-form-group">
+            <label>選択した場所</label>
+            <div id="swarm-selected-venue" style="font-size:14px;font-weight:700;color:var(--accent)"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>コメント（任意）</label>
+            <textarea id="swarm-checkin-shout" class="admin-input" rows="2" placeholder="一言コメント"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%" onclick="submitSwarmCheckin('main')">チェックインする</button>
+        </div>
+        <div id="swarm-status-checkin" class="admin-status"></div>
+        <div id="swarm-quick-share" class="swarm-checkin-actions" style="display:none;margin-top:10px;">
+          <button class="admin-btn sm primary" onclick="postSwarmCheckinToX('main', 0)">Xに投稿</button>
+          <button class="admin-btn sm" onclick="copySwarmCheckinText('main', 0)">テキストをコピー</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 共有 -->
+    <div class="card">
+      <button type="button" class="admin-card-toggle" onclick="toggleSwarmPanel('swarm-share-body','swarm-share-arrow')">
+        <span>共有</span>
+        <span class="jare-ocr-arrow open" id="swarm-share-arrow">▼</span>
+      </button>
+      <div class="admin-card-body open" id="swarm-share-body">
+        <div class="admin-row-split">
+          <div class="admin-form-group">
+            <label>取得件数</label>
+            <select id="swarm-fetch-limit" class="admin-select">
+              <option value="10" selected>10件</option>
+              <option value="25">25件</option>
+              <option value="50">50件</option>
+              <option value="100">100件</option>
+            </select>
+          </div>
+        </div>
+        <button class="admin-btn primary" style="width:100%;margin-bottom:8px;" onclick="fetchSwarmCheckins('main')">チェックインを更新</button>
+        <div id="swarm-status-fetch" class="admin-status"></div>
+
+        <div id="swarm-checkin-list" class="swarm-checkin-list">
+          <div class="admin-empty">Swarmと連携するとチェックイン一覧が表示されます</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 募集一覧 -->
   <div id="sec-boshu" class="section">
     <div class="card">
@@ -1218,6 +1338,241 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Swarm連携（管理者専用・別アプリ） ── -->
+  <div id="sec-admin-swarm" class="section">
+    <!-- ① アカウント連携 -->
+    <div class="card">
+      <button type="button" class="admin-card-toggle" onclick="toggleSwarmPanel('aswarm-account-body','aswarm-account-arrow')">
+        <span>アカウント連携</span>
+        <span class="jare-ocr-arrow open" id="aswarm-account-arrow">▼</span>
+      </button>
+      <div class="admin-card-body open" id="aswarm-account-body">
+        <div class="jare-ocr-note" style="margin-bottom:10px">メインタブの「Swarm連携」とは別のFoursquareアプリ（Client ID）を使う管理者専用の連携です</div>
+        <div class="admin-form-group">
+          <label>Foursquare Client ID</label>
+          <input type="text" id="aswarm-client-id" class="admin-input" placeholder="Foursquare Developer Consoleで取得したClient ID">
+        </div>
+        <div class="admin-form-group">
+          <label>リダイレクトURI（Foursquare側にも登録してください）</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="aswarm-redirect-uri" class="admin-input" readonly style="flex:1">
+            <button type="button" class="admin-btn sm" onclick="copySwarmRedirectUri('admin')">コピー</button>
+          </div>
+        </div>
+        <div class="admin-form-group">
+          <label>CORSプロキシ（任意）</label>
+          <input type="text" id="aswarm-proxy-prefix" class="admin-input" placeholder="例: https://corsproxy.io/?">
+          <div class="jare-ocr-note" style="margin-top:4px">Foursquare APIへの直接リクエストがCORSでブロックされる場合に、プロキシのURLを先頭に付与します</div>
+        </div>
+        <div id="aswarm-status-settings" class="admin-status"></div>
+        <button class="admin-btn" style="width:100%;margin-bottom:14px" onclick="saveSwarmConfig('admin')">設定を保存</button>
+        <hr class="admin-divider">
+
+        <div id="aswarm-account-status" class="admin-empty">読み込み中...</div>
+        <div id="aswarm-not-configured" class="admin-empty" style="display:none">Client IDを保存するとSwarmと連携できます</div>
+        <div id="aswarm-connect-form" style="display:none">
+          <div id="aswarm-status-connect" class="admin-status"></div>
+          <button class="admin-btn primary" style="width:100%" onclick="connectSwarmAccount('admin')">Swarmと連携する</button>
+        </div>
+        <div id="aswarm-linked-info" style="display:none">
+          <div class="admin-form-group">
+            <label>連携中のSwarmアカウント</label>
+            <div id="aswarm-linked-user" style="font-size:13px;color:var(--text)"></div>
+          </div>
+          <button class="admin-btn" style="width:100%;margin-bottom:8px" onclick="switchSwarmAccount('admin')">別のアカウントに切り替える</button>
+          <div class="jare-ocr-note" style="margin-bottom:14px">Foursquareは既にログイン済みのアカウントで再連携されるため、切り替えには一度Foursquare側からログアウトする必要があります。上のボタンを押すとログアウト用ページが新しいタブで開きます。ログアウトできたらこのタブに戻り「Swarmと連携する」を押してください。</div>
+          <button class="admin-btn danger" style="width:100%" onclick="unlinkSwarmAccount('admin')">連携を解除する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② チェックイン -->
+    <div class="card">
+      <button type="button" class="admin-card-toggle" onclick="toggleSwarmPanel('aswarm-checkin-body','aswarm-checkin-arrow')">
+        <span>チェックイン</span>
+        <span class="jare-ocr-arrow open" id="aswarm-checkin-arrow">▼</span>
+      </button>
+      <div class="admin-card-body open" id="aswarm-checkin-body">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">※ここからのチェックインはSwarmのメイヤーカウントに含まれません</div>
+        <div class="admin-form-group">
+          <label>検索キーワード（未入力なら現在地から近いスポットを表示）</label>
+          <input type="text" id="aswarm-venue-query" class="admin-input" placeholder="店名・施設名など（任意）">
+        </div>
+        <div class="admin-form-group">
+          <label>場所（未入力なら現在地を使用）</label>
+          <input type="text" id="aswarm-venue-near" class="admin-input" placeholder="例: 渋谷区">
+        </div>
+        <button class="admin-btn" style="width:100%;margin-bottom:8px;" onclick="searchSwarmVenues('admin')">場所を検索</button>
+        <div id="aswarm-venue-results" class="swarm-venue-results"></div>
+
+        <div id="aswarm-checkin-form" style="display:none;margin-top:12px;">
+          <hr class="admin-divider">
+          <div class="admin-form-group">
+            <label>選択した場所</label>
+            <div id="aswarm-selected-venue" style="font-size:14px;font-weight:700;color:var(--accent)"></div>
+          </div>
+          <div class="admin-form-group">
+            <label>コメント（任意）</label>
+            <textarea id="aswarm-checkin-shout" class="admin-input" rows="2" placeholder="一言コメント"></textarea>
+          </div>
+          <button class="admin-btn primary" style="width:100%" onclick="submitSwarmCheckin('admin')">チェックインする</button>
+        </div>
+        <div id="aswarm-status-checkin" class="admin-status"></div>
+        <div id="aswarm-quick-share" class="swarm-checkin-actions" style="display:none;margin-top:10px;">
+          <button class="admin-btn sm primary" onclick="postSwarmCheckinToX('admin', 0)">Xに投稿</button>
+          <button class="admin-btn sm" onclick="copySwarmCheckinText('admin', 0)">テキストをコピー</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 共有 -->
+    <div class="card">
+      <button type="button" class="admin-card-toggle" onclick="toggleSwarmPanel('aswarm-share-body','aswarm-share-arrow')">
+        <span>共有</span>
+        <span class="jare-ocr-arrow open" id="aswarm-share-arrow">▼</span>
+      </button>
+      <div class="admin-card-body open" id="aswarm-share-body">
+
+        <div class="admin-row-split">
+          <div class="admin-form-group">
+            <label>取得件数</label>
+            <select id="aswarm-fetch-limit" class="admin-select">
+              <option value="10" selected>10件</option>
+              <option value="25">25件</option>
+              <option value="50">50件</option>
+              <option value="100">100件</option>
+            </select>
+          </div>
+        </div>
+        <button class="admin-btn primary" style="width:100%;margin-bottom:8px;" onclick="fetchSwarmCheckins('admin')">チェックインを更新</button>
+        <div id="aswarm-status-fetch" class="admin-status"></div>
+
+        <div id="aswarm-checkin-list" class="swarm-checkin-list">
+          <div class="admin-empty">Swarmと連携するとチェックイン一覧が表示されます</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 乗換案内 -->
+  <div id="sec-transit" class="section">
+
+    <!-- トップメニュー -->
+    <div id="transit-view-menu">
+      <div class="card">
+        <div class="transit-menu">
+          <button type="button" class="transit-menu-btn" onclick="showTransitView('search')">乗換案内</button>
+          <button type="button" class="transit-menu-btn" id="transit-menu-dep" onclick="showTransitView('dep')">出発（最寄り駅〜）</button>
+          <button type="button" class="transit-menu-btn" id="transit-menu-home" onclick="showTransitView('home')">帰宅（〜最寄り駅）</button>
+          <button type="button" class="transit-menu-btn" onclick="showTransitView('settings')">最寄り駅設定</button>
+        </div>
+        <div class="transit-note" id="transit-menu-note" style="display:none">最寄り駅を設定すると「出発」「帰宅」が使えます</div>
+      </div>
+    </div>
+
+    <!-- 検索画面（乗換案内・出発・帰宅 共用） -->
+    <div id="transit-view-search" style="display:none">
+      <div class="card">
+        <button type="button" class="transit-back" onclick="showTransitView('menu')">← 戻る</button>
+        <div class="transit-title" id="transit-search-title">乗換案内</div>
+
+        <div class="transit-od">
+          <div class="admin-form-group" id="transit-from-wrap" style="position:relative;order:1">
+            <label id="transit-from-label">出発駅</label>
+            <input type="text" id="transit-from" class="admin-input" placeholder="駅名を入力して候補から選択" autocomplete="off">
+            <div class="transit-suggest" id="transit-from-suggest"></div>
+          </div>
+          <div class="admin-form-group" id="transit-my-block" style="display:none;order:1">
+            <label id="transit-my-label">出発：最寄り駅</label>
+            <div id="transit-my-toggles" class="transit-my-toggles"></div>
+          </div>
+          <div class="transit-swap-row" style="order:2"><button type="button" class="admin-btn sm" onclick="swapTransit()">⇅ 入れ替え</button></div>
+          <div class="admin-form-group" id="transit-to-wrap" style="position:relative;order:3">
+            <label id="transit-to-label">到着駅</label>
+            <input type="text" id="transit-to" class="admin-input" placeholder="駅名を入力して候補から選択" autocomplete="off">
+            <div class="transit-suggest" id="transit-to-suggest"></div>
+          </div>
+        </div>
+
+        <div class="transit-datetime-row">
+          <input type="date" id="transit-date" class="admin-input">
+          <input type="time" id="transit-time" class="admin-input">
+        </div>
+        <div class="transit-seg-row" id="transit-type-row">
+          <button type="button" class="active" onclick="setTransitType('departure', this)">出発</button>
+          <button type="button" onclick="setTransitType('arrival', this)">到着</button>
+          <button type="button" onclick="setTransitType('first', this)">始発</button>
+          <button type="button" onclick="setTransitType('last', this)">終電</button>
+        </div>
+
+        <div class="transit-via-section">
+          <button type="button" class="jare-ocr-toggle" onclick="toggleTransitVia()">
+            <span>経由駅を指定</span>
+            <span class="jare-ocr-arrow" id="transit-via-arrow">▼</span>
+          </button>
+          <div class="jare-ocr-body" id="transit-via-body">
+            <div class="transit-note" id="transit-via-note" style="display:none">始発・終電検索では経由駅は指定できません</div>
+            <div class="admin-form-group" style="position:relative">
+              <input type="text" id="transit-via1" class="admin-input" placeholder="経由駅1（任意）" autocomplete="off">
+              <div class="transit-suggest" id="transit-via1-suggest"></div>
+            </div>
+            <div class="admin-form-group" style="position:relative">
+              <input type="text" id="transit-via2" class="admin-input" placeholder="経由駅2（任意）" autocomplete="off">
+              <div class="transit-suggest" id="transit-via2-suggest"></div>
+            </div>
+            <div class="admin-form-group" style="position:relative;margin-bottom:0">
+              <input type="text" id="transit-via3" class="admin-input" placeholder="経由駅3（任意）" autocomplete="off">
+              <div class="transit-suggest" id="transit-via3-suggest"></div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="admin-btn primary" style="width:100%;margin-top:12px" id="transit-search-btn" onclick="searchTransit()">検索</button>
+        <div id="transit-status" class="admin-status"></div>
+        <div id="transit-history" class="transit-history"></div>
+        <div class="transit-note" style="text-align:center"><a href="https://transit.yahoo.co.jp/diainfo" target="_blank" rel="noopener" class="transit-ext-link">運行情報まとめ（Yahoo!路線情報）↗</a></div>
+      </div>
+
+      <div id="transit-results-card" class="card" style="display:none">
+        <div class="transit-via-section" style="margin-bottom:10px">
+          <button type="button" class="jare-ocr-toggle" onclick="toggleTransitLines()">
+            <span>🚋 運行情報の確認・路線の除外</span>
+            <span class="jare-ocr-arrow" id="transit-lines-arrow">▼</span>
+          </button>
+          <div class="jare-ocr-body" id="transit-lines-body">
+            <div class="transit-note" style="margin:0 0 8px">各路線の運行情報を確認し、支障のある路線を除外して迂回路を検索できます。<br>※除外検索は候補から絞り込む方式のため、迂回路が見つからないことがあります。確実に迂回したい場合は「経由駅を指定」で通りたい駅を指定して検索してください</div>
+            <div id="transit-lines-list"></div>
+            <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="searchTransitDetour()">チェックした路線を除外して再検索</button>
+          </div>
+        </div>
+        <div id="transit-detour-note" class="transit-note" style="display:none;margin:0 0 8px"></div>
+        <div class="transit-seg-row">
+          <button type="button" id="transit-sort-time" class="active" onclick="sortTransitResults('time')">時間順</button>
+          <button type="button" id="transit-sort-fare" onclick="sortTransitResults('fare')">運賃順</button>
+        </div>
+        <div id="transit-results"></div>
+      </div>
+    </div>
+
+    <!-- 最寄り駅設定 -->
+    <div id="transit-view-settings" style="display:none">
+      <div class="card">
+        <button type="button" class="transit-back" onclick="showTransitView('menu')">← 戻る</button>
+        <div class="transit-title">最寄り駅設定</div>
+        <div class="admin-form-group" style="position:relative">
+          <label>駅を追加（最大5件・候補の選択で追加されます）</label>
+          <input type="text" id="transit-st-add" class="admin-input" placeholder="駅名を入力" autocomplete="off">
+          <div class="transit-suggest" id="transit-st-add-suggest"></div>
+        </div>
+        <div id="transit-st-status" class="admin-status"></div>
+        <div id="transit-st-list" class="transit-st-list"></div>
+        <div class="transit-note" id="transit-st-note"></div>
+      </div>
+    </div>
+
+    <div class="transit-attribution">経路・時刻データ: 公共交通オープンデータ（api.transit.ls8h.com）</div>
+  </div>
 </main>
 
 <script src="./schedule.js"></script>
@@ -1232,6 +1587,8 @@
 <script src="./boshu.js"></script>
 <script src="./stamp.js"></script>
 <script src="./admin.js"></script>
+<script src="./swarm.js"></script>
+<script src="./transit.js"></script>
 
 <!-- ── 予約モーダル ── -->
 <div id="rsv-overlay" class="rsv-overlay" onclick="rsvOverlayClick(event)">
@@ -1647,7 +2004,7 @@
   <div class="login-box">
     <h3>ログイン</h3>
     <p>編集・削除・連番募集の登録には<br>ログインが必要です</p>
-    <p style="font-size:12px;color:var(--dim);margin-top:-8px;">TwitterまたはGoogleアカウントでログインできます</p>
+    <p style="font-size:12px;color:var(--dim);margin-top:-8px;">Googleアカウントでログインできます</p>
     <button class="login-provider-btn" onclick="loginWithGoogle()">
       <!-- Google アイコン -->
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1658,12 +2015,12 @@
       </svg>
       Google でログイン
     </button>
-    <button class="login-provider-btn" onclick="loginWithTwitter()">
+    <button class="login-provider-btn" disabled style="opacity:.5;cursor:not-allowed;" title="現在は使えません">
       <!-- X (Twitter) アイコン -->
       <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
       </svg>
-      X でログイン
+      X でログイン（現在は使えません）
     </button>
     <p class="auth-hint">※ログインしなくても閲覧・書き込みは可能です<br>（じゃれ本の閲覧にはログインが必要です）</p>
     <button class="login-close-btn" onclick="closeLoginModal()">閉じる</button>

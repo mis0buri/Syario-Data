@@ -127,7 +127,7 @@ function filteredGathers() {
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
 const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
-const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss','admin-swarm'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
@@ -140,6 +140,8 @@ const _HASH_TO_SECTION = {
   ranking: 'ranking', member: 'member', graph: 'graph', history: 'history',
   gallery: 'jare', walk: 'walk', schedule: 'schedule', board: 'board',
   renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote', column: 'column',
+  swarm: 'swarm',
+  transit: 'transit',
 };
 
 function showSection(id) {
@@ -177,12 +179,12 @@ function showSection(id) {
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論','admin-swarm':'Swarm連携'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||id==='swarm'||id==='transit'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -204,14 +206,33 @@ function showSection(id) {
   if (id==='admin-score') initAdminScore();
   if (id==='admin-schedule') initAdminSchedule();
   if (id==='admin-ai-discuss') initAdminAiDiscuss();
+  if (id==='admin-swarm') initSwarm('admin');
+  if (id==='swarm') initSwarm('main');
+  if (id==='transit') initTransit();
   if (id==='column') initColumn();
 
-  // URL ハッシュを更新（管理者セクションは除く）
-  if (!_ADMIN.includes(id)) {
+  // URL ハッシュを更新（管理者セクションは #admin/{name} 形式で反映）
+  _skipHashChange = true;
+  if (_ADMIN.includes(id)) {
+    history.replaceState(null, '', location.pathname + location.search + '#admin/' + id.slice(6));
+  } else {
     const frag = id in _SECTION_TO_HASH ? _SECTION_TO_HASH[id] : id;
-    _skipHashChange = true;
     history.replaceState(null, '', frag ? '#' + frag : location.pathname + location.search);
-    _skipHashChange = false;
+  }
+  _skipHashChange = false;
+}
+
+// 管理者ページへの直リンク（#admin/members 等）対応。管理者ログイン確定後にのみ開く
+function _handleAdminHashRoute() {
+  const m = location.hash.match(/^#admin\/([a-z-]+)$/);
+  if (!m) return;
+  const secId = 'admin-' + m[1];
+  if (!_ADMIN.includes(secId)) return;
+  if (_isAdmin) {
+    showSection(secId);
+  } else {
+    // 非管理者がアクセスした場合はハッシュを消してトップのまま
+    history.replaceState(null, '', location.pathname + location.search);
   }
 }
 
@@ -650,12 +671,30 @@ function initFirebase() {
       _auth.onAuthStateChanged(user => {
         _currentUser = user;
         updateAuthUI(user);
+        if (typeof _swarmHandleAuthReady === 'function') _swarmHandleAuthReady(user);
       });
+      // スマホでのリダイレクトログイン完了後の結果を取得（Discord通知用）
+      _auth.getRedirectResult().then(result => {
+        if (result && result.user && result.credential) {
+          const providerName = result.credential.providerId === 'google.com' ? 'Google' : 'X';
+          _notifyDiscordLogin(result.user, providerName);
+        }
+      }).catch(e => console.warn('Redirect login error:', e));
       _loadFirestoreSchedule(); // スケジュール上書きデータを非同期で取得
     }
   } catch(e) {
     console.warn('Firebase init error:', e);
   }
+
+  // SwarmのOAuth認証コールバック（#access_token=...）を検出して保持
+  const swarmTokenMatch = location.hash.match(/access_token=([^&]+)/);
+  if (swarmTokenMatch) {
+    window._swarmPendingToken = decodeURIComponent(swarmTokenMatch[1]);
+    window._swarmPendingNs = localStorage.getItem('swarm_pending_ns') || 'main';
+    localStorage.removeItem('swarm_pending_ns');
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
   // ハッシュルーティング
   _routeHash(location.hash, true);
 
@@ -687,6 +726,12 @@ function _routeHash(hash, isInit) {
   } else if (hash.startsWith('#column/')) {
     showSection('column');
     openColumnDetail(hash.slice(8));
+  } else if (hash.startsWith('#transit/')) {
+    showSection('transit');
+    showTransitView(hash.slice(9));
+  } else if (hash.startsWith('#admin/')) {
+    // 初期ロード時は認証未確定なので、updateAuthUI 側の確定後ハンドラに委ねる
+    if (!isInit) _handleAdminHashRoute();
   } else {
     const key = hash.slice(1);
     if (_HASH_TO_SECTION[key] !== undefined) {
@@ -725,7 +770,14 @@ function updateAuthUI(user) {
   if (user) {
     loginBtn.style.display = 'none';
     userInfo.style.display = 'flex';
-    _loadUserData(user);
+    _loadUserData(user).then(() => {
+      if (!wasResolved) {
+        // 管理者ページ直リンク（#admin/...）を認証確定後に開く
+        _handleAdminHashRoute();
+        // Swarm連携を直リンクで開いていた場合、ログイン情報確定後に再初期化
+        if (currentSection === 'swarm') initSwarm('main');
+      }
+    });
   } else {
     loginBtn.style.display = 'block';
     userInfo.style.display = 'none';
@@ -749,11 +801,20 @@ function closeLoginModal() {
   document.getElementById('login-modal').classList.remove('open');
 }
 
+// スマホ（特にアプリ内ブラウザ）はポップアップが開かない/ブロックされるためリダイレクト方式を使う
+function _isMobileBrowser() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 // ── Google ログイン ──
 async function loginWithGoogle() {
   if (!_auth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  if (_isMobileBrowser()) {
+    _auth.signInWithRedirect(provider);
+    return;
+  }
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
     const result = await _auth.signInWithPopup(provider);
     _notifyDiscordLogin(result.user, 'Google');
     location.reload();
@@ -765,8 +826,12 @@ async function loginWithGoogle() {
 // ── X (Twitter) ログイン ──
 async function loginWithTwitter() {
   if (!_auth) return;
+  const provider = new firebase.auth.TwitterAuthProvider();
+  if (_isMobileBrowser()) {
+    _auth.signInWithRedirect(provider);
+    return;
+  }
   try {
-    const provider = new firebase.auth.TwitterAuthProvider();
     const result = await _auth.signInWithPopup(provider);
     _notifyDiscordLogin(result.user, 'X');
     location.reload();

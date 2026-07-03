@@ -22,13 +22,19 @@ Open `http://localhost:8000`. No automated tests. Test on iOS Safari for layout 
 
 ## Architecture
 
+### Standalone Pages
+
+`swarm-app.html` / `swarm-app.css` / `swarm-app.js` — a self-contained Swarm連携 page, fully decoupled from `index.html`'s SPA (no hash routing, no shared globals, no `firebase-auth-compat.js`). It reads the same `admin_config/swarm` Firestore doc (public read) for the shared Foursquare Client ID/proxy, and shares the unauthenticated-link `localStorage` key `swarm_local_account_main` with `swarm.js`'s `main` namespace so an anonymous link made on either page shows up on both. It does **not** sync with Firestore-backed accounts created by users logged into the main site. Edit `swarm.js` for the in-SPA Swarm tab; edit `swarm-app.js` for this standalone page — the two are intentionally independent and not kept in sync automatically.
+
+`swarm/index.html` is a clean-URL mirror of `swarm-app.html` (served at `/swarm/` on GitHub Pages), referencing the same `swarm-app.css`/`swarm-app.js` via `../` paths. Since `connectAccount()` in `swarm-app.js` builds the Foursquare OAuth `redirect_uri` from `location.origin + location.pathname`, **the `/swarm/` path is a distinct redirect URI from `/swarm-app.html`** and must be separately registered in the Foursquare app's OAuth settings, or the "Swarmと連携する" button will fail with a redirect URI mismatch. When editing the Swarm checkin/account logic, keep both `swarm-app.html` and `swarm/index.html` in sync manually (they're plain copies, not templated).
+
 ### Script Load Order
 
 Scripts load sequentially at bottom of `<body>` — **order matters**:
 
 1. `schedule.js` — defines `SCHEDULE_DATA` global (must come before app.js)
 2. `app.js` — captures `_SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA)` at parse time
-3. `stats.js`, `schedule-ui.js`, `board.js`, `vote.js`, `gallery.js`, `renban.js`, `boshu.js`, `stamp.js`, `admin.js`
+3. `stats.js`, `schedule-ui.js`, `board.js`, `vote.js`, `column.js`, `gallery.js`, `renban.js`, `boshu.js`, `stamp.js`, `admin.js`, `swarm.js`
 
 ### Module Organization
 
@@ -44,6 +50,9 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 | **board.js** | 掲示板 — bulletin board comments |
 | **vote.js** | 投票箱 — poll/voting boxes with options, answers, deadlines |
 | **stamp.js** | Stamp card system |
+| **column.js** | コラム — long-form articles with rich-text editor |
+| **transit.js** | 乗換案内 — journey search via `api.transit.ls8h.com` (no auth, CORS-enabled). Sub-views inside `#sec-transit` (menu/search/dep/home/settings) with `#transit/{view}` deep links via `showTransitView()`. 最寄り駅 list stored in `/users/{uid}.transitStations` when logged in, else localStorage `transit_my_stations` (auto-migrated on login). API times are seconds from service-date midnight (may exceed 86400) — convert with `_trFmtTime()` |
+| **swarm.js** | Swarm連携 — Foursquare/Swarm OAuth check-in linking + X share; namespaced (`main`/`admin`) to support two independent Client IDs; usable without login (account stored in `localStorage` key `swarm_local_account_{ns}`, migrated to Firestore on later login) |
 | **schedule.js** | Static `SCHEDULE_DATA` object only |
 
 ### Global State (app.js)
@@ -88,13 +97,13 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 
 ### Hash-Based Routing
 
-`showSection(id)` handles all navigation. Mapping in `_HASH_TO_SECTION` / `_SECTION_TO_HASH`. Deep-link patterns: `#renban/{id}`, `#jare/{id}`, `#schedule/{YYYY-MM-DD}`, `#vote/{id}`. Admin section IDs are not reflected in the URL hash.
+`showSection(id)` handles all navigation. Mapping in `_HASH_TO_SECTION` / `_SECTION_TO_HASH`. Deep-link patterns: `#renban/{id}`, `#jare/{id}`, `#schedule/{YYYY-MM-DD}`, `#vote/{id}`, `#column/{id}`. Admin sections reflect as `#admin/{name}` (e.g. `admin-swarm` → `#admin/swarm`); on page load `_handleAdminHashRoute()` reopens them after auth resolves (only if `_isAdmin`, otherwise the hash is cleared). For init loads, `_routeHash` defers `#admin/...` handling to that post-auth handler; the `#swarm` deep link is similarly re-initialized after login resolves so account status renders correctly.
 
 ### Firestore Collections
 
 | Collection | Write Access |
 |-----------|-------------|
-| `admin_config` (`/main`, `/schedule`) | Admin only |
+| `admin_config` (`/main`, `/schedule`, `/swarm`, `/swarm_admin`) | Admin only |
 | `admin_gathers` | Admin only |
 | `reservations` | Anyone (own) + Admin |
 | `rsv_participants` | Anyone (own) + Admin |
@@ -107,6 +116,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 | `admin_secrets` (`/api_keys`) | Admin only (read+write) — Gemini/Groq API keys + per-persona model config |
 | `users` | Own UID only |
 | `stamp_cards` | Own UID only |
+| `swarm_accounts`, `swarm_accounts_admin` | Own UID only — Foursquare OAuth access tokens for the main-tab and admin-only Swarm integrations respectively |
 | `admins`, `managers` | Server only (client read-only) |
 
 ### Rating System (stats.js `calcRatings`)
@@ -157,6 +167,8 @@ Two escape helpers in app.js — use them for all user-provided strings:
 
 - **Feedback form** → Discord webhook (`WEBHOOK_URL` hardcoded in app.js)
 - **First-time login** → separate Discord webhook (deduplicated via localStorage key `syario_loggedin_{uid}`)
+- **Google login** (`loginWithGoogle`) — uses `signInWithPopup` on desktop, but `signInWithRedirect` on mobile (`_isMobileBrowser()` checks `navigator.userAgent`) since popups are frequently blocked or fail to open on mobile browsers and in-app browsers (LINE/X/Instagram). The redirect result is picked up via `_auth.getRedirectResult()` in `initFirebase()` to fire the first-time-login Discord notification.
+- **X (Twitter) login** (`loginWithTwitter` in app.js) — button disabled in the login modal (`index.html`) as of 2026-06; X's API tier changes broke Firebase's Twitter OAuth flow (`auth/invalid-credential`) even with correct keys/callback config. The function itself is left intact in case X login is re-enabled later (e.g. paid API tier).
 
 ### Adding a New Admin Section
 
