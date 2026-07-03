@@ -165,10 +165,18 @@ async function _trSuggest(q, signal) {
   const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(q)}&limit=12`, { signal });
   if (!res.ok) return [];
   const j = await res.json();
-  return (j.places || [])
-    .filter(p => p.kind === 'station' || p.kind === 'stop')
-    .slice(0, 8)
-    .map(p => ({ id: p.endpoint, name: p.name, nameKana: p.nameKana, lat: p.lat, lon: p.lon }));
+  // フィード横断で同じ駅が別IDで重複するため、同名かつ近距離（約500m）の候補は
+  // スコア最上位の1件（レスポンス順）に統合する
+  const out = [];
+  (j.places || []).forEach(p => {
+    if (p.kind !== 'station' && p.kind !== 'stop') return;
+    const dup = out.some(o =>
+      o.name === p.name &&
+      Math.abs(o.lat - p.lat) < 0.005 && Math.abs(o.lon - p.lon) < 0.006
+    );
+    if (!dup) out.push({ id: p.endpoint, name: p.name, nameKana: p.nameKana, lat: p.lat, lon: p.lon });
+  });
+  return out.slice(0, 8);
 }
 
 // ── 所在地（都道府県・市区町村）の逆ジオコーディング（国土地理院） ──
