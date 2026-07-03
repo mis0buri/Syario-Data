@@ -333,7 +333,7 @@ async function searchTransit() {
 
   _trJourneys = [];
   results.forEach(r => {
-    if (r.js) r.js.forEach(j => { j._myst = r.pr.myst || ''; _trJourneys.push(j); });
+    if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.pr.myst || ''; _trJourneys.push(j); });
   });
   const failed = results.filter(r => r.err);
 
@@ -369,6 +369,20 @@ async function _trFetchPlan(pr, vias, n) {
     throw new Error(msg || '検索エラー');
   }
   return (j && j.journeys) || [];
+}
+
+// 先頭・末尾の同一駅構内の徒歩区間（乗降のためのホーム↔駅移動）を表示から取り除き、
+// 発着時刻を電車の発着基準にする（一般的な乗換案内アプリの表示に合わせる）
+function _trTrimJourney(j) {
+  const intra = l => l.kind === 'walk' && l.from.name === l.to.name;
+  const legs = j.legs.slice();
+  while (legs.length > 1 && intra(legs[0])) legs.shift();
+  while (legs.length > 1 && intra(legs[legs.length - 1])) legs.pop();
+  if (!legs.length || !legs.some(l => l.kind === 'transit')) return;
+  j.legs = legs;
+  j.departureSecs = legs[0].departureSecs;
+  j.arrivalSecs = legs[legs.length - 1].arrivalSecs;
+  j.durationSecs = j.arrivalSecs - j.departureSecs;
 }
 
 // ── 結果表示 ──
