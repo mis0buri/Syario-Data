@@ -579,47 +579,54 @@ function copyTransitRoute(i) {
 }
 
 // ── 経路を画像で共有 ──
-// gallery.js の shareWalkDetail() と同じ方針：Canvasで画像生成 → toBlob → Web Share API（files対応時）
-// → 非対応ならURL共有 or ダウンロードにフォールバック
-async function shareTransitRoute(i) {
+// iOS Safari対策：canvas.toBlob()（非同期）を挟むとタップのユーザー操作起点（transient user
+// activation）が失われ navigator.share() が拒否されるため、画像生成からshare()呼び出しまで
+// すべて同期処理で行う（awaitを一切挟まない）。
+function shareTransitRoute(i) {
   const j = _trJourneys[i];
   if (!j || !j.legs.length) return;
 
   const btn = document.querySelector(`#transit-route-body-${i} button[onclick="shareTransitRoute(${i})"]`);
   const origText = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
 
   try {
     const dateStr = document.getElementById('transit-date').value || '';
     const fromName = j.legs[0].from.name;
     const toName = j.legs[j.legs.length - 1].to.name;
 
+    // 同期APIでCanvas→PNG画像データを生成
     const canvas = _trBuildRouteCanvas(j, dateStr);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('画像の生成に失敗しました');
+    const dataUrl = canvas.toDataURL('image/png');
+
+    // dataURLをその場で同期的にバイナリ(Blob)へ変換
+    const bin = atob(dataUrl.split(',')[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+    const blob = new Blob([bytes], { type: 'image/png' });
 
     // ファイル名に使えない文字（パス区切り・記号等）を除去
     const safe = s => (s || '').replace(/[\\/:*?"<>|]/g, '');
-    const file = new File([blob], `transit_${safe(fromName)}_${safe(toName)}.png`, { type: 'image/png' });
+    const fileName = `transit_${safe(fromName)}_${safe(toName)}.png`;
+    const file = new File([blob], fileName, { type: 'image/png' });
 
-    try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] });
-      } else {
-        throw new Error('files not supported');
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') return;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // ここまでawaitを挟まず、クリックのユーザー操作起点を保ったままshare()を呼ぶ
+      if (btn) btn.disabled = true;
+      navigator.share({ files: [file] })
+        .catch(e => {
+          if (e.name !== 'AbortError') alert('共有に失敗しました: ' + e.message);
+        })
+        .finally(() => { if (btn) { btn.disabled = false; btn.textContent = origText; } });
+    } else {
       // ファイル共有不可の場合はダウンロードにフォールバック
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = file.name;
+      a.href = url; a.download = fileName;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
   } catch (e) {
     if (e.name !== 'AbortError') alert('共有に失敗しました: ' + e.message);
-  } finally {
     if (btn) { btn.disabled = false; btn.textContent = origText; }
   }
 }
