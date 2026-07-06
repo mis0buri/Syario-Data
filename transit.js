@@ -29,6 +29,12 @@ function initTransit() {
     if (_trView === 'settings') _trRenderSettings();
     if (_trMode !== 'free' && _trView !== 'menu') _trRenderMyToggles();
   });
+  // 日付・時刻はこの画面を開くたびに現在時刻へ更新する
+  // （SPAで日付をまたいで開きっぱなしにすると古いサービス日で検索してしまい、
+  //  今は走っていない便＝実ダイヤにない便が出るのを防ぐ）
+  const now = new Date();
+  document.getElementById('transit-date').value = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' });
+  document.getElementById('transit-time').value = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
   if (_trInited) return;
   _trInited = true;
   ['from', 'to', 'via1', 'via2', 'via3'].forEach(k => _trBindSuggest(k));
@@ -36,9 +42,6 @@ function initTransit() {
     addTransitMyStation(st);
     document.getElementById('transit-st-add').value = '';
   });
-  const now = new Date();
-  document.getElementById('transit-date').value = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' });
-  document.getElementById('transit-time').value = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
   _trRenderHistory();
 }
 
@@ -329,7 +332,9 @@ async function searchTransit(detour) {
 
   btn.disabled = true;
   _trStatus('検索中...');
-  const n = detour ? 6 : (_trMode === 'free' ? 4 : 3);
+  // フリー検索は候補数を多めにして高頻度路線の続行便も拾えるようにする
+  // （少ないと別ルート優先で同一路線の次発が間引かれ、実際より本数が少なく見える）
+  const n = detour ? 6 : (_trMode === 'free' ? 8 : 3);
   const results = await Promise.all(pairs.map(pr =>
     _trFetchPlan(pr, vias, n, detour).then(js => ({ pr, js })).catch(e => ({ pr, err: e }))
   ));
