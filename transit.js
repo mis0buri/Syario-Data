@@ -6,6 +6,7 @@ const TRANSIT_API = 'https://api.transit.ls8h.com';
 const TRANSIT_LS_STATIONS = 'transit_my_stations';
 const TRANSIT_LS_ENABLED = 'transit_my_enabled';
 const TRANSIT_LS_HISTORY = 'transit_history';
+const TRANSIT_LS_INCLUDE_BUS = 'transit_include_bus'; // バスを含めるか（既定=含めない）
 // フリー検索で自動的にvia指定して探索する主要ハブ駅（APIが上位に出さない
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
 const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野'];
@@ -26,6 +27,7 @@ let _trJourneys = [];
 let _trSort = 'time';
 let _trExclude = [];           // 迂回検索で除外する路線名（routeName完全一致）
 let _trIsDetour = false;
+let _trIncludeBus = localStorage.getItem(TRANSIT_LS_INCLUDE_BUS) === '1'; // 既定=false（バス排除）
 const _trTimer = {};
 const _trAbort = {};
 
@@ -42,6 +44,8 @@ function initTransit() {
   const now = new Date();
   document.getElementById('transit-date').value = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' });
   document.getElementById('transit-time').value = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
+  const busCb = document.getElementById('transit-include-bus');
+  if (busCb) busCb.checked = _trIncludeBus;
   if (_trInited) return;
   _trInited = true;
   ['from', 'to', 'via1', 'via2', 'via3'].forEach(k => _trBindSuggest(k));
@@ -297,6 +301,13 @@ function setTransitType(t, btn) {
   ['via1', 'via2', 'via3'].forEach(k => { document.getElementById('transit-' + k).disabled = isFL; });
 }
 
+function setTransitIncludeBus(on) {
+  _trIncludeBus = !!on;
+  localStorage.setItem(TRANSIT_LS_INCLUDE_BUS, _trIncludeBus ? '1' : '0');
+  // すでに検索結果が出ていれば、新しい条件で自動的に再検索する
+  if (document.getElementById('transit-results-card').style.display !== 'none') searchTransit();
+}
+
 function toggleTransitVia() {
   const body = document.getElementById('transit-via-body');
   const arrow = document.getElementById('transit-via-arrow');
@@ -378,27 +389,29 @@ async function searchTransit(detour) {
   //   迂回検索で実績のある6までに留める。
   const n = detour ? 6 : (_trMode === 'free' ? 6 : 3);
 
+  // バスの扱い: 既定はバス排除（avoidModes=bus を全検索に付与）。チェックONで含める。
+  const avoid = _trIncludeBus ? undefined : 'bus';
   // 検索タスクを構築。フリー検索では追加検索も並行実行して候補を補強する:
-  //  ・バス除外(avoidModes=bus)検索: バス偏重で電車経路が上位に出ない区間でも電車経路を拾う
+  //  ・rail-bias(avoidModes=bus)検索: バスを含める時に電車経路が埋もれないよう電車のみも取得
   //  ・主要ハブ駅の自動via検索(経由指定なし時): APIが上位に出さない別事業者乗換ルートを拾う
   const hubFanout = _trMode === 'free' && !detour && !isFL && !vias.length;
-  const railBias = _trMode === 'free' && !detour;
+  const railBias = _trIncludeBus && _trMode === 'free' && !detour; // バス排除時は本線が既に電車のみなので不要
   const tasks = [];
   if (_trMode === 'free') {
     const pr = pairs[0];
-    tasks.push({ pr, vias, n, base: true });
-    if (railBias) tasks.push({ pr, vias, n, base: false, avoidModes: 'bus' });
-    if (hubFanout) (await _trResolveHubs(pr)).forEach(h => tasks.push({ pr, vias: [h], n: 3, base: false }));
+    tasks.push({ pr, vias, n, base: true, avoidModes: avoid });
+    if (railBias) tasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
+    if (hubFanout) (await _trResolveHubs(pr)).forEach(h => tasks.push({ pr, vias: [h], n: 3, base: false, avoidModes: avoid, timeout: 6000 }));
   } else {
-    pairs.forEach(pr => tasks.push({ pr, vias, n, base: true }));
+    pairs.forEach(pr => tasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
 
-  // 本線検索はタイムアウトを付けない（元の挙動どおり結果を待つ）。ハブ経由の追加検索
-  // だけ短いタイムアウトを付け、遅ければ諦めて本線結果を出す（本線を巻き込まない）。
+  // 本線検索はタイムアウトを付けない（元の挙動どおり結果を待つ）。追加検索だけ
+  // タイムアウトを付け、遅ければ諦めて本線結果を出す（本線を巻き込まない）。
   const results = await Promise.all(tasks.map(t =>
     t.base
-      ? _trFetchPlan(t.pr, t.vias, t.n, detour).then(js => ({ t, js })).catch(e => ({ t, err: e }))
-      : _trPlanWithTimeout(t, detour, t.avoidModes ? 8000 : 6000)
+      ? _trFetchPlan(t.pr, t.vias, t.n, detour, undefined, t.avoidModes).then(js => ({ t, js })).catch(e => ({ t, err: e }))
+      : _trPlanWithTimeout(t, detour, t.timeout || 6000)
   ));
   btn.disabled = false;
 

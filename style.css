@@ -1634,6 +1634,11 @@ body.public-mode main { padding-top: 20px; }
 .transit-my-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; color: var(--text); cursor: pointer; min-height: 32px; }
 .transit-datetime-row { display: flex; gap: 8px; margin-bottom: 10px; }
 .transit-datetime-row .admin-input { flex: 1; min-width: 0; }
+.transit-bus-toggle {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+  font-size: 12.5px; color: var(--dim); cursor: pointer;
+}
+.transit-bus-toggle input { width: 16px; height: 16px; flex: none; cursor: pointer; accent-color: var(--accent); }
 .transit-seg-row { display: flex; gap: 6px; margin-bottom: 10px; }
 .transit-seg-row button {
   flex: 1; padding: 8px 4px; font-size: 13px; font-family: inherit;
