@@ -334,7 +334,9 @@ async function searchTransit(detour) {
   _trStatus('検索中...');
   // フリー検索は候補数を多めにして高頻度路線の続行便も拾えるようにする
   // （少ないと別ルート優先で同一路線の次発が間引かれ、実際より本数が少なく見える）
-  const n = detour ? 6 : (_trMode === 'free' ? 8 : 3);
+  // ※numItinerariesはAPI側に上限があり、8だと「plan query is invalid」で弾かれる。
+  //   迂回検索で実績のある6までに留める。
+  const n = detour ? 6 : (_trMode === 'free' ? 6 : 3);
   const results = await Promise.all(pairs.map(pr =>
     _trFetchPlan(pr, vias, n, detour).then(js => ({ pr, js })).catch(e => ({ pr, err: e }))
   ));
