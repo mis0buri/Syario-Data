@@ -390,9 +390,12 @@ async function searchTransit(detour) {
     pairs.forEach(pr => tasks.push({ pr, vias, n, base: true }));
   }
 
-  // 本線は余裕を持ったタイムアウト、ハブ経由は短め（遅ければ諦めて本線結果を出す）
+  // 本線検索はタイムアウトを付けない（元の挙動どおり結果を待つ）。ハブ経由の追加検索
+  // だけ短いタイムアウトを付け、遅ければ諦めて本線結果を出す（本線を巻き込まない）。
   const results = await Promise.all(tasks.map(t =>
-    _trPlanWithTimeout(t, detour, t.base ? 12000 : 6000)
+    t.base
+      ? _trFetchPlan(t.pr, t.vias, t.n, detour).then(js => ({ t, js })).catch(e => ({ t, err: e }))
+      : _trPlanWithTimeout(t, detour, 6000)
   ));
   btn.disabled = false;
 
@@ -405,8 +408,11 @@ async function searchTransit(detour) {
   const failed = results.filter(r => r.err && r.t.base);
 
   if (!all.length) {
-    const msg = failed.length
-      ? '検索に失敗しました: ' + failed[0].err.message
+    const e = failed.length ? failed[0].err : null;
+    // 中断（タイムアウト等）は分かりにくい生メッセージを出さず、時間をおいて再試行を促す
+    const isAbort = e && (e.name === 'AbortError' || /abort/i.test(e.message || ''));
+    const msg = e
+      ? (isAbort ? '検索がタイムアウトしました。通信環境を確認して再度お試しください' : '検索に失敗しました: ' + e.message)
       : '経路が見つかりませんでした' + (_trType === 'last' ? '（この日の運行が終了している可能性があります）' : '');
     _trStatus(msg, true);
     document.getElementById('transit-results-card').style.display = 'none';
