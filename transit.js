@@ -573,7 +573,11 @@ function _trFmtDur(secs) {
 
 function _trRenderLeg(leg) {
   if (leg.kind === 'walk') {
-    return `<div class="transit-leg-walk">┊ 徒歩 ${_trFmtDur(leg.arrivalSecs - leg.departureSecs)}</div>`;
+    const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
+    // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は駅名を明示する
+    const cross = leg.from.name !== leg.to.name
+      ? `（${_esc(leg.from.name)} → ${_esc(leg.to.name)}）` : '';
+    return `<div class="transit-leg-walk">┊ 徒歩 ${dur}${cross}</div>`;
   }
   const color = leg.color ? (leg.color.charAt(0) === '#' ? leg.color : '#' + leg.color) : '';
   const pf = st => st.platformCode ? `〔${_esc(st.platformCode)}番線〕` : '';
@@ -823,7 +827,9 @@ function _trBuildRouteCanvas(j, dateStr) {
       ctx.setLineDash([]);
       ctx.font = "14px 'Noto Sans JP', sans-serif";
       ctx.fillStyle = '#a0a0a0';
-      ctx.fillText(`┊ 徒歩 ${dur}`, textX, y + WALK_LEG_H / 2 + 5);
+      // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は駅名を明示する
+      const cross = leg.from.name !== leg.to.name ? `（${leg.from.name} → ${leg.to.name}）` : '';
+      ctx.fillText(`┊ 徒歩 ${dur}${cross}`, textX, y + WALK_LEG_H / 2 + 5);
       y += WALK_LEG_H + LEG_GAP;
       return;
     }
