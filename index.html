@@ -1506,6 +1506,11 @@
           <button type="button" onclick="setTransitType('last', this)">終電</button>
         </div>
 
+        <label class="transit-bus-toggle">
+          <input type="checkbox" id="transit-include-bus" onchange="setTransitIncludeBus(this.checked)">
+          <span>バスを含める（初期状態は電車・地下鉄などのみ）</span>
+        </label>
+
         <div class="transit-via-section">
           <button type="button" class="jare-ocr-toggle" onclick="toggleTransitVia()">
             <span>経由駅を指定</span>
