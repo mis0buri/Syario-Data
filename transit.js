@@ -6,6 +6,10 @@ const TRANSIT_API = 'https://api.transit.ls8h.com';
 const TRANSIT_LS_STATIONS = 'transit_my_stations';
 const TRANSIT_LS_ENABLED = 'transit_my_enabled';
 const TRANSIT_LS_HISTORY = 'transit_history';
+// フリー検索で自動的にvia指定して探索する主要ハブ駅（APIが上位に出さない
+// 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
+const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野'];
+let _trHubCache = null;
 
 let _trInited = false;
 let _trReady = null;
@@ -303,6 +307,37 @@ function _trStatus(msg, isErr) {
   el.className = 'admin-status' + (isErr ? ' error' : '');
 }
 
+// 主要ハブ駅を駅ID付きに解決（セッションキャッシュ）。出発/到着駅と同一のハブは
+// via指定できない（無効クエリになる）ため除外して返す。
+async function _trResolveHubs(pr) {
+  if (!_trHubCache) {
+    const arr = await Promise.all(TRANSIT_HUBS.map(name =>
+      _trSuggest(name).then(sts => sts[0] || null).catch(() => null)
+    ));
+    _trHubCache = arr.filter(Boolean).map(st => ({ id: st.id, name: st.name }));
+  }
+  return _trHubCache.filter(h =>
+    h.id !== pr.from.id && h.id !== pr.to.id &&
+    h.name !== pr.from.name && h.name !== pr.to.name
+  );
+}
+
+// 複数検索（本線＋ハブ経由）の結果から同一経路を除去する。
+// 発着秒数と運行区間（路線名＋発着駅）の並びが一致する経路を重複とみなす。
+function _trDedupJourneys(list) {
+  const seen = new Set();
+  const out = [];
+  list.forEach(j => {
+    const tl = j.legs.filter(l => l.kind === 'transit');
+    const key = j.departureSecs + '_' + j.arrivalSecs + '_' +
+      tl.map(l => l.routeName + ':' + l.from.name + '>' + l.to.name).join('|');
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(j);
+  });
+  return out;
+}
+
 // ── 検索 ──
 async function searchTransit(detour) {
   const btn = document.getElementById('transit-search-btn');
@@ -337,16 +372,31 @@ async function searchTransit(detour) {
   // ※numItinerariesはAPI側に上限があり、8だと「plan query is invalid」で弾かれる。
   //   迂回検索で実績のある6までに留める。
   const n = detour ? 6 : (_trMode === 'free' ? 6 : 3);
-  const results = await Promise.all(pairs.map(pr =>
-    _trFetchPlan(pr, vias, n, detour).then(js => ({ pr, js })).catch(e => ({ pr, err: e }))
+
+  // 検索タスクを構築。経由指定なしの通常フリー検索では主要ハブ駅を自動でvia指定した
+  // 検索も追加し、APIが上位に出さない隠れた最速ルート（別事業者乗換など）を拾う。
+  const hubFanout = _trMode === 'free' && !detour && !isFL && !vias.length;
+  const tasks = [];
+  if (hubFanout) {
+    const pr = pairs[0];
+    tasks.push({ pr, vias: [], n, base: true });
+    (await _trResolveHubs(pr)).forEach(h => tasks.push({ pr, vias: [h], n: 3, base: false }));
+  } else {
+    pairs.forEach(pr => tasks.push({ pr, vias, n, base: true }));
+  }
+
+  const results = await Promise.all(tasks.map(t =>
+    _trFetchPlan(t.pr, t.vias, t.n, detour).then(js => ({ t, js })).catch(e => ({ t, err: e }))
   ));
   btn.disabled = false;
 
-  const all = [];
+  let all = [];
   results.forEach(r => {
-    if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.pr.myst || ''; all.push(j); });
+    if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.t.pr.myst || ''; all.push(j); });
   });
-  const failed = results.filter(r => r.err);
+  if (hubFanout) all = _trDedupJourneys(all);
+  // 失敗表示の対象は本線検索（base）のみ。ハブ経由検索の失敗は無視する
+  const failed = results.filter(r => r.err && r.t.base);
 
   if (!all.length) {
     const msg = failed.length
