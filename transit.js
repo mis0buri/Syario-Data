@@ -516,13 +516,13 @@ function _trPlanWithTimeout(t, detour, ms) {
     .finally(() => clearTimeout(timer));
 }
 
-// 先頭・末尾の同一駅構内の徒歩区間（乗降のためのホーム↔駅移動）を表示から取り除き、
-// 発着時刻を電車の発着基準にする（一般的な乗換案内アプリの表示に合わせる）
+// 先頭の同一駅構内の徒歩区間（乗降のためのホーム↔駅移動）を取り除き、出発時刻を
+// 電車の発着基準にする。末尾の徒歩は目的地までの移動（改札→目的地や別駅への乗換
+// 徒歩など）を表すため省略せず残し、到着時刻も徒歩終点基準にする。
 function _trTrimJourney(j) {
   const intra = l => l.kind === 'walk' && l.from.name === l.to.name;
   const legs = j.legs.slice();
   while (legs.length > 1 && intra(legs[0])) legs.shift();
-  while (legs.length > 1 && intra(legs[legs.length - 1])) legs.pop();
   if (!legs.length || !legs.some(l => l.kind === 'transit')) return;
   j.legs = legs;
   j.departureSecs = legs[0].departureSecs;
