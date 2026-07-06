@@ -10,6 +10,9 @@ const TRANSIT_LS_HISTORY = 'transit_history';
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
 const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野'];
 let _trHubCache = null;
+// 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
+// （ソート後の上位のみ表示。遠回りハブの無駄ルートは下位で切り捨てられる）
+const TRANSIT_MAX_RESULTS = 12;
 
 let _trInited = false;
 let _trReady = null;
@@ -329,6 +332,8 @@ function _trDedupJourneys(list) {
   const out = [];
   list.forEach(j => {
     const tl = j.legs.filter(l => l.kind === 'transit');
+    // 運行区間のない徒歩のみ経路は発着秒数が未設定でキーが潰れるため、判定せず残す
+    if (!tl.length) { out.push(j); return; }
     const key = j.departureSecs + '_' + j.arrivalSecs + '_' +
       tl.map(l => l.routeName + ':' + l.from.name + '>' + l.to.name).join('|');
     if (seen.has(key)) return;
@@ -385,8 +390,9 @@ async function searchTransit(detour) {
     pairs.forEach(pr => tasks.push({ pr, vias, n, base: true }));
   }
 
+  // 本線は余裕を持ったタイムアウト、ハブ経由は短め（遅ければ諦めて本線結果を出す）
   const results = await Promise.all(tasks.map(t =>
-    _trFetchPlan(t.pr, t.vias, t.n, detour).then(js => ({ t, js })).catch(e => ({ t, err: e }))
+    _trPlanWithTimeout(t, detour, t.base ? 12000 : 6000)
   ));
   btn.disabled = false;
 
@@ -454,7 +460,7 @@ function toggleTransitLines() {
   arrow.classList.toggle('open', open);
 }
 
-async function _trFetchPlan(pr, vias, n, detour) {
+async function _trFetchPlan(pr, vias, n, detour, signal) {
   const p = new URLSearchParams({
     from: pr.from.id, to: pr.to.id,
     fromLabel: pr.from.name, toLabel: pr.to.name,
@@ -466,13 +472,24 @@ async function _trFetchPlan(pr, vias, n, detour) {
   if (t && _trType !== 'first' && _trType !== 'last') p.set('time', t);
   vias.forEach(v => { p.append('via', v.id); p.append('viaLabel', v.name); });
   if (detour) p.set('maxTransfers', '5'); // 迂回時は乗換回数を緩めて候補を広げる
-  const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString());
+  const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString(), signal ? { signal } : undefined);
   const j = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = j && j.error ? (typeof j.error === 'string' ? j.error : j.error.message) : res.statusText;
     throw new Error(msg || '検索エラー');
   }
   return (j && j.journeys) || [];
+}
+
+// planをタイムアウト付きで実行（ハブ経由の追加検索が遅延・ハングしても
+// 本線結果の表示や検索ボタンの復帰を巻き込まないようにする）
+function _trPlanWithTimeout(t, detour, ms) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal)
+    .then(js => ({ t, js }))
+    .catch(e => ({ t, err: e }))
+    .finally(() => clearTimeout(timer));
 }
 
 // 先頭・末尾の同一駅構内の徒歩区間（乗降のためのホーム↔駅移動）を表示から取り除き、
@@ -536,7 +553,8 @@ function _trRenderLeg(leg) {
 }
 
 function renderTransitResults() {
-  document.getElementById('transit-results').innerHTML = _trJourneys.map((j, i) => {
+  // _trJourneys[i] を参照するハンドラと整合させるため、先頭からの連番indexで表示
+  document.getElementById('transit-results').innerHTML = _trJourneys.slice(0, TRANSIT_MAX_RESULTS).map((j, i) => {
     const fare = j.fare
       ? '¥' + j.fare.ticket.toLocaleString() + (j.fare.ic !== undefined ? `（IC ¥${j.fare.ic.toLocaleString()}）` : '')
       : '運賃不明';
