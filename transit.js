@@ -10,6 +10,7 @@ const TRANSIT_LS_INCLUDE_BUS = 'transit_include_bus'; // バスを含めるか�
 // フリー検索で自動的にvia指定して探索する主要ハブ駅（APIが上位に出さない
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
 const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野'];
+const TRANSIT_HUB_FANOUT = false; // 主要ハブ自動via検索の有効フラグ（一旦無効化中）
 let _trHubCache = null;
 // 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
 // （ソート後の上位のみ表示。遠回りハブの無駄ルートは下位で切り捨てられる）
@@ -394,7 +395,7 @@ async function searchTransit(detour) {
   // 検索タスクを構築。フリー検索では追加検索も並行実行して候補を補強する:
   //  ・rail-bias(avoidModes=bus)検索: バスを含める時に電車経路が埋もれないよう電車のみも取得
   //  ・主要ハブ駅の自動via検索(経由指定なし時): APIが上位に出さない別事業者乗換ルートを拾う
-  const hubFanout = _trMode === 'free' && !detour && !isFL && !vias.length;
+  const hubFanout = TRANSIT_HUB_FANOUT && _trMode === 'free' && !detour && !isFL && !vias.length;
   const railBias = _trIncludeBus && _trMode === 'free' && !detour; // バス排除時は本線が既に電車のみなので不要
   const tasks = [];
   if (_trMode === 'free') {
