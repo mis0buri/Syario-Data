@@ -612,13 +612,17 @@ function _trFmtDur(secs) {
   return mins >= 60 ? `${Math.floor(mins / 60)}時間${mins % 60}分` : `${mins}分`;
 }
 
-function _trRenderLeg(leg) {
+function _trRenderLeg(leg, isFirst, isLast) {
   if (leg.kind === 'walk') {
     const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
     // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は駅名を明示する
     const cross = leg.from.name !== leg.to.name
       ? `（${_esc(leg.from.name)} → ${_esc(leg.to.name)}）` : '';
-    return `<div class="transit-leg-walk">┊ 徒歩 ${dur}${cross}</div>`;
+    // 経路の先頭/末尾が徒歩の場合、出発地/到着地を●付きで明示する（到着駅・時刻が
+    // 隣の電車区間に現れず分かりづらくなるのを防ぐ）
+    const head = isFirst ? `<div class="transit-leg-st">● ${_trFmtTime(leg.departureSecs)} ${_esc(leg.from.name)}</div>` : '';
+    const tail = isLast ? `<div class="transit-leg-st">● ${_trFmtTime(leg.arrivalSecs)} ${_esc(leg.to.name)} 着</div>` : '';
+    return `${head}<div class="transit-leg-walk">┊ 徒歩 ${dur}${cross}</div>${tail}`;
   }
   const color = leg.color ? (leg.color.charAt(0) === '#' ? leg.color : '#' + leg.color) : '';
   const pf = st => st.platformCode ? `〔${_esc(st.platformCode)}番線〕` : '';
@@ -642,7 +646,7 @@ function renderTransitResults() {
         <span class="transit-route-meta">${_trIsDetour ? '<span class="transit-detour-badge">迂回路</span>' : ''}${fare}・乗換${j.transferCount}回${myst}</span>
       </button>
       <div class="transit-route-body${i === 0 ? ' open' : ''}" id="transit-route-body-${i}">
-        ${j.legs.map(_trRenderLeg).join('')}
+        ${j.legs.map((leg, k) => _trRenderLeg(leg, k === 0, k === j.legs.length - 1)).join('')}
         ${!j.fare ? `<div class="transit-note" id="transit-pf-${i}" style="margin:6px 0 0">${j._pf || `<button type="button" class="admin-btn sm" onclick="calcPartialFare(${i})">区間ごとの運賃を算出</button>`}</div>` : ''}
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="copyTransitRoute(${i})">テキストをコピー</button>
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="shareTransitRoute(${i})">画像で共有</button>
@@ -786,8 +790,12 @@ function shareTransitRoute(i) {
 // 経路journeyをCanvasに描画して返す（高DPI対応のため内部解像度は2倍で描画）
 function _trBuildRouteCanvas(j, dateStr) {
   const W = 1080, dpr = 2, PAD = 40;
-  const TRANSIT_LEG_H = 116, WALK_LEG_H = 28, LEG_GAP = 10;
-  const legsH = j.legs.reduce((s, leg) => s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + LEG_GAP, 0);
+  const TRANSIT_LEG_H = 116, WALK_LEG_H = 28, LEG_GAP = 10, EXTRA_BULLET_H = 26;
+  // 先頭/末尾が徒歩の区間は出発地/到着地の●行を足すぶん高さを加算する
+  const walkExtra = (leg, k) => leg.kind === 'walk'
+    ? ((k === 0 ? 1 : 0) + (k === j.legs.length - 1 ? 1 : 0)) * EXTRA_BULLET_H : 0;
+  const legsH = j.legs.reduce((s, leg, k) =>
+    s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + walkExtra(leg, k) + LEG_GAP, 0);
 
   const headerH = 76;      // アプリ名＋日付
   const bigRouteH = 76;    // 出発駅 → 到着駅
@@ -858,9 +866,16 @@ function _trBuildRouteCanvas(j, dateStr) {
   // ── 本体：縦タイムライン ──
   const barX = PAD;
   const textX = PAD + 20;
-  j.legs.forEach(leg => {
+  j.legs.forEach((leg, k) => {
     if (leg.kind === 'walk') {
       const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
+      const isFirst = k === 0, isLast = k === j.legs.length - 1;
+      // 経路の先頭/末尾が徒歩の場合、出発地/到着地を●付きで明示する
+      if (isFirst) {
+        ctx.font = "bold 18px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#e8e6e3';
+        ctx.fillText(`● ${_trFmtTime(leg.departureSecs)} ${leg.from.name}`, textX, y + 20);
+        y += EXTRA_BULLET_H;
+      }
       // 徒歩は1行の小さい注記なのでWALK_LEG_H(=28)の縦中央に破線バーとテキストを収める
       ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
       ctx.setLineDash([2, 4]);
@@ -871,7 +886,13 @@ function _trBuildRouteCanvas(j, dateStr) {
       // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は駅名を明示する
       const cross = leg.from.name !== leg.to.name ? `（${leg.from.name} → ${leg.to.name}）` : '';
       ctx.fillText(`┊ 徒歩 ${dur}${cross}`, textX, y + WALK_LEG_H / 2 + 5);
-      y += WALK_LEG_H + LEG_GAP;
+      y += WALK_LEG_H;
+      if (isLast) {
+        ctx.font = "bold 18px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#e8e6e3';
+        ctx.fillText(`● ${_trFmtTime(leg.arrivalSecs)} ${leg.to.name} 着`, textX, y + 20);
+        y += EXTRA_BULLET_H;
+      }
+      y += LEG_GAP;
       return;
     }
 
