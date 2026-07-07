@@ -7,10 +7,11 @@ const TRANSIT_LS_STATIONS = 'transit_my_stations';
 const TRANSIT_LS_ENABLED = 'transit_my_enabled';
 const TRANSIT_LS_HISTORY = 'transit_history';
 const TRANSIT_LS_INCLUDE_BUS = 'transit_include_bus'; // バスを含めるか（既定=含めない）
+const TRANSIT_LS_HUBS = 'transit_hub_cache';          // 主要ハブ駅ID解決結果の恒久キャッシュ
 // フリー検索で自動的にvia指定して探索する主要ハブ駅（APIが上位に出さない
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
 const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野'];
-const TRANSIT_HUB_FANOUT = false; // 主要ハブ自動via検索の有効フラグ（一旦無効化中）
+const TRANSIT_HUB_FANOUT = true; // 主要ハブ自動via検索の有効フラグ（結果は段階表示で差し込む）
 let _trHubCache = null;
 // 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
 // （ソート後の上位のみ表示。遠回りハブの無駄ルートは下位で切り捨てられる）
@@ -29,6 +30,7 @@ let _trSort = 'time';
 let _trExclude = [];           // 迂回検索で除外する路線名（routeName完全一致）
 let _trIsDetour = false;
 let _trIncludeBus = localStorage.getItem(TRANSIT_LS_INCLUDE_BUS) === '1'; // 既定=false（バス排除）
+let _trSearchToken = 0; // 検索ごとに採番。段階表示の非同期更新が古い検索由来なら破棄するため
 const _trTimer = {};
 const _trAbort = {};
 
@@ -322,14 +324,18 @@ function _trStatus(msg, isErr) {
   el.className = 'admin-status' + (isErr ? ' error' : '');
 }
 
-// 主要ハブ駅を駅ID付きに解決（セッションキャッシュ）。出発/到着駅と同一のハブは
-// via指定できない（無効クエリになる）ため除外して返す。
+// 主要ハブ駅を駅ID付きに解決（localStorageに恒久キャッシュ）。出発/到着駅と同一の
+// ハブはvia指定できない（無効クエリになる）ため除外して返す。
 async function _trResolveHubs(pr) {
   if (!_trHubCache) {
+    try { _trHubCache = JSON.parse(localStorage.getItem(TRANSIT_LS_HUBS) || 'null'); } catch (e) { _trHubCache = null; }
+  }
+  if (!_trHubCache || !_trHubCache.length) {
     const arr = await Promise.all(TRANSIT_HUBS.map(name =>
       _trSuggest(name).then(sts => sts[0] || null).catch(() => null)
     ));
     _trHubCache = arr.filter(Boolean).map(st => ({ id: st.id, name: st.name }));
+    if (_trHubCache.length) { try { localStorage.setItem(TRANSIT_LS_HUBS, JSON.stringify(_trHubCache)); } catch (e) {} }
   }
   return _trHubCache.filter(h =>
     h.id !== pr.from.id && h.id !== pr.to.id &&
@@ -382,68 +388,90 @@ async function searchTransit(detour) {
     if (!pairs.length) { _trStatus('出発駅と到着駅が同じです', true); return; }
   }
 
+  const token = ++_trSearchToken;
   btn.disabled = true;
   _trStatus('検索中...');
-  // フリー検索は候補数を多めにして高頻度路線の続行便も拾えるようにする
-  // （少ないと別ルート優先で同一路線の次発が間引かれ、実際より本数が少なく見える）
-  // ※numItinerariesはAPI側に上限があり、8だと「plan query is invalid」で弾かれる。
-  //   迂回検索で実績のある6までに留める。
+  // フリー検索は候補数を多めにする。numItinerariesはAPI上限6（8は「plan query is invalid」）。
   const n = detour ? 6 : (_trMode === 'free' ? 6 : 3);
-
   // バスの扱い: 既定はバス排除（avoidModes=bus を全検索に付与）。チェックONで含める。
   const avoid = _trIncludeBus ? undefined : 'bus';
-  // 検索タスクを構築。フリー検索では追加検索も並行実行して候補を補強する:
-  //  ・rail-bias(avoidModes=bus)検索: バスを含める時に電車経路が埋もれないよう電車のみも取得
-  //  ・主要ハブ駅の自動via検索(経由指定なし時): APIが上位に出さない別事業者乗換ルートを拾う
   const hubFanout = TRANSIT_HUB_FANOUT && _trMode === 'free' && !detour && !isFL && !vias.length;
   const railBias = _trIncludeBus && _trMode === 'free' && !detour; // バス排除時は本線が既に電車のみなので不要
-  const tasks = [];
+
+  // ── フェーズ1: 本線(+rail-bias)検索。結果が出たら即表示し、ハブ経由は裏で続ける ──
+  const baseTasks = [];
   if (_trMode === 'free') {
     const pr = pairs[0];
-    tasks.push({ pr, vias, n, base: true, avoidModes: avoid });
-    if (railBias) tasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
-    if (hubFanout) (await _trResolveHubs(pr)).forEach(h => tasks.push({ pr, vias: [h], n: 3, base: false, avoidModes: avoid, timeout: 6000 }));
+    baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid });
+    if (railBias) baseTasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
   } else {
-    pairs.forEach(pr => tasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
+    pairs.forEach(pr => baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
-
-  // 本線検索はタイムアウトを付けない（元の挙動どおり結果を待つ）。追加検索だけ
-  // タイムアウトを付け、遅ければ諦めて本線結果を出す（本線を巻き込まない）。
-  const results = await Promise.all(tasks.map(t =>
-    t.base
-      ? _trFetchPlan(t.pr, t.vias, t.n, detour, undefined, t.avoidModes).then(js => ({ t, js })).catch(e => ({ t, err: e }))
-      : _trPlanWithTimeout(t, detour, t.timeout || 6000)
-  ));
+  const baseResults = await Promise.all(baseTasks.map(t => _trRunTask(t, detour)));
+  if (token !== _trSearchToken) return; // 新しい検索に置き換わっていたら破棄
   btn.disabled = false;
 
-  let all = [];
+  let all = _trCollect(baseResults, []);
+  if (_trMode === 'free' && baseTasks.length > 1) all = _trDedupJourneys(all);
+  const baseFailed = baseResults.filter(r => r.err && r.t.base);
+
+  if (all.length) {
+    if (_trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
+    _trStatus(hubFanout ? 'さらに速い経路を探索中…' : (baseFailed.length ? '一部の検索に失敗しました' : ''));
+    _trApplyResults(all);
+  } else if (!hubFanout) {
+    _trShowNoResult(baseFailed);
+    return;
+  } else {
+    // 本線が空でもハブ経由で見つかる可能性があるので待つ。前回結果は隠す
+    document.getElementById('transit-results-card').style.display = 'none';
+    _trStatus('経路を探索中…');
+  }
+
+  // ── フェーズ2: 主要ハブ経由検索を裏で実行し、より良い経路を差し込む ──
+  if (!hubFanout) return;
+  const hubs = await _trResolveHubs(pairs[0]);
+  if (token !== _trSearchToken) return;
+  const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: 6000 }));
+  if (hubTasks.length) {
+    const hubResults = await Promise.all(hubTasks.map(t => _trRunTask(t, detour)));
+    if (token !== _trSearchToken) return;
+    const before = all.length;
+    all = _trDedupJourneys(_trCollect(hubResults, all.slice()));
+    if (all.length && before === 0 && _trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
+    if (all.length) {
+      const added = all.length - before;
+      _trStatus(added > 0 ? `別経路を${added}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
+      _trApplyResults(all);
+      return;
+    }
+  }
+  // 本線・ハブとも経路が見つからなかった場合
+  if (!all.length) _trShowNoResult(baseFailed);
+  else _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
+}
+
+// 1タスクを実行（本線=タイムアウトなし / 追加検索=タイムアウト付き）
+function _trRunTask(t, detour) {
+  return t.base
+    ? _trFetchPlan(t.pr, t.vias, t.n, detour, undefined, t.avoidModes).then(js => ({ t, js })).catch(e => ({ t, err: e }))
+    : _trPlanWithTimeout(t, detour, t.timeout || 6000);
+}
+
+// 検索結果配列から経路を取り出してtrim・ラベル付与し all に追加
+function _trCollect(results, all) {
   results.forEach(r => {
     if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.t.pr.myst || ''; all.push(j); });
   });
-  // フリー検索は複数タスクをマージするので重複経路を除去（dep/home は駅別に残す）
-  if (_trMode === 'free' && tasks.length > 1) all = _trDedupJourneys(all);
-  // 失敗表示の対象は本線検索（base）のみ。ハブ経由検索の失敗は無視する
-  const failed = results.filter(r => r.err && r.t.base);
+  return all;
+}
 
-  if (!all.length) {
-    const e = failed.length ? failed[0].err : null;
-    // 中断（タイムアウト等）は分かりにくい生メッセージを出さず、時間をおいて再試行を促す
-    const isAbort = e && (e.name === 'AbortError' || /abort/i.test(e.message || ''));
-    const msg = e
-      ? (isAbort ? '検索がタイムアウトしました。通信環境を確認して再度お試しください' : '検索に失敗しました: ' + e.message)
-      : '経路が見つかりませんでした' + (_trType === 'last' ? '（この日の運行が終了している可能性があります）' : '');
-    _trStatus(msg, true);
-    document.getElementById('transit-results-card').style.display = 'none';
-    return;
-  }
-  _trStatus(failed.length ? '一部の検索に失敗しました' : '');
-  if (_trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
-
+// 経路リストを画面に反映（路線パネル・除外フィルタ・迂回注記・ソート）
+function _trApplyResults(all) {
   _trRenderLinePanel(all);
   _trJourneys = _trExclude.length
     ? all.filter(j => !j.legs.some(l => l.kind === 'transit' && _trExclude.includes(l.routeName)))
     : all;
-
   const note = document.getElementById('transit-detour-note');
   if (_trIsDetour) {
     note.style.display = '';
@@ -455,6 +483,18 @@ async function searchTransit(detour) {
   }
   document.getElementById('transit-results-card').style.display = '';
   sortTransitResults(_trSort);
+}
+
+// 経路なし・失敗時の表示
+function _trShowNoResult(failed) {
+  const e = failed.length ? failed[0].err : null;
+  // 中断（タイムアウト等）は分かりにくい生メッセージを出さず、時間をおいて再試行を促す
+  const isAbort = e && (e.name === 'AbortError' || /abort/i.test(e.message || ''));
+  const msg = e
+    ? (isAbort ? '検索がタイムアウトしました。通信環境を確認して再度お試しください' : '検索に失敗しました: ' + e.message)
+    : '経路が見つかりませんでした' + (_trType === 'last' ? '（この日の運行が終了している可能性があります）' : '');
+  _trStatus(msg, true);
+  document.getElementById('transit-results-card').style.display = 'none';
 }
 
 // ── 運行情報の確認・路線除外（迂回） ──
