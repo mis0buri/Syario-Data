@@ -509,6 +509,26 @@ function _trCollect(results, all) {
 // 乗り換える経路は経路探索上ほぼ生じないため、headsign一致は安全な判定になる。
 // 相互直通運転する路線ペア（routeNameの部分一致で判定）。ある駅で前後のlegが
 // このペアに該当し待ち時間が短ければ、同じ列車が乗り入れて直通していると判定する。
+// 行き先(headsign)比較用の正規化。ダイアクリティカル除去（Tōyō→Toyo）・小文字化・
+// 記号/空白除去して比較可能にする（例: "(快速 Rapid) 東葉勝田台 Tōyō-Katsutadai"
+// → "快速rapid東葉勝田台toyokatsutadai"、"ToyoKatsutadai" → "toyokatsutadai"）
+function _trHsFold(s) {
+  if (!s) return '';
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z0-9぀-ヿ一-鿿]/g, '');
+}
+
+// 行き先の互換判定。日本語部分の完全一致、または折り畳み文字列の包含で判定し、
+// 日本語/ローマ字/種別注記の表記ゆれを吸収する。どちらかが欠けていればfalse。
+function _trHsMatch(a, b) {
+  if (!a || !b) return false;
+  const na = _trNorm(a), nb = _trNorm(b);
+  if (na && na === nb) return true;
+  const fa = _trHsFold(a), fb = _trHsFold(b);
+  if (fa.length < 2 || fb.length < 2) return false;
+  return fa.includes(fb) || fb.includes(fa);
+}
+
 const TRANSIT_THROUGH_PAIRS = [
   ['東西線', '東葉高速'], ['東西線', 'TR'], ['東西線', '総武'], ['東西線', '中央'],
   ['千代田線', '常磐'], ['千代田線', '小田急'],
@@ -533,11 +553,13 @@ function _trMergeThroughLegs(j) {
   const isIntraWalk = l => l.kind === 'walk' && _trNorm(l.from.name) === _trNorm(l.to.name);
   const isThrough = (a, b) => {
     if (_trNorm(a.to.name) !== _trNorm(b.from.name)) return false;
+    if (a.tripId && a.tripId === b.tripId) return true; // 同一列車は無条件で直通
     const gap = b.departureSecs - a.arrivalSecs;
+    if (gap < -60 || gap > 300) return false;
+    // 直通でない続行便（行き先の違う列車）の誤結合を防ぐため、行き先の互換を必須にする
+    if (!_trHsMatch(a.headsign, b.headsign)) return false;
     const samePf = a.to.platformCode && b.from.platformCode && a.to.platformCode === b.from.platformCode;
-    const sameHs = a.headsign && b.headsign && _trNorm(a.headsign) === _trNorm(b.headsign);
-    const throughPair = _trIsThroughPair(a.routeName, b.routeName) && gap <= 180;
-    return (a.tripId && a.tripId === b.tripId) || gap <= 0 || (samePf && gap <= 180) || (sameHs && gap <= 300) || throughPair;
+    return samePf || _trIsThroughPair(a.routeName, b.routeName) || gap <= 180;
   };
   const merge = (prev, leg) => {
     prev._thru = prev._thru || [prev.routeName];
@@ -597,9 +619,9 @@ async function _trFixBoundary(j, i, q, avoid) {
     if (!firstT) continue;
     const wait = firstT.departureSecs - L1.arrivalSecs;
     if (wait < -60 || wait > 180) continue;
-    const cont = _trIsThroughPair(L1.routeName, firstT.routeName) ||
-      (L1.headsign && firstT.headsign && _trNorm(L1.headsign) === _trNorm(firstT.headsign)) ||
-      firstT.routeName === L2.routeName;
+    // 行き先の互換を必須とし、その上で直通ペア/同一路線などの関係で絞る
+    const cont = _trHsMatch(L1.headsign, firstT.headsign) &&
+      (_trIsThroughPair(L1.routeName, firstT.routeName) || firstT.routeName === L2.routeName || firstT.routeName === L1.routeName);
     if (!cont) continue;
     const candLast = cand.legs[cand.legs.length - 1];
     if (candLast.to.id !== destId && _trNorm(candLast.to.name) !== _trNorm(destName)) continue;
