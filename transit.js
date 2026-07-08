@@ -621,7 +621,9 @@ async function _trFixBoundary(j, i, q, avoid) {
     const firstT = cand.legs.find(l => l.kind === 'transit');
     if (!firstT) continue;
     const wait = firstT.departureSecs - L1.arrivalSecs;
-    if (wait < -60 || wait > 180) continue;
+    // 続行の許容は結合判定(isThrough)の300秒と揃える。行き先一致（＝ほぼ同一列車の
+    // 続行）が必須条件なので、境界駅で数分停車するダイヤでも取りこぼさない
+    if (wait < -60 || wait > 300) continue;
     // 行き先の互換を必須とし、その上で直通ペア/同一路線などの関係で絞る
     const cont = _trHsMatch(L1.headsign, firstT.headsign) &&
       (_trIsThroughPair(L1.routeName, firstT.routeName) || firstT.routeName === L2.routeName || firstT.routeName === L1.routeName);
