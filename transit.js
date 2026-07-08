@@ -496,6 +496,26 @@ function _trCollect(results, all) {
 //        同駅で行き先表示(headsign)が同一かつ待ち5分以内、のいずれか。
 // 直通列車は全区間で行き先が同じ（例:「東葉勝田台」）で、同じ行き先の別列車へ
 // 乗り換える経路は経路探索上ほぼ生じないため、headsign一致は安全な判定になる。
+// 相互直通運転する路線ペア（routeNameの部分一致で判定）。ある駅で前後のlegが
+// このペアに該当し待ち時間が短ければ、同じ列車が乗り入れて直通していると判定する。
+const TRANSIT_THROUGH_PAIRS = [
+  ['東西線', '東葉高速'], ['東西線', '総武'], ['東西線', '中央'],
+  ['千代田線', '常磐'], ['千代田線', '小田急'],
+  ['半蔵門線', '田園都市'], ['半蔵門線', '東武'],
+  ['日比谷線', '東武'],
+  ['副都心線', '東急東横'], ['副都心線', 'みなとみらい'], ['副都心線', '東武東上'], ['副都心線', '西武'],
+  ['有楽町線', '東武東上'], ['有楽町線', '西武'],
+  ['三田線', '目黒線'], ['三田線', '東急目黒'],
+  ['南北線', '目黒線'], ['南北線', '埼玉高速'],
+  ['浅草線', '京急'], ['浅草線', '京成'],
+  ['新宿線', '京王'],
+  ['東急東横', 'みなとみらい'],
+];
+function _trIsThroughPair(a, b) {
+  if (!a || !b) return false;
+  return TRANSIT_THROUGH_PAIRS.some(([x, y]) =>
+    (a.includes(x) && b.includes(y)) || (a.includes(y) && b.includes(x)));
+}
 function _trMergeThroughLegs(j) {
   if (!j.legs || j.legs.length < 2) return;
   const isIntraWalk = l => l.kind === 'walk' && l.from.name === l.to.name;
@@ -504,7 +524,8 @@ function _trMergeThroughLegs(j) {
     const gap = b.departureSecs - a.arrivalSecs;
     const samePf = a.to.platformCode && b.from.platformCode && a.to.platformCode === b.from.platformCode;
     const sameHs = a.headsign && b.headsign && a.headsign === b.headsign;
-    return (a.tripId && a.tripId === b.tripId) || gap <= 0 || (samePf && gap <= 180) || (sameHs && gap <= 300);
+    const throughPair = _trIsThroughPair(a.routeName, b.routeName) && gap <= 180;
+    return (a.tripId && a.tripId === b.tripId) || gap <= 0 || (samePf && gap <= 180) || (sameHs && gap <= 300) || throughPair;
   };
   const merge = (prev, leg) => {
     prev._thru = prev._thru || [prev.routeName];
