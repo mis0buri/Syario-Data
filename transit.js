@@ -180,7 +180,7 @@ function toggleTransitMyStation(id, on) {
 
 // ── 駅サジェスト ──
 async function _trSuggest(q, signal) {
-  // places/suggestを使うと所在地（description）が取れる。駅・停留所のみに絞る
+  // places/suggestを使うと所在地（description）が取れる。駅のみに絞る
   const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(q)}&limit=12`, { signal });
   if (!res.ok) return [];
   const j = await res.json();
@@ -188,7 +188,7 @@ async function _trSuggest(q, signal) {
   // スコア最上位の1件（レスポンス順）に統合する
   const out = [];
   (j.places || []).forEach(p => {
-    if (p.kind !== 'station' && p.kind !== 'stop') return;
+    if (p.kind !== 'station') return; // 駅のみに絞る（stopはバス停等が混ざるため除外）
     const dup = out.some(o =>
       o.name === p.name &&
       Math.abs(o.lat - p.lat) < 0.005 && Math.abs(o.lon - p.lon) < 0.006
@@ -196,6 +196,40 @@ async function _trSuggest(q, signal) {
     if (!dup) out.push({ id: p.endpoint, name: p.name, nameKana: p.nameKana, lat: p.lat, lon: p.lon });
   });
   return out.slice(0, 8);
+}
+
+// ── 所在地（都道府県・市区町村）の逆ジオコーディング（国土地理院） ──
+const _trAddrCache = {};
+let _trMuniTable = null;
+
+async function _trMuniLoad() {
+  if (_trMuniTable) return _trMuniTable;
+  const res = await fetch('https://maps.gsi.go.jp/js/muni.js');
+  const text = await res.text();
+  const table = {};
+  // 形式: GSI.MUNI_ARRAY["1100"] = '1,北海道,1100,札幌市';
+  text.replace(/MUNI_ARRAY\["(\d+)"\]\s*=\s*'([^']+)'/g, (m, cd, v) => {
+    const parts = v.split(',');
+    table[cd] = parts[1] + ' ' + (parts[3] || '');
+    return m;
+  });
+  _trMuniTable = table;
+  return table;
+}
+
+async function _trAddr(lat, lon) {
+  if (lat === undefined || lon === undefined) return null;
+  const key = lat.toFixed(3) + ',' + lon.toFixed(3);
+  if (key in _trAddrCache) return _trAddrCache[key];
+  const [table, res] = await Promise.all([
+    _trMuniLoad(),
+    fetch(`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${lat}&lon=${lon}`)
+  ]);
+  const j = await res.json();
+  const cd = j.results && j.results.muniCd ? String(parseInt(j.results.muniCd, 10)) : null;
+  const label = (cd && table[cd]) || null;
+  _trAddrCache[key] = label;
+  return label;
 }
 
 function _trBindSuggest(key, onPick) {
@@ -212,11 +246,21 @@ function _trBindSuggest(key, onPick) {
       try {
         const sts = await _trSuggest(q, _trAbort[key].signal);
         box._sts = sts;
-        // 候補は駅名のみ表示（かな・所在地は出さない）
+        const ver = (box._ver || 0) + 1;
+        box._ver = ver;
+        // 候補は駅名＋所在地（都道府県 市区町村）を表示。かなは出さない
         box.innerHTML = sts.length
-          ? sts.map((st, i) => `<div class="transit-suggest-item" data-i="${i}">${_esc(st.name)}</div>`).join('')
+          ? sts.map((st, i) => `<div class="transit-suggest-item" data-i="${i}">${_esc(st.name)}<span class="transit-suggest-loc" id="${box.id}-loc-${i}"></span></div>`).join('')
           : '<div class="transit-suggest-item" style="cursor:default;color:var(--dim)">該当する駅がありません</div>';
         box.classList.add('open');
+        // 所在地を非同期で埋める。再描画済みなら書き込まない
+        sts.forEach((st, i) => {
+          _trAddr(st.lat, st.lon).then(label => {
+            if (!label || box._ver !== ver) return;
+            const span = document.getElementById(`${box.id}-loc-${i}`);
+            if (span) span.textContent = label;
+          }).catch(() => {});
+        });
       } catch (e) { /* 中断・通信エラーは無視 */ }
     }, 300);
   });
