@@ -515,7 +515,10 @@ function _trCollect(results, all) {
 function _trHsFold(s) {
   if (!s) return '';
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    .replace(/[^a-z0-9぀-ヿ一-鿿]/g, '');
+    .replace(/[^a-z0-9぀-ヿ一-鿿]/g, '')
+    // 「◯◯行/行き/ゆき」の末尾サフィックスを除去（例: "ToyoKatsutadai行" → "toyokatsutadai"。
+    // これが残るとサフィックス無し表記との包含一致が失敗する）
+    .replace(/(行き|ゆき|行)$/, '');
 }
 
 // 行き先の互換判定。日本語部分の完全一致、または折り畳み文字列の包含で判定し、
