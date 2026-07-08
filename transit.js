@@ -447,7 +447,7 @@ async function searchTransit(detour) {
   }
 
   // ── フェーズ2: 主要ハブ経由検索を裏で実行し、より良い経路を差し込む ──
-  if (!hubFanout) return;
+  if (!hubFanout) { _trVerifyThrough(all, token, avoid, detour); return; }
   const hubs = await _trResolveHubs(pairs[0]);
   if (token !== _trSearchToken) return;
   const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: 6000 }));
@@ -461,12 +461,14 @@ async function searchTransit(detour) {
       const added = all.length - before;
       _trStatus(added > 0 ? `別経路を${added}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
       _trApplyResults(all);
+      _trVerifyThrough(all, token, avoid, detour);
       return;
     }
   }
   // 本線・ハブとも経路が見つからなかった場合
-  if (!all.length) _trShowNoResult(baseFailed);
-  else _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
+  if (!all.length) { _trShowNoResult(baseFailed); return; }
+  _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
+  _trVerifyThrough(all, token, avoid, detour);
 }
 
 // 1タスクを実行（本線=タイムアウトなし / 追加検索=タイムアウト付き）
@@ -558,6 +560,84 @@ function _trMergeThroughLegs(j) {
     j.legs = out;
     j.transferCount = Math.max(0, out.filter(l => l.kind === 'transit').length - 1);
   }
+}
+
+// 表示済み経路の「乗換」を再検証する。乗換駅から到着時刻ちょうど発で目的地へ
+// 再検索し、待ち3分以内で同じ行先/直通ペアの便が続く（＝実際は乗換不要で直通）
+// 場合、その区間を差し替えて直通結合し直す。採用は乗換が実際に減った時のみ＝
+// 常にAPI由来の上位互換経路になり、同一直通コリドーなので運賃も元のまま整合する。
+async function _trTryThroughFix(j, avoid) {
+  if (!j.legs) return null;
+  for (let i = 0; i < j.legs.length; i++) {
+    const L1 = j.legs[i];
+    if (L1.kind !== 'transit') continue;
+    // 次のtransit legを求める（間の同一駅構内徒歩は跨ぐ）
+    let q = i + 1;
+    while (q < j.legs.length && j.legs[q].kind === 'walk' && j.legs[q].from.name === j.legs[q].to.name) q++;
+    if (q >= j.legs.length || j.legs[q].kind !== 'transit') continue;
+    const L2 = j.legs[q];
+    const gap = L2.departureSecs - L1.arrivalSecs;
+    if (gap <= 180 || gap > 1800) continue; // 既に近接／30分超の待ちは対象外
+    const destId = (j._dest && j._dest.id) || j.legs[j.legs.length - 1].to.id;
+    const destName = (j._dest && j._dest.name) || j.legs[j.legs.length - 1].to.name;
+    const pr = { from: { id: L1.to.id, name: L1.to.name }, to: { id: destId, name: destName } };
+    let res;
+    try {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 6000);
+      res = await _trFetchPlan(pr, [], 3, false, ac.signal, avoid).finally(() => clearTimeout(timer));
+    } catch (e) { return null; }
+    if (!res || !res.length) return null;
+    for (const cand of res) {
+      if (!cand.legs || !cand.legs.length) continue;
+      _trMergeThroughLegs(cand);
+      _trTrimJourney(cand);
+      const firstT = cand.legs.find(l => l.kind === 'transit');
+      if (!firstT) continue;
+      const wait = firstT.departureSecs - L1.arrivalSecs;
+      if (wait < -60 || wait > 180) continue;
+      const cont = _trIsThroughPair(L1.routeName, firstT.routeName) ||
+        (L1.headsign && firstT.headsign && L1.headsign === firstT.headsign) ||
+        firstT.routeName === L2.routeName;
+      if (!cont) continue;
+      const candLast = cand.legs[cand.legs.length - 1];
+      if (candLast.to.id !== destId && candLast.to.name !== destName) continue;
+      // L1まで + 再検索結果を連結して直通結合を試す
+      const spliced = Object.assign({}, j);
+      let tail = cand.legs.slice();
+      while (tail.length && tail[0].kind === 'walk' && tail[0].from.name === tail[0].to.name) tail.shift();
+      spliced.legs = j.legs.slice(0, i + 1).concat(tail);
+      const beforeTransfers = typeof j.transferCount === 'number'
+        ? j.transferCount : Math.max(0, j.legs.filter(l => l.kind === 'transit').length - 1);
+      _trMergeThroughLegs(spliced);
+      const newTransfers = Math.max(0, spliced.legs.filter(l => l.kind === 'transit').length - 1);
+      if (newTransfers >= beforeTransfers) continue; // 直通結合で乗換が減った時のみ採用
+      spliced.departureSecs = spliced.legs[0].departureSecs;
+      spliced.arrivalSecs = spliced.legs[spliced.legs.length - 1].arrivalSecs;
+      spliced.durationSecs = spliced.arrivalSecs - spliced.departureSecs;
+      spliced.transferCount = newTransfers;
+      // 完全に1本の直通になった時だけ元の運賃を引き継ぐ（同一コリドーで運賃不変）。
+      // 乗換が残る場合は尾側が別経路に分岐して運賃が変わり得るため運賃を消す
+      // （誤った運賃を表示・運賃ソートに使わない。区間ごと運賃ボタンで再算出可能）
+      if (newTransfers > 0) { spliced.fare = null; spliced._pf = undefined; }
+      return spliced; // _dest等は元のjから引き継ぐ
+    }
+    return null; // 最初の乗換境界のみ検証
+  }
+  return null;
+}
+
+async function _trVerifyThrough(all, token, avoid, detour) {
+  if (detour) return;
+  let changed = false;
+  const limit = Math.min(all.length, 8);
+  for (let ji = 0; ji < limit; ji++) {
+    if (token !== _trSearchToken) return;
+    const fixed = await _trTryThroughFix(all[ji], avoid);
+    if (token !== _trSearchToken) return;
+    if (fixed) { all[ji] = fixed; changed = true; }
+  }
+  if (changed && token === _trSearchToken) _trApplyResults(_trDedupJourneys(all));
 }
 
 // 到着駅が検索した目的地と別（APIが近接駅を目的地扱いして連絡徒歩を省くケース。
