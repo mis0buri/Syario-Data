@@ -593,7 +593,7 @@ async function _trTryThroughFix(j, avoid) {
     try {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 6000);
-      res = await _trFetchPlan(pr, [], 3, false, ac.signal, avoid).finally(() => clearTimeout(timer));
+      res = await _trFetchPlan(pr, [], 3, false, ac.signal, avoid, undefined, _trSecsToHHMM(L1.arrivalSecs), 'departure').finally(() => clearTimeout(timer));
     } catch (e) { return null; }
     if (!res || !res.length) return null;
     for (const cand of res) {
@@ -727,16 +727,18 @@ function toggleTransitLines() {
   arrow.classList.toggle('open', open);
 }
 
-async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk) {
+async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk, timeOverride, typeOverride) {
+  const type = typeOverride || _trType;
   const p = new URLSearchParams({
     from: pr.from.id, to: pr.to.id,
     fromLabel: pr.from.name, toLabel: pr.to.name,
-    type: _trType, numItineraries: String(n)
+    type, numItineraries: String(n)
   });
   const d = document.getElementById('transit-date').value;
   if (d) p.set('date', d.replace(/-/g, ''));
-  const t = document.getElementById('transit-time').value;
-  if (t && _trType !== 'first' && _trType !== 'last') p.set('time', t);
+  // timeOverrideがあれば優先（乗換駅からの再検索で「その駅の到着時刻」を渡すため）
+  const t = timeOverride || document.getElementById('transit-time').value;
+  if (t && type !== 'first' && type !== 'last') p.set('time', t);
   vias.forEach(v => { p.append('via', v.id); p.append('viaLabel', v.name); });
   // APIの乗換上限は既定3回で、目的駅まで電車で行くのに乗換が多く必要な経路が
   // 候補から漏れるため常に5へ緩める（乗換の多い経路はソートで自然と下位に沈む）
