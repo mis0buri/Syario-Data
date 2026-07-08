@@ -588,7 +588,10 @@ async function _trTryThroughFix(j, avoid) {
     if (gap <= 180 || gap > 1800) continue; // 既に近接／30分超の待ちは対象外
     const destId = (j._dest && j._dest.id) || j.legs[j.legs.length - 1].to.id;
     const destName = (j._dest && j._dest.name) || j.legs[j.legs.length - 1].to.name;
-    const pr = { from: { id: L1.to.id, name: L1.to.name }, to: { id: destId, name: destName } };
+    // 再検索の出発は次leg(L2)の発車駅IDを使う。乗換駅は事業者ごとにIDが別で、
+    // L1到着側(例: メトロ西船橋)のIDだと乗り入れ先(例: 東葉高速)の発車を返さない
+    // ことがあるため、続きが実際に発車するL2.from側から探す。
+    const pr = { from: { id: L2.from.id, name: L2.from.name }, to: { id: destId, name: destName } };
     let res;
     try {
       const ac = new AbortController();
