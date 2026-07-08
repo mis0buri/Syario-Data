@@ -591,7 +591,9 @@ async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk) 
   const t = document.getElementById('transit-time').value;
   if (t && _trType !== 'first' && _trType !== 'last') p.set('time', t);
   vias.forEach(v => { p.append('via', v.id); p.append('viaLabel', v.name); });
-  if (detour) p.set('maxTransfers', '5'); // 迂回時は乗換回数を緩めて候補を広げる
+  // APIの乗換上限は既定3回で、目的駅まで電車で行くのに乗換が多く必要な経路が
+  // 候補から漏れるため常に5へ緩める（乗換の多い経路はソートで自然と下位に沈む）
+  p.set('maxTransfers', '5');
   if (avoidModes) p.set('avoidModes', avoidModes); // 例: bus（電車系のみの候補を得る）
   if (avoidWalk) p.set('avoidWalk', 'true'); // 徒歩区間を含む経路を除外（到着駅まで電車で行く経路を確実に拾う）
   const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString(), signal ? { signal } : undefined);
