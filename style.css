@@ -1655,7 +1655,6 @@ body.public-mode main { padding-top: 20px; }
 .transit-suggest.open { display: block; }
 .transit-suggest-item { padding: 10px 12px; font-size: 14px; cursor: pointer; }
 .transit-suggest-item:hover { background: var(--surface2); }
-.transit-suggest-kana { font-size: 11px; color: var(--dim); margin-left: 6px; }
 .transit-history { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .transit-chip {
   font-size: 12px; padding: 5px 10px; border-radius: 12px; font-family: inherit;
