@@ -510,7 +510,20 @@ function _trDestWalkName(j) {
 }
 
 // 経路リストを画面に反映（路線パネル・除外フィルタ・迂回注記・ソート）
+// 経路末尾の徒歩がこの秒数を超える経路（目的地から1km前後以上離れた駅で降ろされる
+// 経路）は、より徒歩の短い経路が1件でもあれば除外する。全滅する場合はそのまま残す。
+const TRANSIT_MAX_END_WALK_SECS = 600;
+function _trFilterLongEndWalk(list) {
+  const endWalk = j => {
+    const last = j.legs[j.legs.length - 1];
+    return last && last.kind === 'walk' ? last.arrivalSecs - last.departureSecs : 0;
+  };
+  const ok = list.filter(j => endWalk(j) <= TRANSIT_MAX_END_WALK_SECS);
+  return ok.length ? ok : list;
+}
+
 function _trApplyResults(all) {
+  all = _trFilterLongEndWalk(all);
   _trRenderLinePanel(all);
   _trJourneys = _trExclude.length
     ? all.filter(j => !j.legs.some(l => l.kind === 'transit' && _trExclude.includes(l.routeName)))
