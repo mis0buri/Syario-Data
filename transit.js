@@ -671,14 +671,19 @@ function _trFmtDur(secs) {
 function _trRenderLeg(leg, isFirst, isLast) {
   if (leg.kind === 'walk') {
     const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
-    // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は駅名を明示する
-    const cross = leg.from.name !== leg.to.name
-      ? `（${_esc(leg.from.name)} → ${_esc(leg.to.name)}）` : '';
+    // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は電車区間と同じ●出発/到着の表示にする
+    if (leg.from.name !== leg.to.name) {
+      return `<div class="transit-leg">
+    <div class="transit-leg-st">● ${_trFmtTime(leg.departureSecs)} ${_esc(leg.from.name)}</div>
+    <div class="transit-leg-line">🚶 徒歩（${dur}）</div>
+    <div class="transit-leg-st">● ${_trFmtTime(leg.arrivalSecs)} ${_esc(leg.to.name)}</div>
+  </div>`;
+    }
     // 経路の先頭/末尾が徒歩の場合、出発地/到着地を●付きで明示する（到着駅・時刻が
     // 隣の電車区間に現れず分かりづらくなるのを防ぐ）
     const head = isFirst ? `<div class="transit-leg-st">● ${_trFmtTime(leg.departureSecs)} ${_esc(leg.from.name)}</div>` : '';
     const tail = isLast ? `<div class="transit-leg-st">● ${_trFmtTime(leg.arrivalSecs)} ${_esc(leg.to.name)} 着</div>` : '';
-    return `${head}<div class="transit-leg-walk">┊ 徒歩 ${dur}${cross}</div>${tail}`;
+    return `${head}<div class="transit-leg-walk">┊ 徒歩 ${dur}</div>${tail}`;
   }
   const color = leg.color ? (leg.color.charAt(0) === '#' ? leg.color : '#' + leg.color) : '';
   const pf = st => st.platformCode ? `〔${_esc(st.platformCode)}番線〕` : '';
@@ -849,12 +854,14 @@ function shareTransitRoute(i) {
 function _trBuildRouteCanvas(j, dateStr) {
   const W = 1080, dpr = 2, PAD = 40;
   const TRANSIT_LEG_H = 116, WALK_LEG_H = 28, LEG_GAP = 10, EXTRA_BULLET_H = 26;
-  // 先頭/末尾が徒歩の区間は出発地/到着地の●行を足すぶん高さを加算する
-  const walkExtra = (leg, k) => leg.kind === 'walk'
+  // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は電車区間と同じ高さで表示する
+  const isCrossWalk = leg => leg.kind === 'walk' && leg.from.name !== leg.to.name;
+  // 先頭/末尾が徒歩の区間（同一駅名のみ）は出発地/到着地の●行を足すぶん高さを加算する
+  const walkExtra = (leg, k) => (leg.kind === 'walk' && !isCrossWalk(leg))
     ? ((k === 0 ? 1 : 0) + (k === j.legs.length - 1 ? 1 : 0)) * EXTRA_BULLET_H : 0;
   const destWalk = _trDestWalkName(j); // 到着駅が目的地と別なら連絡徒歩行を1行足す
   const legsH = j.legs.reduce((s, leg, k) =>
-    s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + walkExtra(leg, k) + LEG_GAP, 0)
+    s + (leg.kind === 'walk' ? (isCrossWalk(leg) ? TRANSIT_LEG_H : WALK_LEG_H) : TRANSIT_LEG_H) + walkExtra(leg, k) + LEG_GAP, 0)
     + (destWalk ? WALK_LEG_H + LEG_GAP : 0);
 
   const headerH = 76;      // アプリ名＋日付
@@ -930,6 +937,26 @@ function _trBuildRouteCanvas(j, dateStr) {
     if (leg.kind === 'walk') {
       const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
       const isFirst = k === 0, isLast = k === j.legs.length - 1;
+
+      if (leg.from.name !== leg.to.name) {
+        // 別駅へ移動する徒歩は電車区間と同じ表示（発着●＋所要時間）にする
+        ctx.strokeStyle = '#666666'; ctx.lineWidth = 6;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath(); ctx.moveTo(barX + 3, y + 4); ctx.lineTo(barX + 3, y + TRANSIT_LEG_H - 12); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineWidth = 1;
+        ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+        ctx.fillStyle = '#e8e6e3';
+        ctx.fillText(`● ${_trFmtTime(leg.departureSecs)} ${leg.from.name}`, textX, y + 22);
+        ctx.font = "14px 'Noto Sans JP', sans-serif";
+        ctx.fillStyle = '#a0a0a0';
+        ctx.fillText(`🚶 徒歩（${dur}）`, textX, y + 48);
+        ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+        ctx.fillStyle = '#e8e6e3';
+        ctx.fillText(`● ${_trFmtTime(leg.arrivalSecs)} ${leg.to.name}`, textX, y + 76);
+        y += TRANSIT_LEG_H + LEG_GAP;
+        return;
+      }
+
       // 経路の先頭/末尾が徒歩の場合、出発地/到着地を●付きで明示する
       if (isFirst) {
         ctx.font = "bold 18px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#e8e6e3';
@@ -943,9 +970,7 @@ function _trBuildRouteCanvas(j, dateStr) {
       ctx.setLineDash([]);
       ctx.font = "14px 'Noto Sans JP', sans-serif";
       ctx.fillStyle = '#a0a0a0';
-      // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は駅名を明示する
-      const cross = leg.from.name !== leg.to.name ? `（${leg.from.name} → ${leg.to.name}）` : '';
-      ctx.fillText(`┊ 徒歩 ${dur}${cross}`, textX, y + WALK_LEG_H / 2 + 5);
+      ctx.fillText(`┊ 徒歩 ${dur}`, textX, y + WALK_LEG_H / 2 + 5);
       y += WALK_LEG_H;
       if (isLast) {
         ctx.font = "bold 18px 'Noto Sans JP', sans-serif"; ctx.fillStyle = '#e8e6e3';
