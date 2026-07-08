@@ -17,6 +17,14 @@ let _trHubCache = null;
 // （ソート後の上位のみ表示。遠回りハブの無駄ルートは下位で切り捨てられる）
 const TRANSIT_MAX_RESULTS = 12;
 
+// 駅名・行先の比較用正規化。APIは「西船橋」と「西船橋 Nishi-Funabashi」のように
+// 日本語名の後ろにローマ字/英字を付ける場合があり、文字列一致が壊れるため、
+// 末尾の「空白＋ローマ字/英字以降」を落として日本語名だけで比較する。表示は元の名前を使う。
+function _trNorm(s) {
+  if (!s) return '';
+  return String(s).replace(/[\s　]+[A-Za-zÀ-ÖØ-öø-ÿĀ-ſ(].*$/, '').trim();
+}
+
 let _trInited = false;
 let _trReady = null;
 let _trView = 'menu';          // menu | search | dep | home | settings
@@ -520,12 +528,12 @@ function _trIsThroughPair(a, b) {
 }
 function _trMergeThroughLegs(j) {
   if (!j.legs || j.legs.length < 2) return;
-  const isIntraWalk = l => l.kind === 'walk' && l.from.name === l.to.name;
+  const isIntraWalk = l => l.kind === 'walk' && _trNorm(l.from.name) === _trNorm(l.to.name);
   const isThrough = (a, b) => {
-    if (a.to.name !== b.from.name) return false;
+    if (_trNorm(a.to.name) !== _trNorm(b.from.name)) return false;
     const gap = b.departureSecs - a.arrivalSecs;
     const samePf = a.to.platformCode && b.from.platformCode && a.to.platformCode === b.from.platformCode;
-    const sameHs = a.headsign && b.headsign && a.headsign === b.headsign;
+    const sameHs = a.headsign && b.headsign && _trNorm(a.headsign) === _trNorm(b.headsign);
     const throughPair = _trIsThroughPair(a.routeName, b.routeName) && gap <= 180;
     return (a.tripId && a.tripId === b.tripId) || gap <= 0 || (samePf && gap <= 180) || (sameHs && gap <= 300) || throughPair;
   };
@@ -573,7 +581,7 @@ async function _trTryThroughFix(j, avoid) {
     if (L1.kind !== 'transit') continue;
     // 次のtransit legを求める（間の同一駅構内徒歩は跨ぐ）
     let q = i + 1;
-    while (q < j.legs.length && j.legs[q].kind === 'walk' && j.legs[q].from.name === j.legs[q].to.name) q++;
+    while (q < j.legs.length && j.legs[q].kind === 'walk' && _trNorm(j.legs[q].from.name) === _trNorm(j.legs[q].to.name)) q++;
     if (q >= j.legs.length || j.legs[q].kind !== 'transit') continue;
     const L2 = j.legs[q];
     const gap = L2.departureSecs - L1.arrivalSecs;
@@ -597,15 +605,15 @@ async function _trTryThroughFix(j, avoid) {
       const wait = firstT.departureSecs - L1.arrivalSecs;
       if (wait < -60 || wait > 180) continue;
       const cont = _trIsThroughPair(L1.routeName, firstT.routeName) ||
-        (L1.headsign && firstT.headsign && L1.headsign === firstT.headsign) ||
+        (L1.headsign && firstT.headsign && _trNorm(L1.headsign) === _trNorm(firstT.headsign)) ||
         firstT.routeName === L2.routeName;
       if (!cont) continue;
       const candLast = cand.legs[cand.legs.length - 1];
-      if (candLast.to.id !== destId && candLast.to.name !== destName) continue;
+      if (candLast.to.id !== destId && _trNorm(candLast.to.name) !== _trNorm(destName)) continue;
       // L1まで + 再検索結果を連結して直通結合を試す
       const spliced = Object.assign({}, j);
       let tail = cand.legs.slice();
-      while (tail.length && tail[0].kind === 'walk' && tail[0].from.name === tail[0].to.name) tail.shift();
+      while (tail.length && tail[0].kind === 'walk' && _trNorm(tail[0].from.name) === _trNorm(tail[0].to.name)) tail.shift();
       spliced.legs = j.legs.slice(0, i + 1).concat(tail);
       const beforeTransfers = typeof j.transferCount === 'number'
         ? j.transferCount : Math.max(0, j.legs.filter(l => l.kind === 'transit').length - 1);
@@ -645,7 +653,7 @@ async function _trVerifyThrough(all, token, avoid, detour) {
 function _trDestWalkName(j) {
   if (!j._dest || !j.legs || !j.legs.length) return '';
   const last = j.legs[j.legs.length - 1].to;
-  return (last.id !== j._dest.id && last.name !== j._dest.name) ? j._dest.name : '';
+  return (last.id !== j._dest.id && _trNorm(last.name) !== _trNorm(j._dest.name)) ? j._dest.name : '';
 }
 
 // 経路リストを画面に反映（路線パネル・除外フィルタ・迂回注記・ソート）
@@ -759,7 +767,7 @@ function _trPlanWithTimeout(t, detour, ms) {
 // 電車の発着基準にする。末尾の徒歩は目的地までの移動（改札→目的地や別駅への乗換
 // 徒歩など）を表すため省略せず残し、到着時刻も徒歩終点基準にする。
 function _trTrimJourney(j) {
-  const intra = l => l.kind === 'walk' && l.from.name === l.to.name;
+  const intra = l => l.kind === 'walk' && _trNorm(l.from.name) === _trNorm(l.to.name);
   const legs = j.legs.slice();
   while (legs.length > 1 && intra(legs[0])) legs.shift();
   if (!legs.length || !legs.some(l => l.kind === 'transit')) return;
@@ -779,8 +787,8 @@ function _trHasBus(j) {
 function _trArrivesAtDest(j) {
   if (!j._dest || !j.legs || !j.legs.length) return true; // 判定材料がない場合は通常扱い
   const last = j.legs[j.legs.length - 1];
-  if (last.kind === 'walk' && last.from.name !== last.to.name) return false; // 別駅へ徒歩移動して終わる
-  return last.to.id === j._dest.id || last.to.name === j._dest.name;
+  if (last.kind === 'walk' && _trNorm(last.from.name) !== _trNorm(last.to.name)) return false; // 別駅へ徒歩移動して終わる
+  return last.to.id === j._dest.id || _trNorm(last.to.name) === _trNorm(j._dest.name);
 }
 
 function sortTransitResults(mode) {
@@ -822,7 +830,7 @@ function _trRenderLeg(leg, isFirst, isLast) {
   if (leg.kind === 'walk') {
     const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
     // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は電車区間と同じ●出発/到着の表示にする
-    if (leg.from.name !== leg.to.name) {
+    if (_trNorm(leg.from.name) !== _trNorm(leg.to.name)) {
       return `<div class="transit-leg">
     <div class="transit-leg-st">● ${_trFmtTime(leg.departureSecs)} ${_esc(leg.from.name)}</div>
     <div class="transit-leg-line">🚶 徒歩（${dur}）</div>
@@ -1009,7 +1017,7 @@ function _trBuildRouteCanvas(j, dateStr) {
   const W = 1080, dpr = 2, PAD = 40;
   const TRANSIT_LEG_H = 116, WALK_LEG_H = 28, LEG_GAP = 10, EXTRA_BULLET_H = 26;
   // 別駅名をまたぐ徒歩（例: 北朝霞→朝霞台）は電車区間と同じ高さで表示する
-  const isCrossWalk = leg => leg.kind === 'walk' && leg.from.name !== leg.to.name;
+  const isCrossWalk = leg => leg.kind === 'walk' && _trNorm(leg.from.name) !== _trNorm(leg.to.name);
   // 先頭/末尾が徒歩の区間（同一駅名のみ）は出発地/到着地の●行を足すぶん高さを加算する
   const walkExtra = (leg, k) => (leg.kind === 'walk' && !isCrossWalk(leg))
     ? ((k === 0 ? 1 : 0) + (k === j.legs.length - 1 ? 1 : 0)) * EXTRA_BULLET_H : 0;
@@ -1092,7 +1100,7 @@ function _trBuildRouteCanvas(j, dateStr) {
       const dur = _trFmtDur(leg.arrivalSecs - leg.departureSecs);
       const isFirst = k === 0, isLast = k === j.legs.length - 1;
 
-      if (leg.from.name !== leg.to.name) {
+      if (_trNorm(leg.from.name) !== _trNorm(leg.to.name)) {
         // 別駅へ移動する徒歩は電車区間と同じ表示（発着●＋所要時間）にする
         ctx.strokeStyle = '#666666'; ctx.lineWidth = 6;
         ctx.setLineDash([4, 6]);
