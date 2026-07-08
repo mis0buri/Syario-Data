@@ -12,6 +12,7 @@ const TRANSIT_LS_HUBS = 'transit_hub_cache';          // 主要ハブ駅ID解決
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
 const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野', '西船橋', '北千住', '御茶ノ水', '横浜'];
 const TRANSIT_HUB_FANOUT = true; // 主要ハブ自動via検索の有効フラグ（結果は段階表示で差し込む）
+const TRANSIT_THROUGH_MERGE = false; // 直通結合（Part A/B）の有効フラグ（一旦無効化中）
 let _trHubCache = null;
 // 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
 // （ソート後の上位のみ表示。遠回りハブの無駄ルートは下位で切り捨てられる）
@@ -527,6 +528,7 @@ function _trIsThroughPair(a, b) {
     (a.includes(x) && b.includes(y)) || (a.includes(y) && b.includes(x)));
 }
 function _trMergeThroughLegs(j) {
+  if (!TRANSIT_THROUGH_MERGE) return; // 直通結合は一旦無効
   if (!j.legs || j.legs.length < 2) return;
   const isIntraWalk = l => l.kind === 'walk' && _trNorm(l.from.name) === _trNorm(l.to.name);
   const isThrough = (a, b) => {
@@ -639,6 +641,7 @@ async function _trTryThroughFix(j, avoid) {
 }
 
 async function _trVerifyThrough(all, token, avoid, detour) {
+  if (!TRANSIT_THROUGH_MERGE) return; // 直通結合は一旦無効
   if (detour) return;
   let changed = false;
   const limit = Math.min(all.length, 8);
