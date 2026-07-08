@@ -183,6 +183,7 @@ async function initRenban() {
 let _rbExpiredEvents = [];
 
 function _isRenbanExpired(ev, today) {
+  if (ev.manualExpired) return true;
   if (ev.deadline && new Date(ev.deadline) < today) return true;
   const dates = (ev.dates && ev.dates.length) ? ev.dates : (ev.date ? [ev.date] : []);
   if (dates.length && dates.every(d => new Date(d) < today)) return true;
@@ -378,7 +379,7 @@ async function openRenbanDetail(eventId) {
     if (!docSnap.exists) return;
     const ev = { id: docSnap.id, ...docSnap.data() };
     const today = new Date(); today.setHours(0,0,0,0);
-    const expired = ev.deadline ? new Date(ev.deadline) < today : false;
+    const expired = _isRenbanExpired(ev, today);
 
     // 複数日付対応：dates配列があればそちらを優先、なければdateを配列化
     const dates = (ev.dates && ev.dates.length) ? ev.dates : (ev.date ? [ev.date] : []);
@@ -456,6 +457,11 @@ async function openRenbanDetail(eventId) {
     if (deleteBtn) deleteBtn.onclick = () => deleteRenbanEvent(eventId);
     const editBtn = document.getElementById('rb-detail-edit-btn');
     if (editBtn) editBtn.onclick = () => openRenbanEditForm();
+    const expireBtn = document.getElementById('rb-detail-expire-btn');
+    if (expireBtn) {
+      expireBtn.style.display = (canManageEvent && !expired) ? '' : 'none';
+      expireBtn.onclick = () => expireRenbanEvent(eventId);
+    }
 
     // 参加ボタンの制御
     const isCreator = _currentUser && ev.uid && ev.uid === _currentUser.uid;
@@ -612,6 +618,18 @@ async function deleteRenbanEvent(eventId) {
     initRenban();
   } catch(e) {
     alert('削除に失敗しました: ' + e.message);
+  }
+}
+
+async function expireRenbanEvent(eventId) {
+  if (!_db || !_currentUser) return;
+  if (!confirm('この募集を期限切れにしますか？募集中の一覧から外れ、参加登録ができなくなります。')) return;
+  try {
+    await _db.collection('renban_events').doc(eventId).update({ manualExpired: true });
+    closeRbModal();
+    initRenban();
+  } catch(e) {
+    alert('期限切れ設定に失敗しました: ' + e.message);
   }
 }
 
