@@ -719,7 +719,11 @@ function renderTransitResults() {
       </button>
       <div class="transit-route-body${i === 0 ? ' open' : ''}" id="transit-route-body-${i}">
         ${j.legs.map((leg, k) => _trRenderLeg(leg, k === 0, k === j.legs.length - 1)).join('')}
-        ${_trDestWalkName(j) ? `<div class="transit-leg-walk">┊ 徒歩連絡 → ${_esc(_trDestWalkName(j))}（目的地）</div>` : ''}
+        ${_trDestWalkName(j) ? `<div class="transit-leg">
+    <div class="transit-leg-st">● ${_trFmtTime(j.legs[j.legs.length - 1].arrivalSecs)} ${_esc(j.legs[j.legs.length - 1].to.name)}</div>
+    <div class="transit-leg-line">🚶 徒歩連絡（所要時間は経路データに含まれません）</div>
+    <div class="transit-leg-st">● ${_esc(_trDestWalkName(j))}（目的地）</div>
+  </div>` : ''}
         ${!j.fare ? `<div class="transit-note" id="transit-pf-${i}" style="margin:6px 0 0">${j._pf || `<button type="button" class="admin-btn sm" onclick="calcPartialFare(${i})">区間ごとの運賃を算出</button>`}</div>` : ''}
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="copyTransitRoute(${i})">テキストをコピー</button>
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="shareTransitRoute(${i})">画像で共有</button>
@@ -873,7 +877,7 @@ function _trBuildRouteCanvas(j, dateStr) {
   const destWalk = _trDestWalkName(j); // 到着駅が目的地と別なら連絡徒歩行を1行足す
   const legsH = j.legs.reduce((s, leg, k) =>
     s + (leg.kind === 'walk' ? (isCrossWalk(leg) ? TRANSIT_LEG_H : WALK_LEG_H) : TRANSIT_LEG_H) + walkExtra(leg, k) + LEG_GAP, 0)
-    + (destWalk ? WALK_LEG_H + LEG_GAP : 0);
+    + (destWalk ? TRANSIT_LEG_H + LEG_GAP : 0);
 
   const headerH = 76;      // アプリ名＋日付
   const bigRouteH = 76;    // 出発駅 → 到着駅
@@ -1023,16 +1027,23 @@ function _trBuildRouteCanvas(j, dateStr) {
     y += TRANSIT_LEG_H + LEG_GAP;
   });
 
-  // 到着駅が目的地と別なら、目的地への徒歩連絡を1行補って示す
+  // 到着駅が目的地と別なら、目的地への徒歩連絡を電車区間と同じ表示で補って示す
   if (destWalk) {
-    ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath(); ctx.moveTo(barX + 3, y + 4); ctx.lineTo(barX + 3, y + WALK_LEG_H - 4); ctx.stroke();
-    ctx.setLineDash([]);
+    const lastTo = j.legs[j.legs.length - 1];
+    ctx.strokeStyle = '#666666'; ctx.lineWidth = 6;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(barX + 3, y + 4); ctx.lineTo(barX + 3, y + TRANSIT_LEG_H - 12); ctx.stroke();
+    ctx.setLineDash([]); ctx.lineWidth = 1;
+    ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#e8e6e3';
+    ctx.fillText(`● ${_trFmtTime(lastTo.arrivalSecs)} ${lastTo.to.name}`, textX, y + 22);
     ctx.font = "14px 'Noto Sans JP', sans-serif";
     ctx.fillStyle = '#a0a0a0';
-    ctx.fillText(`┊ 徒歩連絡 → ${destWalk}（目的地）`, textX, y + WALK_LEG_H / 2 + 5);
-    y += WALK_LEG_H + LEG_GAP;
+    ctx.fillText(`🚶 徒歩連絡`, textX, y + 48);
+    ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#e8e6e3';
+    ctx.fillText(`● ${destWalk}（目的地）`, textX, y + 76);
+    y += TRANSIT_LEG_H + LEG_GAP;
   }
 
   y += footerH - 24;
