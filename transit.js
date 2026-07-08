@@ -26,6 +26,35 @@ function _trNorm(s) {
   return String(s).replace(/[\s　]+[A-Za-zÀ-ÖØ-öø-ÿĀ-ſ(].*$/, '').trim();
 }
 
+// ── 列車番号ユーティリティ（直通判定用） ──
+// tripIdから列車番号を抽出する。抽出不能ならnull。
+// odpt/TR系: "...:<Operator>.<Line>.<TRAINNO>.<Calendar>" 形式
+//   例: odpt-tokyo-metro-part-01:odpt.TrainTimetable:TokyoMetro.Tozai.A793SR.Weekday → 'A793SR'
+//       tokyo-toyo-rapid-rail:ToyoRapid.ToyoRapid.A793SR.Weekday → 'A793SR'
+// JR scrape系: "...-<line>-<calendar>-...-<TRAINNO>-<departureSecs>" 形式
+//   例: scrape-jreast-chuo-sobu-local:chuo-sobu-local-weekday-secondary-793S-26940 → '793S'
+// prototype/through_merge.py の extract_train_no を移植。
+const _RE_TR_TRAINNO_DOT = /\.([A-Za-z]?\d+[A-Za-z]{0,3})\.(?:Weekday|Saturday|Holiday|SaturdayHoliday|Everyday)$/;
+const _RE_TR_TRAINNO_DASH = /-(\d+[A-Za-z]{1,3})-\d+$/;
+function _trTrainNo(tripId) {
+  if (!tripId) return null;
+  let m = _RE_TR_TRAINNO_DOT.exec(tripId);
+  if (m) return m[1];
+  m = _RE_TR_TRAINNO_DASH.exec(tripId);
+  if (m) return m[1];
+  return null;
+}
+
+// 2つの列車番号が同一物理列車を指すか判定する。完全一致、または
+// JR番号↔メトロ/TR番号のA...R包装対応（JR 793S ↔ 東西線/TR A793SR）で真。
+function _trSameTrain(no1, no2) {
+  if (!no1 || !no2) return false;
+  if (no1 === no2) return true;
+  if ('A' + no1 + 'R' === no2) return true;
+  if (no1 === 'A' + no2 + 'R') return true;
+  return false;
+}
+
 let _trInited = false;
 let _trReady = null;
 let _trView = 'menu';          // menu | search | dep | home | settings
@@ -521,10 +550,82 @@ function _trHsFold(s) {
     .replace(/(行き|ゆき|行)$/, '');
 }
 
-// 行き先の互換判定。日本語部分の完全一致、または折り畳み文字列の包含で判定し、
-// 日本語/ローマ字/種別注記の表記ゆれを吸収する。どちらかが欠けていればfalse。
+// ── 行き先(headsign)辞書正準化 ──
+// 正準形(漢字) → 想定されるローマ字表記（ダイアクリティカル付きのままでよい。
+// 比較時に_trRomajiFold()で畳むため表記ゆれは吸収される）。
+// prototype/through_merge.py の STATION_DICT を移植。
+const TRANSIT_HS_DICT = {
+  '中野': 'Nakano',
+  '三鷹': 'Mitaka',
+  '高田馬場': 'Takadanobaba',
+  '九段下': 'Kudanshita',
+  '茅場町': 'Kayabacho',
+  '東陽町': 'Toyocho',
+  '葛西': 'Kasai',
+  '浦安': 'Urayasu',
+  '妙典': 'Myoden',
+  '西船橋': 'NishiFunabashi',
+  '津田沼': 'Tsudanuma',
+  '東葉勝田台': 'Toyo-Katsutadai', // 観測: 'ToyoKatsutadai行' / '東葉勝田台 Tōyō-Katsutadai'
+  '八千代緑が丘': 'YachiyoMidorigaoka',
+  '飯田橋': 'Iidabashi',
+  '千葉': 'Chiba',
+  '東海神': 'HigashiKaijin',
+  '北習志野': 'KitaNarashino',
+  '船橋日大前': 'FunabashiNichidaimae',
+  '飯山満': 'Hasama',
+};
+
+// ローマ字表記の比較用畳み込み: ダイアクリティカル除去→英数字以外除去→小文字化
+function _trRomajiFold(s) {
+  return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^0-9A-Za-z]/g, '').toLowerCase();
+}
+
+// TRANSIT_HS_DICTの逆引き（畳み込み済みローマ字 → 漢字）
+const _trRomajiToKanji = {};
+Object.keys(TRANSIT_HS_DICT).forEach(kanji => {
+  _trRomajiToKanji[_trRomajiFold(TRANSIT_HS_DICT[kanji])] = kanji;
+});
+
+const _RE_TR_TYPE_WORD_PAREN = /[\(（][^)）]*[\)）]/g;
+const _RE_TR_SUFFIX_YUKI = /(行き|ゆき|行)$/;
+const _RE_TR_KANJI_RUN = /[一-鿿]+/g;
+
+// headsignの生文字列をできる限り漢字の正準形へ畳み込む。種別語の括弧書き
+// （快速/普通/Rapid/Local等）・ダイアクリティカル・「行/行き/ゆき」を除去したのち、
+// 辞書で漢字⇄ローマ字を統一する。辞書に無ければ畳み込み後の文字列をそのまま返す
+// （部分一致フォールバック用）。prototype/through_merge.py の hs_canon を移植。
+function _trHsCanon(headsign) {
+  if (!headsign) return '';
+  let s = String(headsign).replace(_RE_TR_TYPE_WORD_PAREN, '');
+  s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  s = s.trim().replace(_RE_TR_SUFFIX_YUKI, '').trim();
+  if (!s) return '';
+  if (s in TRANSIT_HS_DICT) return s;
+  const kanjiRuns = s.match(_RE_TR_KANJI_RUN);
+  if (kanjiRuns && kanjiRuns.length) {
+    const cand = kanjiRuns.reduce((a, b) => (b.length > a.length ? b : a));
+    if (cand in TRANSIT_HS_DICT) return cand;
+    for (const k in TRANSIT_HS_DICT) {
+      if (cand.includes(k) || k.includes(cand)) return k;
+    }
+    return cand; // 辞書外の漢字: そのまま返す（自己無矛盾な比較は可能）
+  }
+  const folded = _trRomajiFold(s);
+  if (folded in _trRomajiToKanji) return _trRomajiToKanji[folded];
+  for (const rf in _trRomajiToKanji) {
+    if (rf && (folded.includes(rf) || rf.includes(folded))) return _trRomajiToKanji[rf];
+  }
+  return folded; // 辞書外のローマ字: 畳み込み済み文字列を返す（部分一致フォールバック用）
+}
+
+// 行き先の互換判定。まず辞書ベースの正準形一致（漢字⇄ローマ字統一後の比較）を試し、
+// 一致すれば真。辞書で畳めない場合のみ、従来の日本語部分完全一致／折り畳み文字列の
+// 包含判定にフォールバックする。どちらも欠けていればfalse。
 function _trHsMatch(a, b) {
   if (!a || !b) return false;
+  const ca = _trHsCanon(a), cb = _trHsCanon(b);
+  if (ca && ca === cb) return true;
   const na = _trNorm(a), nb = _trNorm(b);
   if (na && na === nb) return true;
   const fa = _trHsFold(a), fb = _trHsFold(b);
@@ -554,10 +655,14 @@ function _trMergeThroughLegs(j) {
   if (!TRANSIT_THROUGH_MERGE) return; // 直通結合は一旦無効
   if (!j.legs || j.legs.length < 2) return;
   const isIntraWalk = l => l.kind === 'walk' && _trNorm(l.from.name) === _trNorm(l.to.name);
-  const isThrough = (a, b) => {
+  const isThrough = (a, b, walkSecs) => {
     if (_trNorm(a.to.name) !== _trNorm(b.from.name)) return false;
-    if (a.tripId && a.tripId === b.tripId) return true; // 同一列車は無条件で直通
-    const gap = b.departureSecs - a.arrivalSecs;
+    if (a.tripId && a.tripId === b.tripId) return true; // 同一tripIdは無条件で直通
+    // 列車番号ベースの同一物理列車判定（JR番号↔メトロ/TR番号のA...R包装対応含む）。
+    // 成立すれば他の条件（待ち時間・行き先等）を問わず直通結合する
+    if (_trSameTrain(_trTrainNo(a.tripId), _trTrainNo(b.tripId))) return true;
+    // 間に構内徒歩を挟む場合は、その徒歩の実秒数を差し引いた「実際の待ち時間」で判定する
+    const gap = (b.departureSecs - a.arrivalSecs) - (walkSecs || 0);
     if (gap < -60 || gap > 300) return false;
     // 直通でない続行便（行き先の違う列車）の誤結合を防ぐため、行き先の互換を必須にする
     if (!_trHsMatch(a.headsign, b.headsign)) return false;
@@ -586,7 +691,7 @@ function _trMergeThroughLegs(j) {
     // 構内徒歩1つを跨いだ前後が直通条件を満たすなら徒歩ごと結合する
     if (prev && prev.kind === 'transit' && isIntraWalk(leg) && i + 1 < j.legs.length) {
       const next = j.legs[i + 1];
-      if (next.kind === 'transit' && isThrough(prev, next)) {
+      if (next.kind === 'transit' && isThrough(prev, next, leg.arrivalSecs - leg.departureSecs)) {
         merge(prev, next);
         i++; // 徒歩と次のlegを消費
         continue;
@@ -597,6 +702,8 @@ function _trMergeThroughLegs(j) {
   if (out.length !== j.legs.length) {
     j.legs = out;
     j.transferCount = Math.max(0, out.filter(l => l.kind === 'transit').length - 1);
+    // 直通結合した経路は区間が変わるため運賃不明扱いにする
+    j.fare = null; j._pf = undefined;
   }
 }
 
@@ -610,45 +717,135 @@ function _trExpandLegs(legs) {
   return out;
 }
 
+// ── leg内ID → plan用ID変換（Part B再検索のfrom用） ──
+// 静的修正表: leg内IDのままplanに渡すと404になる既知のケース。
+// 例: tokyo-toyo-rapid-rail:ToyoRapid.ToyoRapid.NishiFunabashi は404になり、
+//     places/suggestが返す短縮形 tokyo-toyo-rapid-rail:NishiFunabashi が正しいID。
+// 404発生時にplaces/suggestで解決した結果もここへ書き足す連想配列キャッシュを兼ねる
+// （キー=leg内の元ID、値=plan用に解決済みのID、解決不能ならnull）。
+const _trPlanIdCache = {
+  'tokyo-toyo-rapid-rail:ToyoRapid.ToyoRapid.NishiFunabashi': 'tokyo-toyo-rapid-rail:NishiFunabashi',
+};
+
+function _trFeedPrefix(id) {
+  if (!id) return '';
+  const idx = id.indexOf(':');
+  return idx === -1 ? '' : id.slice(0, idx + 1);
+}
+
+// 404時の保険: 駅名でplaces/suggestを引き、元IDと同じフィード（コロン前のprefix）に
+// 属するendpointを探して返す（見つからなければnull）。結果は_trPlanIdCacheへ記録する。
+async function _trFixFromIdViaSuggest(endpoint) {
+  const prefix = _trFeedPrefix(endpoint.id);
+  let resolved = null;
+  if (prefix) {
+    try {
+      const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(endpoint.name)}&limit=30`);
+      if (res.ok) {
+        const data = await res.json();
+        const hit = (data.places || []).find(p => p.kind === 'station' && p.endpoint && p.endpoint.startsWith(prefix));
+        if (hit) resolved = hit.endpoint;
+      }
+    } catch (e) { /* 通信失敗は解決不能扱い */ }
+  }
+  _trPlanIdCache[endpoint.id] = resolved; // 成否に関わらずキャッシュし、以後の無駄なリトライを防ぐ
+  return resolved;
+}
+
+// 境界再検索本体。fromEndpointのIDを静的修正表/キャッシュで解決してから検索し、
+// 404（stationNotFound）ならplaces/suggestフォールバックを1回だけ試みて再検索する。
+async function _trPlanBoundary(fromEndpoint, toEndpoint, timeHHMM, avoid) {
+  const known = fromEndpoint.id in _trPlanIdCache;
+  const fromId = known ? (_trPlanIdCache[fromEndpoint.id] || fromEndpoint.id) : fromEndpoint.id;
+  const doFetch = async (id) => {
+    const pr = { from: { id, name: fromEndpoint.name }, to: { id: toEndpoint.id, name: toEndpoint.name } };
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 6000);
+    try {
+      return await _trFetchPlan(pr, [], 3, false, ac.signal, avoid, undefined, timeHHMM, 'departure');
+    } finally { clearTimeout(timer); }
+  };
+  try {
+    return await doFetch(fromId);
+  } catch (e) {
+    if (e && e.status === 404 && !known) {
+      const fixed = await _trFixFromIdViaSuggest(fromEndpoint);
+      if (fixed) {
+        try { return await doFetch(fixed); } catch (e2) { return []; }
+      }
+    }
+    return [];
+  }
+}
+
 // 1つの乗換境界（legs[i]=L1 → legs[q]=L2）について、乗換駅から到着時刻ちょうど発で
-// 目的地へ再検索し、直通の続行便が見つかれば区間を差し替えた経路を返す（無ければnull）。
-// baseTransfers/baseArr は差し替え前（Part A結合後の表示形）の乗換回数・到着時刻。
-// 「乗換が減る」か「乗換同数でも到着が早くなる」場合のみ採用する。
+// 目的地へ再検索し、直通の続行便や早い乗換便が見つかれば区間を差し替えた経路を返す
+// （無ければnull）。baseTransfers/baseArr は差し替え前（Part A結合後の表示形）の
+// 乗換回数・到着時刻。
+//
+// 候補の採用条件:
+//   (a) 候補先頭のtransit legの列車番号がL1と同一物理列車(_trSameTrain) →
+//       直通結合として差し替え（他条件不問。ただし到着悪化セーフティは必須）
+//   (b) 番号が不一致でも、行き先(headsign)が正準一致し、かつ候補発車が
+//       [L1到着+0秒, +180秒] の窓に入る → 直通結合（JR側に番号対応が無い
+//       中野境界のようなケース用）
+//   (c) それ以外は、候補発車が「L1到着＋実徒歩秒数（間に徒歩legが無ければ120秒）」
+//       以上、かつ差し替え後の最終到着が元より早い場合のみ通常乗換として差し替える
+//       （直通表示はしない）
+// 全ケース共通セーフティ: 差し替え後のjourney最終到着がbaseArrより遅くなる場合は
+// 絶対に採用しない（プロトタイプ評価で12分悪化した実例あり）。差し替えたjourneyの
+// 運賃は常にnull（不明）扱いにする。
 async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
   const L1 = j.legs[i], L2 = j.legs[q];
   const destId = (j._dest && j._dest.id) || j.legs[j.legs.length - 1].to.id;
   const destName = (j._dest && j._dest.name) || j.legs[j.legs.length - 1].to.name;
-  // 再検索の出発は次leg(L2)の発車駅IDを使う。乗換駅は事業者ごとにIDが別で、
-  // L1到着側(例: メトロ西船橋)のIDだと乗り入れ先(例: 東葉高速)の発車を返さない
-  // ことがあるため、続きが実際に発車するL2.from側から探す。
-  const pr = { from: { id: L2.from.id, name: L2.from.name }, to: { id: destId, name: destName } };
-  let res;
+
+  // 間に挟む構内徒歩の実秒数（複数連続する場合は合算）。徒歩が無ければ既定120秒とみなす
+  let walkSecs = 0;
+  for (let k = i + 1; k < q; k++) walkSecs += (j.legs[k].arrivalSecs - j.legs[k].departureSecs);
+  if (q === i + 1) walkSecs = 120;
+
+  const timeHHMM = _trSecsToHHMM(L1.arrivalSecs);
+  let candidates;
   try {
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), 6000);
-    res = await _trFetchPlan(pr, [], 3, false, ac.signal, avoid, undefined, _trSecsToHHMM(L1.arrivalSecs), 'departure').finally(() => clearTimeout(timer));
+    candidates = await _trPlanBoundary(
+      { id: L2.from.id, name: L2.from.name },
+      { id: destId, name: destName },
+      timeHHMM, avoid
+    );
   } catch (e) { return null; }
-  if (!res || !res.length) return null;
-  for (const cand of res) {
+  if (!candidates || !candidates.length) return null;
+
+  const tn1 = _trTrainNo(L1.tripId);
+
+  for (const cand of candidates) {
     if (!cand.legs || !cand.legs.length) continue;
     _trMergeThroughLegs(cand);
     _trTrimJourney(cand);
     const firstT = cand.legs.find(l => l.kind === 'transit');
     if (!firstT) continue;
-    const wait = firstT.departureSecs - L1.arrivalSecs;
-    // 続行の許容は結合判定(isThrough)の300秒と揃える。行き先一致（＝ほぼ同一列車の
-    // 続行）が必須条件なので、境界駅で数分停車するダイヤでも取りこぼさない
-    if (wait < -60 || wait > 300) continue;
-    // 行き先の互換を必須とし、その上で直通ペア/同一路線などの関係で絞る
-    const cont = _trHsMatch(L1.headsign, firstT.headsign) &&
-      (_trIsThroughPair(L1.routeName, firstT.routeName) || firstT.routeName === L2.routeName || firstT.routeName === L1.routeName);
-    if (!cont) continue;
     const candLast = cand.legs[cand.legs.length - 1];
     if (candLast.to.id !== destId && _trNorm(candLast.to.name) !== _trNorm(destName)) continue;
-    // L1まで + 再検索結果を連結して直通結合を試す
-    const spliced = Object.assign({}, j);
+
+    const wait = firstT.departureSecs - L1.arrivalSecs;
+    const tnc = _trTrainNo(firstT.tripId);
+
+    let through = false;
+    if (_trSameTrain(tn1, tnc)) {
+      through = true; // (a) 番号一致 → 同一物理列車
+    } else if (wait >= 0 && wait <= 180 && _trHsMatch(L1.headsign, firstT.headsign)) {
+      through = true; // (b) 行き先正準一致 + 発車が到着+0〜180秒
+    } else if (wait < walkSecs) {
+      continue; // (c)の条件（発車 >= 到着+実徒歩秒数）すら満たさない
+    }
+
     let tail = cand.legs.slice();
     while (tail.length && tail[0].kind === 'walk' && _trNorm(tail[0].from.name) === _trNorm(tail[0].to.name)) tail.shift();
+    if (!tail.length) continue;
+
+    // L1まで + 再検索結果を連結する（直通/通常乗換いずれも一旦連結し、
+    // _trMergeThroughLegsに実際の結合可否・表示形の判定を委ねる）
+    const spliced = Object.assign({}, j);
     spliced.legs = j.legs.slice(0, i + 1).concat(tail);
     _trMergeThroughLegs(spliced);
     const newTransfers = Math.max(0, spliced.legs.filter(l => l.kind === 'transit').length - 1);
@@ -656,11 +853,17 @@ async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
     spliced.arrivalSecs = spliced.legs[spliced.legs.length - 1].arrivalSecs;
     spliced.durationSecs = spliced.arrivalSecs - spliced.departureSecs;
     spliced.transferCount = newTransfers;
-    // 採用条件: 乗換が減る、または乗換同数でも到着が早くなる
-    if (!(newTransfers < baseTransfers || (newTransfers === baseTransfers && spliced.arrivalSecs < baseArr))) continue;
-    // 完全に1本の直通になった時だけ元の運賃を引き継ぐ（同一コリドーで運賃不変）。
-    // 乗換が残る場合は尾側が別経路に分岐して運賃が変わり得るため運賃を消す
-    if (newTransfers > 0) { spliced.fare = null; spliced._pf = undefined; }
+
+    // 全ケース共通セーフティ: 最終到着が悪化する差し替えは絶対に採用しない
+    if (spliced.arrivalSecs > baseArr) continue;
+
+    if (!through) {
+      // (c) 通常乗換としての採用条件: 乗換が減る、または乗換同数でも到着が早くなる
+      if (!(newTransfers < baseTransfers || (newTransfers === baseTransfers && spliced.arrivalSecs < baseArr))) continue;
+    }
+
+    // 差し替えたjourneyの運賃は常に不明(null)扱いにする
+    spliced.fare = null; spliced._pf = undefined;
     return spliced; // _dest等は元のjから引き継ぐ
   }
   return null;
@@ -816,7 +1019,9 @@ async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk, 
   const j = await res.json().catch(() => null);
   if (!res.ok) {
     const msg = j && j.error ? (typeof j.error === 'string' ? j.error : j.error.message) : res.statusText;
-    throw new Error(msg || '検索エラー');
+    const err = new Error(msg || '検索エラー');
+    err.status = res.status; // Part Bの境界再検索が404(stationNotFound)を判別するために付与
+    throw err;
   }
   return (j && j.journeys) || [];
 }
