@@ -10,7 +10,7 @@ const TRANSIT_LS_INCLUDE_BUS = 'transit_include_bus'; // バスを含めるか�
 const TRANSIT_LS_HUBS = 'transit_hub_cache';          // 主要ハブ駅ID解決結果の恒久キャッシュ
 // フリー検索で自動的にvia指定して探索する主要ハブ駅（APIが上位に出さない
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
-const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野'];
+const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野', '西船橋', '北千住', '御茶ノ水', '横浜'];
 const TRANSIT_HUB_FANOUT = true; // 主要ハブ自動via検索の有効フラグ（結果は段階表示で差し込む）
 let _trHubCache = null;
 // 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
@@ -229,7 +229,7 @@ function _trBindSuggest(key, onPick) {
     if (!st) return;
     box.classList.remove('open');
     if (onPick) { onPick(st); }
-    else { _trSel[key] = { id: st.id, name: st.name }; input.value = st.name; }
+    else { _trSel[key] = { id: st.id, name: st.name, lat: st.lat, lon: st.lon }; input.value = st.name; }
   });
   input.addEventListener('blur', () => setTimeout(() => box.classList.remove('open'), 200));
 }
@@ -282,22 +282,39 @@ function _trStatus(msg, isErr) {
 }
 
 // 主要ハブ駅を駅ID付きに解決（localStorageに恒久キャッシュ）。出発/到着駅と同一の
-// ハブはvia指定できない（無効クエリになる）ため除外して返す。
+// ハブはvia指定できない（無効クエリになる）ため除外。さらに出発/到着の座標が
+// 分かる場合は「経由しても大回りにならない」ハブだけに絞る（コリドー判定）。
 async function _trResolveHubs(pr) {
   if (!_trHubCache) {
     try { _trHubCache = JSON.parse(localStorage.getItem(TRANSIT_LS_HUBS) || 'null'); } catch (e) { _trHubCache = null; }
   }
-  if (!_trHubCache || !_trHubCache.length) {
+  // ハブ一覧の変更や旧形式（座標なし）のキャッシュは作り直す
+  if (!_trHubCache || _trHubCache.length !== TRANSIT_HUBS.length || _trHubCache.some(h => h.lat === undefined)) {
     const arr = await Promise.all(TRANSIT_HUBS.map(name =>
       _trSuggest(name).then(sts => sts[0] || null).catch(() => null)
     ));
-    _trHubCache = arr.filter(Boolean).map(st => ({ id: st.id, name: st.name }));
+    _trHubCache = arr.filter(Boolean).map(st => ({ id: st.id, name: st.name, lat: st.lat, lon: st.lon }));
     if (_trHubCache.length) { try { localStorage.setItem(TRANSIT_LS_HUBS, JSON.stringify(_trHubCache)); } catch (e) {} }
   }
-  return _trHubCache.filter(h =>
+  let hubs = _trHubCache.filter(h =>
     h.id !== pr.from.id && h.id !== pr.to.id &&
     h.name !== pr.from.name && h.name !== pr.to.name
   );
+  // コリドー判定: 出発→ハブ→到着の距離が直行距離の1.6倍+3km以内のハブのみ経由候補にする
+  // （明後日方向のハブへの無駄なvia検索を省く。座標が無い場合は絞らず全ハブを使う）
+  if (pr.from.lat !== undefined && pr.to.lat !== undefined) {
+    const direct = _trDistKm(pr.from, pr.to);
+    hubs = hubs.filter(h => h.lat !== undefined &&
+      _trDistKm(pr.from, h) + _trDistKm(h, pr.to) <= direct * 1.6 + 3);
+  }
+  return hubs;
+}
+
+// 2点間の概算距離（km）。近距離用の等距円筒近似で十分
+function _trDistKm(a, b) {
+  const kx = 111.32 * Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
+  const dx = (a.lon - b.lon) * kx, dy = (a.lat - b.lat) * 111.32;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 // 複数検索（本線＋ハブ経由）の結果から同一経路を除去する。
@@ -431,27 +448,47 @@ function _trCollect(results, all) {
 
 // 直通運転（乗り入れで同じ列車のまま走る区間）がAPIデータ上で別legに分割されて
 // 「乗換」に見えるのを1本にまとめる（例: 東西線→東葉高速線を西船橋で分割）。
-// 判定: 同一tripId／同駅で乗換時間0以下／同駅・同ホームで待ち3分以内、のいずれか。
+// 判定: 同一tripId／同駅で乗換時間0以下／同駅・同ホームで待ち3分以内／
+//        同駅で行き先表示(headsign)が同一かつ待ち5分以内、のいずれか。
+// 直通列車は全区間で行き先が同じ（例:「東葉勝田台」）で、同じ行き先の別列車へ
+// 乗り換える経路は経路探索上ほぼ生じないため、headsign一致は安全な判定になる。
 function _trMergeThroughLegs(j) {
   if (!j.legs || j.legs.length < 2) return;
+  const isIntraWalk = l => l.kind === 'walk' && l.from.name === l.to.name;
+  const isThrough = (a, b) => {
+    if (a.to.name !== b.from.name) return false;
+    const gap = b.departureSecs - a.arrivalSecs;
+    const samePf = a.to.platformCode && b.from.platformCode && a.to.platformCode === b.from.platformCode;
+    const sameHs = a.headsign && b.headsign && a.headsign === b.headsign;
+    return (a.tripId && a.tripId === b.tripId) || gap <= 0 || (samePf && gap <= 180) || (sameHs && gap <= 300);
+  };
+  const merge = (prev, leg) => {
+    prev._thru = prev._thru || [prev.routeName];
+    if (prev._thru[prev._thru.length - 1] !== leg.routeName) prev._thru.push(leg.routeName);
+    prev.routeName = prev._thru.join('→') + (prev._thru.length > 1 ? '（直通）' : '');
+    prev.to = leg.to;
+    prev.arrivalSecs = leg.arrivalSecs;
+  };
   const out = [];
-  j.legs.forEach(leg => {
+  for (let i = 0; i < j.legs.length; i++) {
+    const leg = j.legs[i];
     const prev = out[out.length - 1];
-    if (prev && prev.kind === 'transit' && leg.kind === 'transit' && prev.to.name === leg.from.name) {
-      const gap = leg.departureSecs - prev.arrivalSecs;
-      const samePf = prev.to.platformCode && leg.from.platformCode && prev.to.platformCode === leg.from.platformCode;
-      const through = (prev.tripId && prev.tripId === leg.tripId) || gap <= 0 || (samePf && gap <= 180);
-      if (through) {
-        prev._thru = prev._thru || [prev.routeName];
-        if (prev._thru[prev._thru.length - 1] !== leg.routeName) prev._thru.push(leg.routeName);
-        prev.routeName = prev._thru.join('→') + (prev._thru.length > 1 ? '（直通）' : '');
-        prev.to = leg.to;
-        prev.arrivalSecs = leg.arrivalSecs;
-        return;
+    if (prev && prev.kind === 'transit' && leg.kind === 'transit' && isThrough(prev, leg)) {
+      merge(prev, leg);
+      continue;
+    }
+    // APIが直通の境界駅に乗降移動の構内徒歩を挟んで返す場合があるため、
+    // 構内徒歩1つを跨いだ前後が直通条件を満たすなら徒歩ごと結合する
+    if (prev && prev.kind === 'transit' && isIntraWalk(leg) && i + 1 < j.legs.length) {
+      const next = j.legs[i + 1];
+      if (next.kind === 'transit' && isThrough(prev, next)) {
+        merge(prev, next);
+        i++; // 徒歩と次のlegを消費
+        continue;
       }
     }
     out.push(Object.assign({}, leg));
-  });
+  }
   if (out.length !== j.legs.length) {
     j.legs = out;
     j.transferCount = Math.max(0, out.filter(l => l.kind === 'transit').length - 1);
