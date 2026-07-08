@@ -461,9 +461,22 @@ function _trRunTask(t, detour) {
 // 検索結果配列から経路を取り出してtrim・ラベル付与し all に追加
 function _trCollect(results, all) {
   results.forEach(r => {
-    if (r.js) r.js.forEach(j => { _trTrimJourney(j); j._myst = r.t.pr.myst || ''; all.push(j); });
+    if (r.js) r.js.forEach(j => {
+      _trTrimJourney(j);
+      j._myst = r.t.pr.myst || '';
+      j._dest = r.t.pr.to; // 検索した目的地（到着駅がこれと別なら徒歩連絡を補って表示）
+      all.push(j);
+    });
   });
   return all;
+}
+
+// 到着駅が検索した目的地と別（APIが近接駅を目的地扱いして連絡徒歩を省くケース。
+// 例: 朝霞台行きで北朝霞着）なら、目的地名を返す（＝徒歩連絡を補って表示する）
+function _trDestWalkName(j) {
+  if (!j._dest || !j.legs || !j.legs.length) return '';
+  const last = j.legs[j.legs.length - 1].to;
+  return (last.id !== j._dest.id && last.name !== j._dest.name) ? j._dest.name : '';
 }
 
 // 経路リストを画面に反映（路線パネル・除外フィルタ・迂回注記・ソート）
@@ -647,6 +660,7 @@ function renderTransitResults() {
       </button>
       <div class="transit-route-body${i === 0 ? ' open' : ''}" id="transit-route-body-${i}">
         ${j.legs.map((leg, k) => _trRenderLeg(leg, k === 0, k === j.legs.length - 1)).join('')}
+        ${_trDestWalkName(j) ? `<div class="transit-leg-walk">┊ 徒歩連絡 → ${_esc(_trDestWalkName(j))}（目的地）</div>` : ''}
         ${!j.fare ? `<div class="transit-note" id="transit-pf-${i}" style="margin:6px 0 0">${j._pf || `<button type="button" class="admin-btn sm" onclick="calcPartialFare(${i})">区間ごとの運賃を算出</button>`}</div>` : ''}
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="copyTransitRoute(${i})">テキストをコピー</button>
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="shareTransitRoute(${i})">画像で共有</button>
@@ -729,8 +743,9 @@ function copyTransitRoute(i) {
   if (!j || !j.legs.length) return;
   const from = j.legs[0].from.name;
   const to = j.legs[j.legs.length - 1].to.name;
+  const dw = _trDestWalkName(j);
   const fare = j.fare ? '・¥' + j.fare.ticket.toLocaleString() : '';
-  const text = `${from} ${_trFmtTime(j.departureSecs)} → ${to} ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}${fare}・乗換${j.transferCount}回）`;
+  const text = `${from} ${_trFmtTime(j.departureSecs)} → ${to} ${_trFmtTime(j.arrivalSecs)}${dw ? `（徒歩連絡→${dw}）` : ''}（${_trFmtDur(j.durationSecs)}${fare}・乗換${j.transferCount}回）`;
   navigator.clipboard.writeText(text).catch(() => {});
 }
 
@@ -794,8 +809,10 @@ function _trBuildRouteCanvas(j, dateStr) {
   // 先頭/末尾が徒歩の区間は出発地/到着地の●行を足すぶん高さを加算する
   const walkExtra = (leg, k) => leg.kind === 'walk'
     ? ((k === 0 ? 1 : 0) + (k === j.legs.length - 1 ? 1 : 0)) * EXTRA_BULLET_H : 0;
+  const destWalk = _trDestWalkName(j); // 到着駅が目的地と別なら連絡徒歩行を1行足す
   const legsH = j.legs.reduce((s, leg, k) =>
-    s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + walkExtra(leg, k) + LEG_GAP, 0);
+    s + (leg.kind === 'walk' ? WALK_LEG_H : TRANSIT_LEG_H) + walkExtra(leg, k) + LEG_GAP, 0)
+    + (destWalk ? WALK_LEG_H + LEG_GAP : 0);
 
   const headerH = 76;      // アプリ名＋日付
   const bigRouteH = 76;    // 出発駅 → 到着駅
@@ -926,6 +943,18 @@ function _trBuildRouteCanvas(j, dateStr) {
 
     y += TRANSIT_LEG_H + LEG_GAP;
   });
+
+  // 到着駅が目的地と別なら、目的地への徒歩連絡を1行補って示す
+  if (destWalk) {
+    ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(barX + 3, y + 4); ctx.lineTo(barX + 3, y + WALK_LEG_H - 4); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = "14px 'Noto Sans JP', sans-serif";
+    ctx.fillStyle = '#a0a0a0';
+    ctx.fillText(`┊ 徒歩連絡 → ${destWalk}（目的地）`, textX, y + WALK_LEG_H / 2 + 5);
+    y += WALK_LEG_H + LEG_GAP;
+  }
 
   y += footerH - 24;
 
