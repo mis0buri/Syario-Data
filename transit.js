@@ -404,6 +404,8 @@ async function searchTransit(detour) {
     const pr = pairs[0];
     baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid });
     if (railBias) baseTasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
+    // 到着駅まで徒歩なしで着く経路を確実に候補へ入れる（APIが近隣駅+徒歩で終わる経路を優先しがちなため）
+    if (!detour) baseTasks.push({ pr, vias, n, base: false, avoidModes: avoid, avoidWalk: true, timeout: 8000 });
   } else {
     pairs.forEach(pr => baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
@@ -454,7 +456,7 @@ async function searchTransit(detour) {
 // 1タスクを実行（本線=タイムアウトなし / 追加検索=タイムアウト付き）
 function _trRunTask(t, detour) {
   return t.base
-    ? _trFetchPlan(t.pr, t.vias, t.n, detour, undefined, t.avoidModes).then(js => ({ t, js })).catch(e => ({ t, err: e }))
+    ? _trFetchPlan(t.pr, t.vias, t.n, detour, undefined, t.avoidModes, t.avoidWalk).then(js => ({ t, js })).catch(e => ({ t, err: e }))
     : _trPlanWithTimeout(t, detour, t.timeout || 6000);
 }
 
@@ -580,7 +582,7 @@ function toggleTransitLines() {
   arrow.classList.toggle('open', open);
 }
 
-async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes) {
+async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk) {
   const p = new URLSearchParams({
     from: pr.from.id, to: pr.to.id,
     fromLabel: pr.from.name, toLabel: pr.to.name,
@@ -593,6 +595,7 @@ async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes) {
   vias.forEach(v => { p.append('via', v.id); p.append('viaLabel', v.name); });
   if (detour) p.set('maxTransfers', '5'); // 迂回時は乗換回数を緩めて候補を広げる
   if (avoidModes) p.set('avoidModes', avoidModes); // 例: bus（電車系のみの候補を得る）
+  if (avoidWalk) p.set('avoidWalk', 'true'); // 徒歩区間を含む経路を除外（到着駅まで電車で行く経路を確実に拾う）
   const res = await fetch(TRANSIT_API + '/api/v1/plan?' + p.toString(), signal ? { signal } : undefined);
   const j = await res.json().catch(() => null);
   if (!res.ok) {
@@ -607,7 +610,7 @@ async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes) {
 function _trPlanWithTimeout(t, detour, ms) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), ms);
-  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes)
+  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes, t.avoidWalk)
     .then(js => ({ t, js }))
     .catch(e => ({ t, err: e }))
     .finally(() => clearTimeout(timer));
@@ -631,6 +634,14 @@ function _trTrimJourney(j) {
 // バス区間を含む経路か（電車系より下位に並べるため）
 function _trHasBus(j) {
   return j.legs.some(l => l.kind === 'transit' && l.mode === 'bus');
+}
+
+// 検索した到着駅にそのまま着く経路か（別駅からの徒歩連絡や近接駅扱いで終わる経路はfalse）
+function _trArrivesAtDest(j) {
+  if (!j._dest || !j.legs || !j.legs.length) return true; // 判定材料がない場合は通常扱い
+  const last = j.legs[j.legs.length - 1];
+  if (last.kind === 'walk' && last.from.name !== last.to.name) return false; // 別駅へ徒歩移動して終わる
+  return last.to.id === j._dest.id || last.to.name === j._dest.name;
 }
 
 function sortTransitResults(mode) {
