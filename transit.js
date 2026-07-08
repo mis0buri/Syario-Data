@@ -565,6 +565,9 @@ function _trMergeThroughLegs(j) {
     return samePf || _trIsThroughPair(a.routeName, b.routeName) || gap <= 180;
   };
   const merge = (prev, leg) => {
+    // 結合前の構成区間を保存（Part Bが結合済み境界にもより早い続行便がないか確認するため）
+    prev._segs = prev._segs || [Object.assign({}, prev)];
+    prev._segs.push(Object.assign({}, leg));
     prev._thru = prev._thru || [prev.routeName];
     if (prev._thru[prev._thru.length - 1] !== leg.routeName) prev._thru.push(leg.routeName);
     prev.routeName = prev._thru.join('→') + (prev._thru.length > 1 ? '（直通）' : '');
@@ -597,9 +600,21 @@ function _trMergeThroughLegs(j) {
   }
 }
 
+// Part Aで結合したlegを元の構成区間へ展開する（結合時に_segsへ保存した原型を使用）
+function _trExpandLegs(legs) {
+  const out = [];
+  legs.forEach(l => {
+    if (l._segs && l._segs.length) out.push(..._trExpandLegs(l._segs));
+    else out.push(Object.assign({}, l));
+  });
+  return out;
+}
+
 // 1つの乗換境界（legs[i]=L1 → legs[q]=L2）について、乗換駅から到着時刻ちょうど発で
-// 目的地へ再検索し、直通の続行便が見つかれば区間を差し替えた経路を返す（無ければnull）
-async function _trFixBoundary(j, i, q, avoid) {
+// 目的地へ再検索し、直通の続行便が見つかれば区間を差し替えた経路を返す（無ければnull）。
+// baseTransfers/baseArr は差し替え前（Part A結合後の表示形）の乗換回数・到着時刻。
+// 「乗換が減る」か「乗換同数でも到着が早くなる」場合のみ採用する。
+async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
   const L1 = j.legs[i], L2 = j.legs[q];
   const destId = (j._dest && j._dest.id) || j.legs[j.legs.length - 1].to.id;
   const destName = (j._dest && j._dest.name) || j.legs[j.legs.length - 1].to.name;
@@ -635,49 +650,55 @@ async function _trFixBoundary(j, i, q, avoid) {
     let tail = cand.legs.slice();
     while (tail.length && tail[0].kind === 'walk' && _trNorm(tail[0].from.name) === _trNorm(tail[0].to.name)) tail.shift();
     spliced.legs = j.legs.slice(0, i + 1).concat(tail);
-    const beforeTransfers = typeof j.transferCount === 'number'
-      ? j.transferCount : Math.max(0, j.legs.filter(l => l.kind === 'transit').length - 1);
     _trMergeThroughLegs(spliced);
     const newTransfers = Math.max(0, spliced.legs.filter(l => l.kind === 'transit').length - 1);
-    if (newTransfers >= beforeTransfers) continue; // 直通結合で乗換が減った時のみ採用
     spliced.departureSecs = spliced.legs[0].departureSecs;
     spliced.arrivalSecs = spliced.legs[spliced.legs.length - 1].arrivalSecs;
     spliced.durationSecs = spliced.arrivalSecs - spliced.departureSecs;
     spliced.transferCount = newTransfers;
+    // 採用条件: 乗換が減る、または乗換同数でも到着が早くなる
+    if (!(newTransfers < baseTransfers || (newTransfers === baseTransfers && spliced.arrivalSecs < baseArr))) continue;
     // 完全に1本の直通になった時だけ元の運賃を引き継ぐ（同一コリドーで運賃不変）。
     // 乗換が残る場合は尾側が別経路に分岐して運賃が変わり得るため運賃を消す
-    // （誤った運賃を表示・運賃ソートに使わない。区間ごと運賃ボタンで再算出可能）
     if (newTransfers > 0) { spliced.fare = null; spliced._pf = undefined; }
     return spliced; // _dest等は元のjから引き継ぐ
   }
   return null;
 }
 
-// 経路内の「待ち3分超の乗換境界」をすべて検証し、直通化できた境界を差し替える。
-// 従来は最初の1境界で打ち切っており、手前（例: 中野）の境界で1回分を消費すると
-// 本命の境界（例: 西船橋）が検証されなかった。全境界を順に試し、直通化に成功したら
-// 差し替え後の経路で再走査する（結合済み境界は待ちが消えるため再対象にならない。
-// 走査は最大3周でAPI呼び出しを抑制）。
+// Part Aで結合済みのlegも構成区間(_segs)へ展開して全境界を走査し、
+// 「乗換が減る」または「到着が早くなる」続行便があれば差し替える。
+// 例: 西船橋5分停車として結合された直通でも、より早い続行便があれば置き換える。
 async function _trTryThroughFix(j, avoid) {
-  if (!j.legs) return null;
   let cur = j, changed = false;
   for (let pass = 0; pass < 3; pass++) {
-    let fixedThisPass = false;
-    for (let i = 0; i < cur.legs.length; i++) {
-      const L1 = cur.legs[i];
-      if (L1.kind !== 'transit') continue;
-      let q = i + 1;
-      while (q < cur.legs.length && cur.legs[q].kind === 'walk' && _trNorm(cur.legs[q].from.name) === _trNorm(cur.legs[q].to.name)) q++;
-      if (q >= cur.legs.length || cur.legs[q].kind !== 'transit') continue;
-      const gap = cur.legs[q].departureSecs - L1.arrivalSecs;
-      if (gap <= 180 || gap > 1800) continue; // 既に近接／30分超の待ちは対象外
-      const fixed = await _trFixBoundary(cur, i, q, avoid);
-      if (fixed) { cur = fixed; changed = true; fixedThisPass = true; break; }
-      // 直通化できない境界は飛ばし、後続の境界も検証する（従来はここで打ち切っていた）
-    }
-    if (!fixedThisPass) break;
+    const fixed = await _trTryThroughFixOnce(cur, avoid);
+    if (!fixed) break;
+    cur = fixed; changed = true;
   }
   return changed ? cur : null;
+}
+
+async function _trTryThroughFixOnce(j, avoid) {
+  if (!j.legs) return null;
+  const baseTransfers = typeof j.transferCount === 'number'
+    ? j.transferCount : Math.max(0, j.legs.filter(l => l.kind === 'transit').length - 1);
+  const baseArr = j.arrivalSecs;
+  const x = Object.assign({}, j);
+  x.legs = _trExpandLegs(j.legs);
+  for (let i = 0; i < x.legs.length; i++) {
+    const L1 = x.legs[i];
+    if (L1.kind !== 'transit') continue;
+    let q = i + 1;
+    while (q < x.legs.length && x.legs[q].kind === 'walk' && _trNorm(x.legs[q].from.name) === _trNorm(x.legs[q].to.name)) q++;
+    if (q >= x.legs.length || x.legs[q].kind !== 'transit') continue;
+    const gap = x.legs[q].departureSecs - L1.arrivalSecs;
+    if (gap <= 60 || gap > 1800) continue; // 60秒以内は改善余地なし／30分超の待ちは対象外
+    const fixed = await _trFixBoundary(x, i, q, avoid, baseTransfers, baseArr);
+    if (fixed) return fixed;
+    // 改善できない境界は飛ばし、後続の境界も検証する
+  }
+  return null;
 }
 
 async function _trVerifyThrough(all, token, avoid, detour) {
