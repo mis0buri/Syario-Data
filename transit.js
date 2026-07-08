@@ -404,8 +404,6 @@ async function searchTransit(detour) {
     const pr = pairs[0];
     baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid });
     if (railBias) baseTasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
-    // 到着駅まで徒歩なしで着く経路を確実に候補へ入れる（APIが近隣駅+徒歩で終わる経路を優先しがちなため）
-    if (!detour) baseTasks.push({ pr, vias, n, base: false, avoidModes: avoid, avoidWalk: true, timeout: 8000 });
   } else {
     pairs.forEach(pr => baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
