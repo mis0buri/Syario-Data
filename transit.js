@@ -462,6 +462,7 @@ function _trRunTask(t, detour) {
 function _trCollect(results, all) {
   results.forEach(r => {
     if (r.js) r.js.forEach(j => {
+      _trMergeThroughLegs(j);
       _trTrimJourney(j);
       j._myst = r.t.pr.myst || '';
       j._dest = r.t.pr.to; // 検索した目的地（到着駅がこれと別なら徒歩連絡を補って表示）
@@ -469,6 +470,35 @@ function _trCollect(results, all) {
     });
   });
   return all;
+}
+
+// 直通運転（乗り入れで同じ列車のまま走る区間）がAPIデータ上で別legに分割されて
+// 「乗換」に見えるのを1本にまとめる（例: 東西線→東葉高速線を西船橋で分割）。
+// 判定: 同一tripId／同駅で乗換時間0以下／同駅・同ホームで待ち3分以内、のいずれか。
+function _trMergeThroughLegs(j) {
+  if (!j.legs || j.legs.length < 2) return;
+  const out = [];
+  j.legs.forEach(leg => {
+    const prev = out[out.length - 1];
+    if (prev && prev.kind === 'transit' && leg.kind === 'transit' && prev.to.name === leg.from.name) {
+      const gap = leg.departureSecs - prev.arrivalSecs;
+      const samePf = prev.to.platformCode && leg.from.platformCode && prev.to.platformCode === leg.from.platformCode;
+      const through = (prev.tripId && prev.tripId === leg.tripId) || gap <= 0 || (samePf && gap <= 180);
+      if (through) {
+        prev._thru = prev._thru || [prev.routeName];
+        if (prev._thru[prev._thru.length - 1] !== leg.routeName) prev._thru.push(leg.routeName);
+        prev.routeName = prev._thru.join('→') + (prev._thru.length > 1 ? '（直通）' : '');
+        prev.to = leg.to;
+        prev.arrivalSecs = leg.arrivalSecs;
+        return;
+      }
+    }
+    out.push(Object.assign({}, leg));
+  });
+  if (out.length !== j.legs.length) {
+    j.legs = out;
+    j.transferCount = Math.max(0, out.filter(l => l.kind === 'transit').length - 1);
+  }
 }
 
 // 到着駅が検索した目的地と別（APIが近接駅を目的地扱いして連絡徒歩を省くケース。
