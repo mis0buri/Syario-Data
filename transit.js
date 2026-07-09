@@ -1108,10 +1108,34 @@ function _trArrivesAtDest(j) {
   return last.to.id === j._dest.id || _trNorm(last.to.name) === _trNorm(j._dest.name);
 }
 
+// 経路末尾に連続する徒歩区間（改札を出てからの目的地までの移動）の合計秒数。
+// ソート専用の「実質到着時刻」算出に使う（徒歩1分＝1分の遅着として加算するペナルティ）。
+// journey自体のarrivalSecsは変更しないため、表示上の到着時刻はそのまま
+function _trTrailingWalkSecs(j) {
+  if (!j.legs || !j.legs.length) return 0;
+  let secs = 0;
+  for (let i = j.legs.length - 1; i >= 0; i--) {
+    const leg = j.legs[i];
+    if (leg.kind !== 'walk') break;
+    secs += leg.arrivalSecs - leg.departureSecs;
+  }
+  return secs;
+}
+
 function sortTransitResults(mode) {
   _trSort = mode;
   document.getElementById('transit-sort-time').classList.toggle('active', mode === 'time');
   document.getElementById('transit-sort-fare').classList.toggle('active', mode === 'fare');
+  // 到着時刻ベースの比較（実質到着＝末尾徒歩ペナルティ込み → 指定到着駅にそのまま
+  // 着くか → 所要時間）。時刻ソートの主キーと、運賃ソートの同額時の第2キーで共有する
+  const byArrival = (a, b) => {
+    const ea = a.arrivalSecs + _trTrailingWalkSecs(a);
+    const eb = b.arrivalSecs + _trTrailingWalkSecs(b);
+    if (ea !== eb) return ea - eb;
+    const da = _trArrivesAtDest(a) ? 0 : 1, db = _trArrivesAtDest(b) ? 0 : 1;
+    if (da !== db) return da - db;
+    return a.durationSecs - b.durationSecs;
+  };
   _trJourneys.sort((a, b) => {
     // 電車系（バスを含まない）経路を常に上位に。バス偏重の表示を防ぐ
     const ba = _trHasBus(a) ? 1 : 0, bb = _trHasBus(b) ? 1 : 0;
@@ -1119,10 +1143,9 @@ function sortTransitResults(mode) {
     if (mode === 'fare') {
       const fa = a.fare ? a.fare.ticket : Infinity, fb = b.fare ? b.fare.ticket : Infinity;
       if (fa !== fb) return fa - fb;
-      return a.arrivalSecs - b.arrivalSecs;
+      return byArrival(a, b);
     }
-    if (a.arrivalSecs !== b.arrivalSecs) return a.arrivalSecs - b.arrivalSecs;
-    return a.durationSecs - b.durationSecs;
+    return byArrival(a, b);
   });
   renderTransitResults();
 }
