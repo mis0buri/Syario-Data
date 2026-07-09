@@ -546,11 +546,14 @@ async function searchTransit(detour) {
   _trPostSearch(all, token, avoid, detour, fbPr);
 }
 
-// 1タスクを実行（本線=タイムアウトなし / 追加検索=タイムアウト付き）
+// 1タスクを実行（本線=タイムアウト12秒+失敗時1回リトライ / 追加検索=タイムアウト付き）。
+// 本線は元々タイムアウト無し・リトライ無しだったため、単発のERR_ABORTED等の一時的な
+// ネットワーク不調でベースplanだけが失われ、直通結合されたTR系ルート（ベースplanにしか
+// 現れない）が丸ごと画面から消え、ハブ経由(fanout)の近接駅止まり経路だけで結果が構成
+// されてしまう不具合があった（ラウンド10）。タイムアウトで無期限ハングも防ぎつつ、
+// 短い間隔を置いて1回だけ再試行することで一時的な失敗を吸収する
 function _trRunTask(t, detour) {
-  return t.base
-    ? _trFetchPlan(t.pr, t.vias, t.n, detour, undefined, t.avoidModes, t.avoidWalk).then(js => ({ t, js })).catch(e => ({ t, err: e }))
-    : _trPlanWithTimeout(t, detour, t.timeout || 6000);
+  return t.base ? _trPlanRetryOnce(t, detour, 12000) : _trPlanWithTimeout(t, detour, t.timeout || 6000);
 }
 
 // 検索結果配列から経路を取り出してtrim・ラベル付与し all に追加
@@ -995,8 +998,10 @@ async function _trPostSearch(all, token, avoid, detour, pr) {
 //      実フィードendpoint(geo:でない)かつ正規化名一致」の駅IDを解決し、toを差し替えて
 //      再plan（実駅IDをtoにすればそこまで鉄道で運ぶ経路が返る）
 // 得られた経路のうち指定到着駅に鉄道で着くものだけを返す（無ければnull）。
-// タイムアウト6秒、失敗時は静かに諦める（エラー表示なし）。目的地が駅でない
-// （住所・施設）場合はbのsuggest解決が空になり何もしない
+// タイムアウト8秒+失敗時1回リトライ（ラウンド10で本線検索と同様に堅牢化。ベースplanの
+// 失敗要因が一時的なものであれば、ここで拾えるようにする）、それでも失敗した場合は
+// 静かに諦める（エラー表示なし）。目的地が駅でない（住所・施設）場合はbのsuggest解決が
+// 空になり何もしない
 async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
   if (detour || !pr) return null;
   if (_trRailFallbackToken === token) return null; // 1検索1回だけ
@@ -1023,7 +1028,7 @@ async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
   };
 
   // (a) avoidWalk=true で再plan
-  const ra = await _trPlanWithTimeout({ pr, vias: [], n: 6, avoidModes: avoid, avoidWalk: true }, false, 6000);
+  const ra = await _trPlanRetryOnce({ pr, vias: [], n: 6, avoidModes: avoid, avoidWalk: true }, false, 8000);
   if (token !== _trSearchToken) return null;
   let hits = ra.js ? collect(ra.js) : [];
 
@@ -1044,7 +1049,7 @@ async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
     if (token !== _trSearchToken) return null;
     if (stId) {
       const pr2 = { from: pr.from, to: { id: stId, name: pr.to.name } };
-      const rb = await _trPlanWithTimeout({ pr: pr2, vias: [], n: 6, avoidModes: avoid }, false, 6000);
+      const rb = await _trPlanRetryOnce({ pr: pr2, vias: [], n: 6, avoidModes: avoid }, false, 8000);
       if (token !== _trSearchToken) return null;
       if (rb.js) hits = collect(rb.js);
     }
@@ -1169,6 +1174,19 @@ function _trPlanWithTimeout(t, detour, ms) {
     .then(js => ({ t, js }))
     .catch(e => ({ t, err: e }))
     .finally(() => clearTimeout(timer));
+}
+
+// _trPlanWithTimeoutを実行し、失敗（タイムアウト・ERR_ABORTED・4xx/5xx等）した場合は
+// 500ms置いて1回だけ再試行する。単発の一時的なネットワーク不調で検索結果（特にその
+// リクエストにしか現れない直通結合ルート等）が丸ごと失われるのを防ぐための共通ヘルパー
+// （ラウンド10・本線検索とv4補完検索の堅牢化で導入）
+async function _trPlanRetryOnce(t, detour, ms) {
+  let r = await _trPlanWithTimeout(t, detour, ms);
+  if (r.err) {
+    await new Promise(res => setTimeout(res, 500));
+    r = await _trPlanWithTimeout(t, detour, ms);
+  }
+  return r;
 }
 
 // 先頭の同一駅構内の徒歩区間（乗降のためのホーム↔駅移動）を取り除き、出発時刻を
