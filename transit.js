@@ -150,6 +150,13 @@ let _trExclude = [];           // 迂回検索で除外する路線名（routeNa
 let _trIsDetour = false;
 let _trIncludeBus = localStorage.getItem(TRANSIT_LS_INCLUDE_BUS) === '1'; // 既定=false（バス排除）
 let _trSearchToken = 0; // 検索ごとに採番。段階表示の非同期更新が古い検索由来なら破棄するため
+// フェーズ2（ハブ経由via検索）が発行中のAbortControllerを検索世代ごとに保持する。
+// 検索を再実行すると新しい世代のfetchが始まるが、旧世代のハブfetchは中断されないと
+// タイムアウト(最大12秒)まで無駄に生き続け、無駄な帯域・接続を消費してしまう
+// （旧世代はtoken不一致で結果を捨てるだけなので実害は無いが、新検索の完了を遅らせる
+// 要因にもなり得る）。新しい検索開始時（_trSearchToken加算時）に、直前の世代がここに
+// 積んだコントローラを全てabortしてから配列を空にする
+let _trHubAbortControllers = [];
 const _trTimer = {};
 const _trAbort = {};
 
@@ -526,6 +533,9 @@ async function searchTransit(detour) {
   }
 
   const token = ++_trSearchToken;
+  // 新しい検索を開始するので、直前の世代のハブ経由fetchがまだ生き残っていれば中断する
+  _trHubAbortControllers.forEach(ac => { try { ac.abort(); } catch (e) {} });
+  _trHubAbortControllers = [];
   btn.disabled = true;
   _trStatus('検索中...');
   // フリー検索は候補数を多めにする。numItinerariesはAPI上限6（8は「plan query is invalid」）。
@@ -579,10 +589,13 @@ async function searchTransit(detour) {
   const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: TRANSIT_HUB_TIMEOUT }));
   if (hubTasks.length) {
     const before = all.length;
-    _trStatus('追加経路を検索中…');
+    const totalBatches = Math.ceil(hubTasks.length / TRANSIT_HUB_CONCURRENCY);
     for (let i = 0; i < hubTasks.length; i += TRANSIT_HUB_CONCURRENCY) {
+      const batchNum = Math.floor(i / TRANSIT_HUB_CONCURRENCY) + 1;
+      // 最大36秒程度かかり得るフェーズ2の待ち時間を、バッチ進捗付きで見せる（ラウンド12）
+      _trStatus(`追加経路を検索中… (${batchNum}/${totalBatches})`);
       const batch = hubTasks.slice(i, i + TRANSIT_HUB_CONCURRENCY);
-      const batchResults = await Promise.all(batch.map(t => _trRunTask(t, detour)));
+      const batchResults = await Promise.all(batch.map(t => _trRunTask(t, detour, _trHubAbortControllers)));
       if (token !== _trSearchToken) return;
       const prevLen = all.length;
       all = _trDedupJourneys(_trCollect(batchResults, all.slice()));
@@ -610,8 +623,10 @@ async function searchTransit(detour) {
 // 現れない）が丸ごと画面から消え、ハブ経由(fanout)の近接駅止まり経路だけで結果が構成
 // されてしまう不具合があった（ラウンド10）。タイムアウトで無期限ハングも防ぎつつ、
 // 短い間隔を置いて1回だけ再試行することで一時的な失敗を吸収する
-function _trRunTask(t, detour) {
-  return t.base ? _trPlanRetryOnce(t, detour, 12000) : _trPlanWithTimeout(t, detour, t.timeout || 6000);
+// registryを渡すと、生成したAbortControllerをその配列へ積む（ハブ経由fanoutの
+// 世代管理・再検索時の中断用。本線タスクでは使わない）
+function _trRunTask(t, detour, registry) {
+  return t.base ? _trPlanRetryOnce(t, detour, 12000) : _trPlanWithTimeout(t, detour, t.timeout || 6000, registry);
 }
 
 // 検索結果配列から経路を取り出してtrim・ラベル付与し all に追加
@@ -1092,7 +1107,14 @@ async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
   if (!hits.length && /^geo:/.test(pr.to.id)) {
     let stId = null;
     try {
-      const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(pr.to.name)}&limit=30`);
+      // 従来は無期限fetchで、v4補完検索の他のplan呼び出し（8秒タイムアウト+1回リトライ）
+      // と非対称だった。suggest自体がハングした場合の単発ハング対策として6秒で打ち切る
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 6000);
+      let res;
+      try {
+        res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(pr.to.name)}&limit=30`, { signal: ac.signal });
+      } finally { clearTimeout(timer); }
       if (res.ok) {
         const data = await res.json();
         // suggestはkind=stationでもgeo:クラスタIDの項目を先頭に返すため、実フィードIDに限定。
@@ -1104,7 +1126,7 @@ async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
         const hit = named.find(p => p.lat !== undefined && p.lon !== undefined && _trDistKm(pr.to, p) <= 2);
         if (hit) stId = hit.endpoint;
       }
-    } catch (e) { /* 目的地が駅でない・通信失敗などは静かに諦める */ }
+    } catch (e) { /* 目的地が駅でない・通信失敗・タイムアウトなどは静かに諦める */ }
     if (token !== _trSearchToken) return null;
     if (stId) {
       const pr2 = { from: pr.from, to: { id: stId, name: pr.to.name } };
@@ -1226,8 +1248,9 @@ async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk, 
 
 // planをタイムアウト付きで実行（ハブ経由の追加検索が遅延・ハングしても
 // 本線結果の表示や検索ボタンの復帰を巻き込まないようにする）
-function _trPlanWithTimeout(t, detour, ms) {
+function _trPlanWithTimeout(t, detour, ms, registry) {
   const ac = new AbortController();
+  if (registry) registry.push(ac); // ハブ経由fanout: 世代abort用に登録
   const timer = setTimeout(() => ac.abort(), ms);
   return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes, t.avoidWalk)
     .then(js => ({ t, js }))
