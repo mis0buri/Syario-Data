@@ -1295,6 +1295,15 @@ function _trRenderLeg(leg, isFirst, isLast) {
   </div>`;
 }
 
+// 表示用の到着秒数: 徒歩連絡（APIのegressWalkSecs）を含めた「目的地に実際に着く時刻」。
+// 末尾に実walk legがある経路はarrivalSecsに徒歩が既に含まれているため加算しない
+// （egressWalkSecsはlegに現れない連絡徒歩のみを表すフィールドなので二重加算にならない）。
+// journeyのarrivalSecs/durationSecs自体は変更しない（ソート・結合・dedup・Part Bへの
+// 副作用を避けるため、描画時にのみこのヘルパーで計算する）
+function _trDisplayArrivalSecs(j) {
+  return j.arrivalSecs + (j.egressWalkSecs > 0 ? j.egressWalkSecs : 0);
+}
+
 function renderTransitResults() {
   // _trJourneys[i] を参照するハンドラと整合させるため、先頭からの連番indexで表示
   document.getElementById('transit-results').innerHTML = _trJourneys.slice(0, TRANSIT_MAX_RESULTS).map((j, i) => {
@@ -1304,7 +1313,7 @@ function renderTransitResults() {
     const myst = j._myst ? '・' + _esc(j._myst) : '';
     return `<div class="transit-route-card">
       <button type="button" class="transit-route-head" onclick="toggleTransitRoute(${i})">
-        <span class="transit-route-time">${_trFmtTime(j.departureSecs)} → ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}）</span>
+        <span class="transit-route-time">${_trFmtTime(j.departureSecs)} → ${_trFmtTime(_trDisplayArrivalSecs(j))}${j.egressWalkSecs > 0 ? '🚶' : ''}（${_trFmtDur(_trDisplayArrivalSecs(j) - j.departureSecs)}）</span>
         <span class="transit-route-meta">${_trIsDetour ? '<span class="transit-detour-badge">迂回路</span>' : ''}${fare}・乗換${j.transferCount}回${myst}</span>
       </button>
       <div class="transit-route-body${i === 0 ? ' open' : ''}" id="transit-route-body-${i}">
@@ -1314,7 +1323,7 @@ function renderTransitResults() {
     <div class="transit-leg-line">${j.egressWalkSecs > 0
       ? `🚶 ${_esc(j.legs[j.legs.length - 1].to.name)}から徒歩約${Math.ceil(j.egressWalkSecs / 60)}分`
       : '🚶 徒歩連絡（所要時間は経路データに含まれません）'}</div>
-    <div class="transit-leg-st">● ${_esc(_trDestWalkName(j))}（目的地）</div>
+    <div class="transit-leg-st">● ${j.egressWalkSecs > 0 ? `${_trFmtTime(_trDisplayArrivalSecs(j))} ` : ''}${_esc(_trDestWalkName(j))}（目的地）</div>
   </div>` : ''}
         ${!j.fare ? `<div class="transit-note" id="transit-pf-${i}" style="margin:6px 0 0">${j._pf || `<button type="button" class="admin-btn sm" onclick="calcPartialFare(${i})">区間ごとの運賃を算出</button>`}</div>` : ''}
         <button type="button" class="admin-btn sm" style="margin-top:8px" onclick="copyTransitRoute(${i})">テキストをコピー</button>
