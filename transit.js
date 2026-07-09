@@ -7,6 +7,7 @@ const TRANSIT_LS_STATIONS = 'transit_my_stations';
 const TRANSIT_LS_ENABLED = 'transit_my_enabled';
 const TRANSIT_LS_HISTORY = 'transit_history';
 const TRANSIT_LS_INCLUDE_BUS = 'transit_include_bus'; // バスを含めるか（既定=含めない）
+const TRANSIT_LS_DURATION_PRIORITY = 'transit_duration_priority'; // 所要時間優先モード（既定=OFF）
 const TRANSIT_LS_HUBS = 'transit_hub_cache';          // 主要ハブ駅ID解決結果の恒久キャッシュ
 // フリー検索で自動的にvia指定して探索する主要ハブ駅（APIが上位に出さない
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
@@ -149,6 +150,7 @@ let _trSort = 'time';
 let _trExclude = [];           // 迂回検索で除外する路線名（routeName完全一致）
 let _trIsDetour = false;
 let _trIncludeBus = localStorage.getItem(TRANSIT_LS_INCLUDE_BUS) === '1'; // 既定=false（バス排除）
+let _trDurationPriority = localStorage.getItem(TRANSIT_LS_DURATION_PRIORITY) === '1'; // 既定=false
 let _trSearchToken = 0; // 検索ごとに採番。段階表示の非同期更新が古い検索由来なら破棄するため
 // フェーズ2（ハブ経由via検索）が発行中のAbortControllerを検索世代ごとに保持する。
 // 検索を再実行すると新しい世代のfetchが始まるが、旧世代のハブfetchは中断されないと
@@ -175,6 +177,8 @@ function initTransit() {
   document.getElementById('transit-time').value = now.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false });
   const busCb = document.getElementById('transit-include-bus');
   if (busCb) busCb.checked = _trIncludeBus;
+  const durCb = document.getElementById('transit-duration-priority');
+  if (durCb) durCb.checked = _trDurationPriority;
   if (_trInited) return;
   _trInited = true;
   ['from', 'to', 'via1', 'via2', 'via3'].forEach(k => _trBindSuggest(k));
@@ -436,6 +440,31 @@ function setTransitIncludeBus(on) {
   localStorage.setItem(TRANSIT_LS_INCLUDE_BUS, _trIncludeBus ? '1' : '0');
   // すでに検索結果が出ていれば、新しい条件で自動的に再検索する
   if (document.getElementById('transit-results-card').style.display !== 'none') searchTransit();
+}
+
+// 所要時間優先モードの切替（設計書 data/durpri_report.txt T3(3)）。
+// ONにした場合はオフセット追加検索（+10/+20/+30分）を含めて取り直す必要があるため再検索する。
+// OFFにした場合は既存結果の並びだけ従来ソートに戻せばよいため、再検索は不要（再ソートのみ）
+function setTransitDurationPriority(on) {
+  _trDurationPriority = !!on;
+  localStorage.setItem(TRANSIT_LS_DURATION_PRIORITY, _trDurationPriority ? '1' : '0');
+  if (document.getElementById('transit-results-card').style.display !== 'none') {
+    if (_trDurationPriority) searchTransit();
+    else sortTransitResults(_trSort);
+  }
+}
+
+// "HH:MM"形式の時刻文字列にaddMin分を加算した"HH:MM"を返す（日付繰り上げは行わず24時間内で
+// 折り返す。以降のオフセット追加検索はplan呼び出しのtimeパラメータとしてのみ使う値のため、
+// 日またぎの厳密な日付処理は不要。addMinは正の整数のみ想定）
+function _trAddMinutesToTime(hhmm, addMin) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
+  if (!m) return hhmm;
+  let total = parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + addMin;
+  total = ((total % 1440) + 1440) % 1440;
+  const hh = String(Math.floor(total / 60)).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 function toggleTransitVia() {

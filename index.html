@@ -1510,6 +1510,10 @@
           <input type="checkbox" id="transit-include-bus" onchange="setTransitIncludeBus(this.checked)">
           <span>バスを含める（初期状態は電車・地下鉄などのみ）</span>
         </label>
+        <label class="transit-bus-toggle" title="到着が最大30分遅い経路でも所要時間が短ければ上位に表示します">
+          <input type="checkbox" id="transit-duration-priority" onchange="setTransitDurationPriority(this.checked)">
+          <span>所要時間を優先する（到着が最大30分遅れても所要時間が短い経路を優先表示）</span>
+        </label>
 
         <div class="transit-via-section">
           <button type="button" class="jare-ocr-toggle" onclick="toggleTransitVia()">
