@@ -459,24 +459,52 @@ function setTransitIncludeBus(on) {
 // OFFにした場合は既存結果の並びだけ従来ソートに戻せばよいため、再検索は不要（再ソートのみ）
 function setTransitDurationPriority(on) {
   _trDurationPriority = !!on;
-  localStorage.setItem(TRANSIT_LS_DURATION_PRIORITY, _trDurationPriority ? '1' : '0');
+  try { localStorage.setItem(TRANSIT_LS_DURATION_PRIORITY, _trDurationPriority ? '1' : '0'); } catch (e) {}
   if (document.getElementById('transit-results-card').style.display !== 'none') {
     if (_trDurationPriority) searchTransit();
     else sortTransitResults(_trSort);
   }
 }
 
-// "HH:MM"形式の時刻文字列にaddMin分を加算した"HH:MM"を返す（日付繰り上げは行わず24時間内で
-// 折り返す。以降のオフセット追加検索はplan呼び出しのtimeパラメータとしてのみ使う値のため、
-// 日またぎの厳密な日付処理は不要。addMinは正の整数のみ想定）
+// "HH:MM"形式の時刻文字列にaddMin分を加算した{time:"HH:MM", dayOffset:繰り上がり日数}を返す。
+// 24:00を跨いだ場合はdayOffsetが1以上になる（例: "23:50"+30分 → {time:"00:20", dayOffset:1}）。
+// 呼び出し側はdayOffset>0のときplanのdateパラメータを繰り上げること（同日のまま発行すると
+// 「約24時間過去の早朝便」が返り結果に混入する）。addMinは正の整数のみ想定。
+// パース不能な入力はそのまま返す(dayOffset=0)＝従来のtime欄値をそのまま使う挙動に等しい
 function _trAddMinutesToTime(hhmm, addMin) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
-  if (!m) return hhmm;
-  let total = parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + addMin;
-  total = ((total % 1440) + 1440) % 1440;
-  const hh = String(Math.floor(total / 60)).padStart(2, '0');
-  const mm = String(total % 60).padStart(2, '0');
-  return `${hh}:${mm}`;
+  if (!m) return { time: hhmm, dayOffset: 0 };
+  const total = parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + addMin;
+  const dayOffset = Math.floor(total / 1440);
+  const t = ((total % 1440) + 1440) % 1440;
+  const hh = String(Math.floor(t / 60)).padStart(2, '0');
+  const mm = String(t % 60).padStart(2, '0');
+  return { time: `${hh}:${mm}`, dayOffset };
+}
+
+// "YYYY-MM-DD"形式の日付文字列にaddDays日を加算した"YYYY-MM-DD"を返す。
+// Dateオブジェクト経由で計算するため月末・年末の繰り上げも正しく処理される。
+// パース不能な入力はそのまま返す（安全側: 従来のdate欄値をそのまま使う）
+function _trAddDaysToDate(ymd, addDays) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+  if (!m) return ymd;
+  const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10) + addDays);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+// journeyの全時刻秒数をshift秒だけずらす。APIの時刻は「クエリのdateパラメータで指定した
+// サービス日の0時」基準のため、翌日dateで発行した検索結果を当日基準の検索結果と混ぜる際、
+// +86400×日数して基準を揃える必要がある（揃えると本線由来の同一便＝翌HH:MM表記と秒数が
+// 一致し、_trDedupJourneysの重複除去・_trFmtTimeの「翌」表示・ソートが全て正しく機能する）
+function _trShiftJourneySecs(j, shift) {
+  j.departureSecs += shift;
+  j.arrivalSecs += shift;
+  (j.legs || []).forEach(l => {
+    if (l.departureSecs != null) l.departureSecs += shift;
+    if (l.arrivalSecs != null) l.arrivalSecs += shift;
+  });
 }
 
 function toggleTransitVia() {
@@ -598,10 +626,20 @@ async function searchTransit(detour) {
     if (railBias) baseTasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
     if (durpriGate) {
       TRANSIT_DURPRI_OFFSETS_MIN.forEach(min => {
+        const ofs = _trAddMinutesToTime(document.getElementById('transit-time').value, min);
         baseTasks.push({
           pr, vias, n: 3, base: false, durpri: true,
           avoidModes: avoid, timeout: TRANSIT_DURPRI_TIMEOUT,
-          timeOverride: _trAddMinutesToTime(document.getElementById('transit-time').value, min),
+          timeOverride: ofs.time,
+          // 24:00を跨ぐオフセット(例: 23:50発の+30分)はdateも繰り上げて発行する。
+          // 同日のまま発行すると約24時間過去の早朝便が返り、しかもその過去便が
+          // adjustedArrival最小=_bestAdjとなって正しい翌日便を全て窓外へ追い出す
+          dateOverride: ofs.dayOffset > 0
+            ? _trAddDaysToDate(document.getElementById('transit-date').value, ofs.dayOffset)
+            : undefined,
+          // 翌日dateで発行した結果の秒数は「翌日サービス日0時」基準で返るため、
+          // 本検索のサービス日基準へ揃えるシフト量(+86400×日数)も持たせる
+          secsShift: ofs.dayOffset > 0 ? ofs.dayOffset * 86400 : 0,
         });
       });
     }
@@ -620,6 +658,13 @@ async function searchTransit(detour) {
     const chunk = durpriTasks.slice(i, i + TRANSIT_DURPRI_CONCURRENCY);
     durpriResults = durpriResults.concat(await Promise.all(chunk.map(t => _trRunTask(t, detour))));
   }
+  // 日跨ぎオフセット検索(dateOverride付き)の結果は翌日サービス日0時基準の秒数で返るため、
+  // 本検索のサービス日基準に揃える(+86400×日数)。これをしないと翌日早朝便が「同日早朝の
+  // 約19時間過去の便」として表示・ソートされ(_bestAdjも汚染)、本線が返す同一便(翌HH:MM
+  // 表記=86400超の秒数)とのdedupも効かない
+  durpriResults.forEach(r => {
+    if (r.js && r.t.secsShift) r.js.forEach(j => _trShiftJourneySecs(j, r.t.secsShift));
+  });
   const baseResults = (await basePromise).concat(durpriResults);
   if (token !== _trSearchToken) return; // 新しい検索に置き換わっていたら破棄
   btn.disabled = false;
@@ -1288,14 +1333,16 @@ function toggleTransitLines() {
   arrow.classList.toggle('open', open);
 }
 
-async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk, timeOverride, typeOverride) {
+async function _trFetchPlan(pr, vias, n, detour, signal, avoidModes, avoidWalk, timeOverride, typeOverride, dateOverride) {
   const type = typeOverride || _trType;
   const p = new URLSearchParams({
     from: pr.from.id, to: pr.to.id,
     fromLabel: pr.from.name, toLabel: pr.to.name,
     type, numItineraries: String(n)
   });
-  const d = document.getElementById('transit-date').value;
+  // dateOverrideがあれば優先（所要時間優先モードのオフセット検索が24:00を跨いだとき
+  // 翌日の日付("YYYY-MM-DD")で発行するため。timeOverrideと同じ伝搬経路）
+  const d = dateOverride || document.getElementById('transit-date').value;
   if (d) p.set('date', d.replace(/-/g, ''));
   // timeOverrideがあれば優先（乗換駅からの再検索で「その駅の到着時刻」を渡すため）
   const t = timeOverride || document.getElementById('transit-time').value;
@@ -1323,7 +1370,7 @@ function _trPlanWithTimeout(t, detour, ms, registry) {
   const ac = new AbortController();
   if (registry) registry.push(ac); // ハブ経由fanout: 世代abort用に登録
   const timer = setTimeout(() => ac.abort(), ms);
-  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes, t.avoidWalk, t.timeOverride, t.typeOverride)
+  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes, t.avoidWalk, t.timeOverride, t.typeOverride, t.dateOverride)
     .then(js => ({ t, js }))
     .catch(e => ({ t, err: e }))
     .finally(() => clearTimeout(timer));
