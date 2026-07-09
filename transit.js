@@ -1313,13 +1313,22 @@ function _trRenderLeg(leg, isFirst, isLast) {
   </div>`;
 }
 
-// 表示用の到着秒数: 徒歩連絡（APIのegressWalkSecs）を含めた「目的地に実際に着く時刻」。
-// 末尾に実walk legがある経路はarrivalSecsに徒歩が既に含まれているため加算しない
-// （egressWalkSecsはlegに現れない連絡徒歩のみを表すフィールドなので二重加算にならない）。
-// journeyのarrivalSecs/durationSecs自体は変更しない（ソート・結合・dedup・Part Bへの
-// 副作用を避けるため、描画時にのみこのヘルパーで計算する）
+// 表示用の徒歩連絡秒数: egressWalkSecsを分単位に切り上げた値（例: 643秒(10.7分)→11分=660秒）。
+// 生の秒数のまま到着時刻に加算すると、切り上げ表示の「🚶約N分」注記（Math.ceil(秒/60)分）と
+// 到着時刻・所要時間の分表示（秒→分は切り捨て寄りの計算）がズレる（例: 「12:56発→13:06着
+// （10分）」なのに注記は「約11分」）ため、表示に使う値は分単位で統一する（ラウンド10）。
+// ソート用のadjustedArrival（sortTransitResults内）は生のegressWalkSecsのまま変更しない
+function _trDisplayEgressSecs(j) {
+  return j.egressWalkSecs > 0 ? Math.ceil(j.egressWalkSecs / 60) * 60 : 0;
+}
+
+// 表示用の到着秒数: 徒歩連絡（APIのegressWalkSecsを分単位に切り上げた値）を含めた
+// 「目的地に実際に着く時刻」。末尾に実walk legがある経路はarrivalSecsに徒歩が既に
+// 含まれているため加算しない（egressWalkSecsはlegに現れない連絡徒歩のみを表すフィールド
+// なので二重加算にならない）。journeyのarrivalSecs/durationSecs自体は変更しない
+// （ソート・結合・dedup・Part Bへの副作用を避けるため、描画時にのみこのヘルパーで計算する）
 function _trDisplayArrivalSecs(j) {
-  return j.arrivalSecs + (j.egressWalkSecs > 0 ? j.egressWalkSecs : 0);
+  return j.arrivalSecs + _trDisplayEgressSecs(j);
 }
 
 function renderTransitResults() {
@@ -1339,7 +1348,7 @@ function renderTransitResults() {
         ${_trDestWalkName(j) ? `<div class="transit-leg">
     <div class="transit-leg-st">● ${_trFmtTime(j.legs[j.legs.length - 1].arrivalSecs)} ${_esc(j.legs[j.legs.length - 1].to.name)}</div>
     <div class="transit-leg-line">${j.egressWalkSecs > 0
-      ? `🚶 ${_esc(j.legs[j.legs.length - 1].to.name)}から徒歩約${Math.ceil(j.egressWalkSecs / 60)}分`
+      ? `🚶 ${_esc(j.legs[j.legs.length - 1].to.name)}から徒歩約${_trDisplayEgressSecs(j) / 60}分`
       : '🚶 徒歩連絡（所要時間は経路データに含まれません）'}</div>
     <div class="transit-leg-st">● ${j.egressWalkSecs > 0 ? `${_trFmtTime(_trDisplayArrivalSecs(j))} ` : ''}${_esc(_trDestWalkName(j))}（目的地）</div>
   </div>` : ''}
