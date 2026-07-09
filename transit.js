@@ -30,6 +30,10 @@ const TRANSIT_MAX_RESULTS = 12;
 // 追加ペナルティ秒数。連絡徒歩秒数（APIのegressWalkSecs）に上乗せし、「徒歩込みの
 // 実質到着が鉄道完結よりこの秒数以上早いときだけ徒歩連絡経路を上に出す」閾値として働く
 const TRANSIT_ATDEST_THRESHOLD = 600;
+// 所要時間優先ON時に本線と並列発行する出発時刻オフセット追加検索（分）。
+// FINDINGS.mdラウンド13/data/durpri_report.txt T2実測により3本とも間引かない
+const TRANSIT_DURPRI_OFFSETS_MIN = [10, 20, 30];
+const TRANSIT_DURPRI_TIMEOUT = 10000;
 
 // 駅名・行先の比較用正規化。APIは「西船橋」と「西船橋 Nishi-Funabashi」のように
 // 日本語名の後ろにローマ字/英字を付ける場合があり、文字列一致が壊れるため、
@@ -573,6 +577,10 @@ async function searchTransit(detour) {
   const avoid = _trIncludeBus ? undefined : 'bus';
   const hubFanout = TRANSIT_HUB_FANOUT && _trMode === 'free' && !detour && !isFL && !vias.length;
   const railBias = _trIncludeBus && _trMode === 'free' && !detour; // バス排除時は本線が既に電車のみなので不要
+  // 所要時間優先モードの追加検索ゲート（data/durpri_report.txt T3(2)と同じ適用範囲）:
+  // フリー検索・via指定なし・detourでない・type=departureのときのみ（ハブfanoutと同型の
+  // 除外条件だが、始発/終電に加え到着指定検索も対象外にする点がhubFanoutより狭い）
+  const durpriGate = _trDurationPriority && _trMode === 'free' && !detour && !vias.length && _trType === 'departure';
 
   // ── フェーズ1: 本線(+rail-bias)検索。結果が出たら即表示し、ハブ経由は裏で続ける ──
   const baseTasks = [];
@@ -580,6 +588,15 @@ async function searchTransit(detour) {
     const pr = pairs[0];
     baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid });
     if (railBias) baseTasks.push({ pr, vias, n, base: false, avoidModes: 'bus', timeout: 8000 });
+    if (durpriGate) {
+      TRANSIT_DURPRI_OFFSETS_MIN.forEach(min => {
+        baseTasks.push({
+          pr, vias, n: 3, base: false, durpri: true,
+          avoidModes: avoid, timeout: TRANSIT_DURPRI_TIMEOUT,
+          timeOverride: _trAddMinutesToTime(document.getElementById('transit-time').value, min),
+        });
+      });
+    }
   } else {
     pairs.forEach(pr => baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
@@ -646,7 +663,8 @@ async function searchTransit(detour) {
   _trPostSearch(all, token, avoid, detour, fbPr);
 }
 
-// 1タスクを実行（本線=タイムアウト12秒+失敗時1回リトライ / 追加検索=タイムアウト付き）。
+// 1タスクを実行（本線=タイムアウト12秒+失敗時1回リトライ / 所要時間優先の時刻オフセット
+// 追加検索=指定タイムアウト+失敗時1回リトライ / それ以外の追加検索=単発タイムアウト付き）。
 // 本線は元々タイムアウト無し・リトライ無しだったため、単発のERR_ABORTED等の一時的な
 // ネットワーク不調でベースplanだけが失われ、直通結合されたTR系ルート（ベースplanにしか
 // 現れない）が丸ごと画面から消え、ハブ経由(fanout)の近接駅止まり経路だけで結果が構成
@@ -654,8 +672,12 @@ async function searchTransit(detour) {
 // 短い間隔を置いて1回だけ再試行することで一時的な失敗を吸収する
 // registryを渡すと、生成したAbortControllerをその配列へ積む（ハブ経由fanoutの
 // 世代管理・再検索時の中断用。本線タスクでは使わない）
+// durpri（所要時間優先モードの+10/+20/+30分オフセット検索）は本線と同程度に結果を左右する
+// ため（data/durpri_report.txt T2実測）、単発失敗で丸ごと消えるラウンド10と同種の問題を
+// 避け、_trPlanRetryOnce経由のリトライ付きに振り分ける（ラウンド13）
 function _trRunTask(t, detour, registry) {
-  return t.base ? _trPlanRetryOnce(t, detour, 12000) : _trPlanWithTimeout(t, detour, t.timeout || 6000, registry);
+  if (t.base || t.durpri) return _trPlanRetryOnce(t, detour, t.base ? 12000 : (t.timeout || TRANSIT_DURPRI_TIMEOUT));
+  return _trPlanWithTimeout(t, detour, t.timeout || 6000, registry);
 }
 
 // 検索結果配列から経路を取り出してtrim・ラベル付与し all に追加
@@ -1281,7 +1303,7 @@ function _trPlanWithTimeout(t, detour, ms, registry) {
   const ac = new AbortController();
   if (registry) registry.push(ac); // ハブ経由fanout: 世代abort用に登録
   const timer = setTimeout(() => ac.abort(), ms);
-  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes, t.avoidWalk)
+  return _trFetchPlan(t.pr, t.vias, t.n, detour, ac.signal, t.avoidModes, t.avoidWalk, t.timeOverride, t.typeOverride)
     .then(js => ({ t, js }))
     .catch(e => ({ t, err: e }))
     .finally(() => clearTimeout(timer));
