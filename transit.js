@@ -18,13 +18,9 @@ let _trHubCache = null;
 // （ソート後の上位のみ表示。遠回りハブの無駄ルートは下位で切り捨てられる）
 const TRANSIT_MAX_RESULTS = 12;
 // 指定到着駅にそのまま着かない経路（近接駅止まり＋徒歩連絡）をソートで下げる際の
-// 追加ペナルティ秒数。連絡徒歩の実測/推定秒数に上乗せし、「徒歩込みの実質到着が
-// 鉄道完結よりこの秒数以上早いときだけ徒歩連絡経路を上に出す」閾値として働く
+// 追加ペナルティ秒数。連絡徒歩秒数（APIのegressWalkSecs）に上乗せし、「徒歩込みの
+// 実質到着が鉄道完結よりこの秒数以上早いときだけ徒歩連絡経路を上に出す」閾値として働く
 const TRANSIT_ATDEST_THRESHOLD = 600;
-// plan APIで「徒歩のみ」の経路を得るための全transitモード除外指定。
-// allowModes=walkは不可（walkはモード名として無効）、avoidWalk=trueは
-// 構内乗換徒歩を含む経路まで全排除して0件になるため、この形が唯一の方法（curl実証）
-const TRANSIT_AVOID_ALL_TRANSIT = 'tram,subway,rail,bus,ferry,cableTram,aerialLift,funicular,trolleybus,monorail,air';
 
 // 駅名・行先の比較用正規化。APIは「西船橋」と「西船橋 Nishi-Funabashi」のように
 // 日本語名の後ろにローマ字/英字を付ける場合があり、文字列一致が壊れるため、
@@ -1004,9 +1000,11 @@ async function _trPostSearch(all, token, avoid, detour, pr) {
 async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
   if (detour || !pr) return null;
   if (_trRailFallbackToken === token) return null; // 1検索1回だけ
-  // 純徒歩ダミー経路（全legがwalk）は「鉄道で着く経路」に数えない
+  // 純徒歩ダミー経路（全legがwalk）は「鉄道で着く経路」に数えない。
+  // またAPIがjourneyに5分超のegressWalkSecs（降車駅→目的地の連絡徒歩）を付けている
+  // 経路は、駅名一致でatDest=trueに見えても実質は近接駅止まりとみなす（確実な指標）
   const isPureWalk = j => j.legs && j.legs.length > 0 && j.legs.every(l => l.kind === 'walk');
-  const railAtDest = j => !isPureWalk(j) && _trArrivesAtDest(j);
+  const railAtDest = j => !isPureWalk(j) && _trArrivesAtDest(j) && !(j.egressWalkSecs > 300);
   if (all.some(railAtDest)) return null;
   _trRailFallbackToken = token;
 
@@ -1062,65 +1060,6 @@ function _trDestWalkName(j) {
   return (last.id !== j._dest.id && _trNorm(last.name) !== _trNorm(j._dest.name)) ? j._dest.name : '';
 }
 
-// 近接駅→目的駅の実徒歩秒数キャッシュ（キー: `${fromId}=>${destId}`、
-// 値: 実測秒数、null=取得失敗＝フォールバック900秒のまま）。
-// 同一検索内で近接駅は1〜3種しか出ないため連想配列で十分
-const _trDestWalkCache = {};
-
-// journeyの「最終transit legの到着駅」を返す（無ければnull）
-function _trLastTransitTo(j) {
-  if (!j.legs) return null;
-  for (let i = j.legs.length - 1; i >= 0; i--) {
-    if (j.legs[i].kind === 'transit') return j.legs[i];
-  }
-  return null;
-}
-
-// 指定到着駅にそのまま着かない経路（近接駅止まり）について、最終transit legの到着駅から
-// 目的駅までの実徒歩秒数を裏で取得し、journeyの_destWalkSecsへ反映して再ソートする。
-// Part B(_trVerifyThrough)と同じ「初回表示後の段階更新」パターン: 初回表示時点では
-// フォールバック(900秒+閾値)適用で保守的に鉄道完結経路が上になり、実測が届いたら
-// 精緻化される。取得は全transitモードを除外したplan再検索（徒歩のみの経路が1件返る。
-// 船橋→東海神で643秒をcurl実証。目的地がgeo:形式でも同様に機能）。_trPlanBoundary
-// 経由なのでleg内ID→plan用ID変換・404suggestリペア・6秒タイムアウトを流用。
-// 失敗時はnullをキャッシュして再試行せず、静かに諦める
-async function _trFetchDestWalkSecs(token) {
-  const jobs = {};
-  _trJourneys.forEach(j => {
-    if (_trArrivesAtDest(j) || !j._dest) return;
-    const lastT = _trLastTransitTo(j);
-    if (!lastT) return;
-    const key = `${lastT.to.id}=>${j._dest.id}`;
-    if (!(key in _trDestWalkCache) && !jobs[key]) {
-      jobs[key] = { from: lastT.to, dest: j._dest, time: lastT.arrivalSecs };
-    }
-  });
-  const keys = Object.keys(jobs);
-  if (keys.length) {
-    await Promise.all(keys.map(async key => {
-      const job = jobs[key];
-      const js = await _trPlanBoundary(
-        { id: job.from.id, name: job.from.name },
-        { id: job.dest.id, name: job.dest.name },
-        _trSecsToHHMM(job.time), TRANSIT_AVOID_ALL_TRANSIT
-      );
-      const walkOnly = (js || []).find(c => c.legs && c.legs.length && c.legs.every(l => l.kind === 'walk'));
-      _trDestWalkCache[key] = walkOnly ? walkOnly.durationSecs : null;
-    }));
-  }
-  if (token !== _trSearchToken) return; // 検索が切り替わっていたら破棄
-  // キャッシュの実測値を各journeyへ反映し、変化があれば再ソート+再描画
-  let changed = false;
-  _trJourneys.forEach(j => {
-    if (_trArrivesAtDest(j) || !j._dest) return;
-    const lastT = _trLastTransitTo(j);
-    if (!lastT) return;
-    const v = _trDestWalkCache[`${lastT.to.id}=>${j._dest.id}`];
-    if (v != null && j._destWalkSecs !== v) { j._destWalkSecs = v; changed = true; }
-  });
-  if (changed) sortTransitResults(_trSort);
-}
-
 // 経路リストを画面に反映（路線パネル・除外フィルタ・迂回注記・ソート）
 // 経路末尾の徒歩がこの秒数を超える経路（目的地から1km前後以上離れた駅で降ろされる
 // 経路）は、より徒歩の短い経路が1件でもあれば除外する。全滅する場合はそのまま残す。
@@ -1151,8 +1090,6 @@ function _trApplyResults(all) {
   }
   document.getElementById('transit-results-card').style.display = '';
   sortTransitResults(_trSort);
-  // 近接駅止まり経路の実徒歩秒数を裏で取得（届いたら再ソート+再描画。キャッシュ済みなら即反映）
-  _trFetchDestWalkSecs(_trSearchToken);
 }
 
 // 経路なし・失敗時の表示
@@ -1281,16 +1218,17 @@ function sortTransitResults(mode) {
   document.getElementById('transit-sort-time').classList.toggle('active', mode === 'time');
   document.getElementById('transit-sort-fare').classList.toggle('active', mode === 'fare');
   // 調整到着時刻 = 実到着 + 末尾徒歩秒数 + (指定到着駅にそのまま着かない経路は
-  // 連絡徒歩の実測秒数(未取得時は900秒と仮置き) + 閾値TRANSIT_ATDEST_THRESHOLD)。
-  // 近接駅止まりの経路（例: 船橋止まり→東海神へ徒歩連絡）はAPI上徒歩legを持たず
-  // （徒歩連絡は_trDestWalkNameによる描画時の注記のみ）到着時刻では区別できないため、
-  // 連絡徒歩ぶんを加算して比較する。ペアワイズの条件分岐ではなく1本の数値キーに
-  // することで比較器の推移律を保つ。「徒歩込みの実質到着が鉄道完結より閾値(10分)
-  // 以上早いときだけ徒歩連絡経路が上に出る」挙動になる。全経路がatDest=falseの
-  // ケース（目的地がランドマーク等）は全件に同じ閾値が乗るだけで無害
+  // 連絡徒歩秒数(APIがjourneyに付けるegressWalkSecs。無い場合は900秒と仮置き)
+  // + 閾値TRANSIT_ATDEST_THRESHOLD)。近接駅止まりの経路（例: 船橋止まり→東海神へ
+  // 徒歩連絡）はAPI上徒歩legを持たず（徒歩連絡は_trDestWalkNameによる描画時の注記
+  // のみ）到着時刻では区別できないため、連絡徒歩ぶんを加算して比較する。ペアワイズの
+  // 条件分岐ではなく1本の数値キーにすることで比較器の推移律を保つ。「徒歩込みの
+  // 実質到着が鉄道完結より閾値(10分)以上早いときだけ徒歩連絡経路が上に出る」挙動に
+  // なる。全経路がatDest=falseのケース（目的地がランドマーク等）は全件に同じ閾値が
+  // 乗るだけで無害。ネットワーク0回・同期計算
   const adjArrival = (j) => {
     let secs = j.arrivalSecs + _trTrailingWalkSecs(j);
-    if (!_trArrivesAtDest(j)) secs += (j._destWalkSecs != null ? j._destWalkSecs : 900) + TRANSIT_ATDEST_THRESHOLD;
+    if (!_trArrivesAtDest(j)) secs += (j.egressWalkSecs != null ? j.egressWalkSecs : 900) + TRANSIT_ATDEST_THRESHOLD;
     return secs;
   };
   // 時刻ソートの主キーと運賃ソートの同額時の第2キーで共有する
@@ -1373,8 +1311,8 @@ function renderTransitResults() {
         ${j.legs.map((leg, k) => _trRenderLeg(leg, k === 0, k === j.legs.length - 1)).join('')}
         ${_trDestWalkName(j) ? `<div class="transit-leg">
     <div class="transit-leg-st">● ${_trFmtTime(j.legs[j.legs.length - 1].arrivalSecs)} ${_esc(j.legs[j.legs.length - 1].to.name)}</div>
-    <div class="transit-leg-line">${j._destWalkSecs != null
-      ? `🚶 ${_esc(j.legs[j.legs.length - 1].to.name)}から徒歩約${Math.ceil(j._destWalkSecs / 60)}分`
+    <div class="transit-leg-line">${j.egressWalkSecs > 0
+      ? `🚶 ${_esc(j.legs[j.legs.length - 1].to.name)}から徒歩約${Math.ceil(j.egressWalkSecs / 60)}分`
       : '🚶 徒歩連絡（所要時間は経路データに含まれません）'}</div>
     <div class="transit-leg-st">● ${_esc(_trDestWalkName(j))}（目的地）</div>
   </div>` : ''}
