@@ -1058,9 +1058,12 @@ async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
       if (res.ok) {
         const data = await res.json();
         // suggestはkind=stationでもgeo:クラスタIDの項目を先頭に返すため、実フィードIDに限定。
-        // 複数フィードの同名駅があれば最初の1件でよい
-        const hit = (data.places || []).find(p => p.kind === 'station' && p.endpoint &&
+        // 同名の別駅（例: 同名だが別都道府県の駅）を誤って採用しないよう、元のgeo:座標との
+        // 距離が2km超の候補は不採用にする（距離が算出できない候補も安全側で不採用とし、
+        // 次の候補を試す。全滅した場合はstId=nullのまま諦める）
+        const named = (data.places || []).filter(p => p.kind === 'station' && p.endpoint &&
           !/^geo:/.test(p.endpoint) && _trNorm(p.name) === _trNorm(pr.to.name));
+        const hit = named.find(p => p.lat !== undefined && p.lon !== undefined && _trDistKm(pr.to, p) <= 2);
         if (hit) stId = hit.endpoint;
       }
     } catch (e) { /* 目的地が駅でない・通信失敗などは静かに諦める */ }
