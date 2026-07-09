@@ -67,33 +67,73 @@ function _trSameTrain(no1, no2) {
   return false;
 }
 
-// ── 中野リナンバリング判定（ラウンド6の全数検証で確定、71/71件で例外なし） ──
-// JR中央・総武線の「中野行」leg（tripId末尾サフィックスがAまたはY、番号n）は、
-// 実は東西線直通列車の中野以前区間であり、中野で番号を+1・サフィックスS/Kに
-// 変えて同じ「分」に西船橋/東葉勝田台行として続行する（JRフィード上の観測）。
-// no1はJR形（例:'1770A'）、no2はJR形の後続番号（例:'1771S'）またはメトロ/TR側の
-// A包装形（例:'A1771SR' 'A507KR' 'A605K'）を受け取り、数字部分がn+1かつ
-// サフィックスがS/Kなら真。
-// 実機確認済みの注意点: 後続がS+headsign西船橋（TRへ継続しない便）の場合、
-// メトロ側フィードに一致する番号のtripId自体が存在しないケースがある
-// （実例: 791S, 765Sは中野~西船橋間のメトロTozaiフィードに同番号の便が無い）。
-// 一方、後続がK+headsign西船橋、またはS+headsign東葉勝田台（TRへ継続）の場合は
-// 実機で一致するA{n+1}(S|K)R形のtripIdを確認済み（例: 507K→A507KR, 1771S→A1771SR）。
-// 本関数は番号の数値対応のみを判定するため、メトロ側に対応便が存在しない場合は
-// 単に不発火となるだけで、既存の通常乗換ロジック（条件c等）に影響しない。
-const _RE_TR_NAKANO_JR = /^(\d+)([A-Za-z])$/;
-const _RE_TR_NAKANO_SUCC = /^A?(\d+)([A-Za-z])R?$/;
-function _trNakanoRenumber(no1, no2) {
-  if (!no1 || !no2) return false;
-  const m1 = _RE_TR_NAKANO_JR.exec(no1);
-  if (!m1) return false;
-  const suf1 = m1[2].toUpperCase();
-  if (suf1 !== 'A' && suf1 !== 'Y') return false;
-  const m2 = _RE_TR_NAKANO_SUCC.exec(no2);
-  if (!m2) return false;
-  const suf2 = m2[2].toUpperCase();
-  if (suf2 !== 'S' && suf2 !== 'K') return false;
-  return (parseInt(m2[1], 10) - parseInt(m1[1], 10)) === 1;
+// ── 境界駅リナンバリング判定（ラウンド6/7/8の全数検証で確定した4方向の番号規則を統一） ──
+// JR側の列車番号形式: 数字+サフィックス1文字、プレフィックス無し（例:'793S' '1770A'）。
+// メトロ/TR側の列車番号形式: 先頭に任意で1文字のプレフィックス+数字+サフィックス1文字+
+// 末尾に任意でR（例:'A793SR' 'B1949S' 'A605K'）。中野forward（ラウンド6/7、71/71件）は
+// プレフィックス'A'固定だったが、西行き系（ラウンド8）では'B'プレフィックスが観測された
+// ため、プレフィックスは任意の1文字として吸収する（数字とサフィックスの対応関係が本質）。
+const _RE_TR_JR_NO = /^(\d+)([A-Za-z])$/;
+const _RE_TR_METRO_NO = /^[A-Za-z]?(\d+)([A-Za-z])R?$/;
+
+// JR側番号(noJR)とメトロ側番号(noMetro)が「同一物理列車が境界駅で番号・サフィックスを
+// 変えて直通継続している」規則に合致するか判定する。offsetは(メトロ番号-JR番号)の差分
+// （中野forward/西船橋東行き=+1、中野西行き/西船橋西行き=±0）。jrSuf/metroSufは各側で
+// 許容するサフィックス文字（大文字）の配列。メトロ側に対応便が存在しない/サフィックス
+// 不一致の場合は単に不発火となるだけで、既存の通常乗換ロジック（条件c等）に影響しない。
+function _trBoundaryRenumber(noJR, noMetro, offset, jrSuf, metroSuf) {
+  if (!noJR || !noMetro) return false;
+  const mJR = _RE_TR_JR_NO.exec(noJR);
+  if (!mJR) return false;
+  if (!jrSuf.includes(mJR[2].toUpperCase())) return false;
+  const mMetro = _RE_TR_METRO_NO.exec(noMetro);
+  if (!mMetro) return false;
+  if (!metroSuf.includes(mMetro[2].toUpperCase())) return false;
+  return (parseInt(mMetro[1], 10) - parseInt(mJR[1], 10)) === offset;
+}
+
+// 境界駅ごとの直通番号規則テーブル。station=境界駅名（正規化済み）、aKind=leg a
+// （境界より前）がJR側かメトロ側か、hsCheck=leg aのheadsignが規則の対象か
+// （★誤結合防止の一次条件。中野西行きでheadsign='中野行'（額面通りの終着）のTozai legを
+// 対象外にする等、番号一致だけでは判別できない例外を防ぐ）。全数検証の実証件数は
+// FINDINGS.mdラウンド6/7/8参照（71/71・81/81・7/7・11/11）。
+const TRANSIT_BOUNDARY_RULES = [
+  { // 中野forward（東行き、JR「中野」headsign→メトロ+1・S/K）ラウンド6/7、71/71実証
+    station: '中野', aKind: 'JR',
+    hsCheck: hs => _trNorm(hs) === '中野',
+    offset: 1, jrSuf: ['A', 'Y'], metroSuf: ['S', 'K'],
+  },
+  { // 中野西行き（東西線「Mitaka行」headsign→JR±0・A/Y/B）ラウンド8、81/81実証
+    station: '中野', aKind: 'Metro',
+    hsCheck: hs => _trHsCanon(hs) === '三鷹',
+    offset: 0, jrSuf: ['A', 'Y', 'B'], metroSuf: ['S', 'K'],
+  },
+  { // 西船橋東行き（東西線「Tsudanuma行」headsign→JR津田沼方面+1・Y）ラウンド8、7/7実証
+    station: '西船橋', aKind: 'Metro',
+    hsCheck: hs => _trHsCanon(hs) === '津田沼',
+    offset: 1, jrSuf: ['Y'], metroSuf: ['S', 'K'],
+  },
+  { // 西船橋西行き（JR「西船橋」headsign+suffix Y→メトロ±0・S/K）ラウンド8、11/11実証。
+    // suffix='A'の西船橋行きは対応するメトロ便が無い(6/6)ため、jrSufにAを含めない
+    station: '西船橋', aKind: 'JR',
+    hsCheck: hs => _trNorm(hs) === '西船橋',
+    offset: 0, jrSuf: ['Y'], metroSuf: ['S', 'K'],
+  },
+];
+
+// leg a（境界より前）→leg b（境界より後）が上記いずれかの規則で同一物理列車と
+// 判定できるか判定する。station不一致（そもそも隣接境界ではない）なら即false
+function _trBoundaryThroughMatch(a, b) {
+  const station = _trNorm(a.to.name);
+  if (!station || station !== _trNorm(b.from.name)) return false;
+  for (const rule of TRANSIT_BOUNDARY_RULES) {
+    if (rule.station !== station) continue;
+    if (!rule.hsCheck(a.headsign)) continue;
+    const jrNo = _trTrainNo(rule.aKind === 'JR' ? a.tripId : b.tripId);
+    const metroNo = _trTrainNo(rule.aKind === 'JR' ? b.tripId : a.tripId);
+    if (_trBoundaryRenumber(jrNo, metroNo, rule.offset, rule.jrSuf, rule.metroSuf)) return true;
+  }
+  return false;
 }
 
 let _trInited = false;
@@ -719,10 +759,9 @@ function _trMergeThroughLegs(j) {
     // 列車番号ベースの同一物理列車判定（JR番号↔メトロ/TR番号のA...R包装対応含む）。
     // 成立すれば他の条件（待ち時間・行き先等）を問わず直通結合する
     if (_trSameTrain(_trTrainNo(a.tripId), _trTrainNo(b.tripId))) return true;
-    // 中野境界限定：JR「中野行」leg(headsignも中野)の番号+1・サフィックスS/K後続便
-    // （ラウンド6で確定した中野リナンバリング規則）も同一物理列車として無条件結合
-    if (_trNorm(a.to.name) === '中野' && _trNorm(a.headsign) === '中野' &&
-        _trNakanoRenumber(_trTrainNo(a.tripId), _trTrainNo(b.tripId))) return true;
+    // 境界駅（中野・西船橋）でのリナンバリング直通規則（ラウンド6/7/8で確定、4方向）。
+    // 番号+サフィックス+headsignガードが揃えば同一物理列車として無条件結合する
+    if (_trBoundaryThroughMatch(a, b)) return true;
     // 間に構内徒歩を挟む場合は、その徒歩の実秒数を差し引いた「実際の待ち時間」で判定する
     const gap = (b.departureSecs - a.arrivalSecs) - (walkSecs || 0);
     if (gap < -60 || gap > 300) return false;
@@ -902,9 +941,8 @@ async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
     let through = false;
     if (_trSameTrain(tn1, tnc)) {
       through = true; // (a) 番号一致 → 同一物理列車
-    } else if (_trNorm(L1.to.name) === '中野' && _trNorm(L1.headsign) === '中野' &&
-               _trNakanoRenumber(tn1, tnc)) {
-      through = true; // (a') 中野リナンバリング規則（ラウンド6）による同一物理列車判定
+    } else if (_trBoundaryThroughMatch(L1, firstT)) {
+      through = true; // (a') 境界リナンバリング規則（ラウンド6/7/8、4方向）による同一物理列車判定
     } else if (wait >= 0 && wait <= 180 && _trHsMatch(L1.headsign, firstT.headsign)) {
       through = true; // (b) 行き先正準一致 + 発車が到着+0〜180秒
     } else if (wait < walkSecs) {
