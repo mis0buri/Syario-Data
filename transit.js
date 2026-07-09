@@ -21,6 +21,10 @@ const TRANSIT_MAX_RESULTS = 12;
 // 追加ペナルティ秒数。連絡徒歩の実測/推定秒数に上乗せし、「徒歩込みの実質到着が
 // 鉄道完結よりこの秒数以上早いときだけ徒歩連絡経路を上に出す」閾値として働く
 const TRANSIT_ATDEST_THRESHOLD = 600;
+// plan APIで「徒歩のみ」の経路を得るための全transitモード除外指定。
+// allowModes=walkは不可（walkはモード名として無効）、avoidWalk=trueは
+// 構内乗換徒歩を含む経路まで全排除して0件になるため、この形が唯一の方法（curl実証）
+const TRANSIT_AVOID_ALL_TRANSIT = 'tram,subway,rail,bus,ferry,cableTram,aerialLift,funicular,trolleybus,monorail,air';
 
 // 駅名・行先の比較用正規化。APIは「西船橋」と「西船橋 Nishi-Funabashi」のように
 // 日本語名の後ろにローマ字/英字を付ける場合があり、文字列一致が壊れるため、
@@ -991,9 +995,10 @@ function _trLastTransitTo(j) {
 // 目的駅までの実徒歩秒数を裏で取得し、journeyの_destWalkSecsへ反映して再ソートする。
 // Part B(_trVerifyThrough)と同じ「初回表示後の段階更新」パターン: 初回表示時点では
 // フォールバック(900秒+閾値)適用で保守的に鉄道完結経路が上になり、実測が届いたら
-// 精緻化される。取得はplan APIが必ず付ける徒歩のみフォールバック経路(全legがwalk)を
-// 利用（_trPlanBoundary経由なのでleg内ID→plan用ID変換・404suggestリペア・6秒
-// タイムアウトを流用。失敗時はnullをキャッシュして再試行せず、静かに諦める）
+// 精緻化される。取得は全transitモードを除外したplan再検索（徒歩のみの経路が1件返る。
+// 船橋→東海神で643秒をcurl実証。目的地がgeo:形式でも同様に機能）。_trPlanBoundary
+// 経由なのでleg内ID→plan用ID変換・404suggestリペア・6秒タイムアウトを流用。
+// 失敗時はnullをキャッシュして再試行せず、静かに諦める
 async function _trFetchDestWalkSecs(token) {
   const jobs = {};
   _trJourneys.forEach(j => {
@@ -1012,7 +1017,7 @@ async function _trFetchDestWalkSecs(token) {
       const js = await _trPlanBoundary(
         { id: job.from.id, name: job.from.name },
         { id: job.dest.id, name: job.dest.name },
-        _trSecsToHHMM(job.time), undefined
+        _trSecsToHHMM(job.time), TRANSIT_AVOID_ALL_TRANSIT
       );
       const walkOnly = (js || []).find(c => c.legs && c.legs.length && c.legs.every(l => l.kind === 'walk'));
       _trDestWalkCache[key] = walkOnly ? walkOnly.durationSecs : null;
