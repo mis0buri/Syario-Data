@@ -521,8 +521,12 @@ async function searchTransit(detour) {
     _trStatus('経路を探索中…');
   }
 
+  // 鉄道完結補完(_trEnsureRailToDest)の対象: フリー検索かつvia指定なしの単一ペアのみ
+  // （via指定検索でviaを無視した補完をしない・最寄り駅一括検索はペア毎に目的地が違うため）
+  const fbPr = (_trMode === 'free' && !vias.length) ? pairs[0] : null;
+
   // ── フェーズ2: 主要ハブ経由検索を裏で実行し、より良い経路を差し込む ──
-  if (!hubFanout) { _trVerifyThrough(all, token, avoid, detour); return; }
+  if (!hubFanout) { _trPostSearch(all, token, avoid, detour, fbPr); return; }
   const hubs = await _trResolveHubs(pairs[0]);
   if (token !== _trSearchToken) return;
   const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: 6000 }));
@@ -536,14 +540,14 @@ async function searchTransit(detour) {
       const added = all.length - before;
       _trStatus(added > 0 ? `別経路を${added}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
       _trApplyResults(all);
-      _trVerifyThrough(all, token, avoid, detour);
+      _trPostSearch(all, token, avoid, detour, fbPr);
       return;
     }
   }
   // 本線・ハブとも経路が見つからなかった場合
   if (!all.length) { _trShowNoResult(baseFailed); return; }
   _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
-  _trVerifyThrough(all, token, avoid, detour);
+  _trPostSearch(all, token, avoid, detour, fbPr);
 }
 
 // 1タスクを実行（本線=タイムアウトなし / 追加検索=タイムアウト付き）
@@ -967,6 +971,87 @@ async function _trVerifyThrough(all, token, avoid, detour) {
     if (fixed) { all[ji] = fixed; changed = true; }
   }
   if (changed && token === _trSearchToken) _trApplyResults(_trDedupJourneys(all));
+}
+
+// 鉄道完結の補完検索を1検索につき1回だけに制限するためのトークン記録（無限ループ防止）
+let _trRailFallbackToken = -1;
+
+// フェーズ2確定後の後処理: 鉄道完結の補完検索（必要なとき1回だけ）→ Part B直通検証。
+// 補完で経路が増えた場合はマージ・再描画してからPart Bへ渡す
+async function _trPostSearch(all, token, avoid, detour, pr) {
+  const extra = await _trEnsureRailToDest(all, token, avoid, detour, pr);
+  if (token !== _trSearchToken) return;
+  if (extra && extra.length) {
+    all = _trDedupJourneys(all.concat(extra));
+    _trStatus(`目的駅まで鉄道で行く経路を${extra.length}件追加しました`);
+    _trApplyResults(all);
+  }
+  _trVerifyThrough(all, token, avoid, detour);
+}
+
+// 指定到着駅まで鉄道で着く経路が1本も無いとき（numItineraries=6枠が近接駅止まり＋
+// 徒歩連絡の経路で埋まるケース。特に目的地がsuggest先頭のgeo:クラスタIDのとき起きる。
+// 例: 高円寺→東海神(geo:35.705960,139.980550)は14:00発で6件全てが船橋止まりになる
+// ことをcurlで実証済み）、鉄道で目的駅へ着く経路を能動的に探す補完検索。
+//   a. avoidWalk=trueで再plan（※curl実測ではavoidWalkは構内乗換徒歩を含む経路まで
+//      全排除するため命中はまれ＝徒歩leg0本の経路しか返らない。無害なので先に試す）
+//   b. aで依然0件かつ目的地IDがgeo:形式なら、places/suggestから「kind=stationかつ
+//      実フィードendpoint(geo:でない)かつ正規化名一致」の駅IDを解決し、toを差し替えて
+//      再plan（実駅IDをtoにすればそこまで鉄道で運ぶ経路が返る）
+// 得られた経路のうち指定到着駅に鉄道で着くものだけを返す（無ければnull）。
+// タイムアウト6秒、失敗時は静かに諦める（エラー表示なし）。目的地が駅でない
+// （住所・施設）場合はbのsuggest解決が空になり何もしない
+async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
+  if (detour || !pr) return null;
+  if (_trRailFallbackToken === token) return null; // 1検索1回だけ
+  // 純徒歩ダミー経路（全legがwalk）は「鉄道で着く経路」に数えない
+  const isPureWalk = j => j.legs && j.legs.length > 0 && j.legs.every(l => l.kind === 'walk');
+  const railAtDest = j => !isPureWalk(j) && _trArrivesAtDest(j);
+  if (all.some(railAtDest)) return null;
+  _trRailFallbackToken = token;
+
+  // 再planの結果を既存パイプライン形式（結合→trim→ラベル付与）に整え、
+  // 指定到着駅に鉄道で着く経路だけを取り出す
+  const collect = (js) => {
+    const hits = [];
+    (js || []).forEach(j => {
+      _trMergeThroughLegs(j);
+      _trTrimJourney(j);
+      j._myst = '';
+      j._dest = pr.to; // 表示・到着駅判定とも元の検索目的地を基準にする（駅名一致でatDest=trueになる）
+      if (railAtDest(j)) hits.push(j);
+    });
+    return hits;
+  };
+
+  // (a) avoidWalk=true で再plan
+  const ra = await _trPlanWithTimeout({ pr, vias: [], n: 6, avoidModes: avoid, avoidWalk: true }, false, 6000);
+  if (token !== _trSearchToken) return null;
+  let hits = ra.js ? collect(ra.js) : [];
+
+  // (b) 依然0件かつ目的地IDがgeo:形式 → suggestで同名の実駅endpointを解決してtoを差し替え
+  if (!hits.length && /^geo:/.test(pr.to.id)) {
+    let stId = null;
+    try {
+      const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(pr.to.name)}&limit=30`);
+      if (res.ok) {
+        const data = await res.json();
+        // suggestはkind=stationでもgeo:クラスタIDの項目を先頭に返すため、実フィードIDに限定。
+        // 複数フィードの同名駅があれば最初の1件でよい
+        const hit = (data.places || []).find(p => p.kind === 'station' && p.endpoint &&
+          !/^geo:/.test(p.endpoint) && _trNorm(p.name) === _trNorm(pr.to.name));
+        if (hit) stId = hit.endpoint;
+      }
+    } catch (e) { /* 目的地が駅でない・通信失敗などは静かに諦める */ }
+    if (token !== _trSearchToken) return null;
+    if (stId) {
+      const pr2 = { from: pr.from, to: { id: stId, name: pr.to.name } };
+      const rb = await _trPlanWithTimeout({ pr: pr2, vias: [], n: 6, avoidModes: avoid }, false, 6000);
+      if (token !== _trSearchToken) return null;
+      if (rb.js) hits = collect(rb.js);
+    }
+  }
+  return hits.length ? hits : null;
 }
 
 // 到着駅が検索した目的地と別（APIが近接駅を目的地扱いして連絡徒歩を省くケース。
