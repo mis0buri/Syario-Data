@@ -30,6 +30,9 @@ const TRANSIT_MAX_RESULTS = 12;
 // 追加ペナルティ秒数。連絡徒歩秒数（APIのegressWalkSecs）に上乗せし、「徒歩込みの
 // 実質到着が鉄道完結よりこの秒数以上早いときだけ徒歩連絡経路を上に出す」閾値として働く
 const TRANSIT_ATDEST_THRESHOLD = 600;
+// 所要時間優先モード（設計書 data/durpri_report.txt のT3）。
+// 「バス無し・到着が最良+この秒数以内」の経路グループを実効所要時間昇順で上位に出す窓（30分）。
+const TRANSIT_DURPRI_WINDOW = 1800;
 // 所要時間優先ON時に本線と並列発行する出発時刻オフセット追加検索（分）。
 // FINDINGS.mdラウンド13/data/durpri_report.txt T2実測により3本とも間引かない
 const TRANSIT_DURPRI_OFFSETS_MIN = [10, 20, 30];
@@ -1364,6 +1367,17 @@ function _trTrailingWalkSecs(j) {
   return secs;
 }
 
+// 所要時間優先モードの「実質所要時間」: durationSecsに末尾徒歩秒数・（指定到着駅にそのまま
+// 着かない場合の）連絡徒歩秒数を加算した値。adjArrival（sortTransitResults内）と同じ
+// 徒歩加算ロジックを流用するが、到着ランキング用のTRANSIT_ATDEST_THRESHOLD(600秒)バイアスは
+// 含めない（durationは「実際にかかる時間」を表す値であり、到着順の同点判定用バイアスは
+// 所要時間そのものには馴染まないため）。data/durpri_report.txt T3(1)参照
+function _trEffectiveDuration(j) {
+  let secs = j.durationSecs + _trTrailingWalkSecs(j);
+  if (!_trArrivesAtDest(j)) secs += (j.egressWalkSecs != null ? j.egressWalkSecs : 900);
+  return secs;
+}
+
 function sortTransitResults(mode) {
   _trSort = mode;
   document.getElementById('transit-sort-time').classList.toggle('active', mode === 'time');
@@ -1382,8 +1396,29 @@ function sortTransitResults(mode) {
     if (!_trArrivesAtDest(j)) secs += (j.egressWalkSecs != null ? j.egressWalkSecs : 900) + TRANSIT_ATDEST_THRESHOLD;
     return secs;
   };
+  // 所要時間優先モード（data/durpri_report.txt T3(1)）: 「最良」はソート開始前に一度だけ
+  // 計算して固定する（比較の都度re-computeしない。比較器の推移律を保つため）。
+  // バス経路は_bestAdjの計算・スコープ判定のいずれからも除外する（常に最下位固定は
+  // 下のsort本体の既存条件が担うため、ここでは所要優先ロジック自体をバス以外に限定するだけ）
+  let _bestAdj = Infinity;
+  if (_trDurationPriority) {
+    _trJourneys.forEach(j => { if (!_trHasBus(j)) _bestAdj = Math.min(_bestAdj, adjArrival(j)); });
+  }
+  // 到着<=最良+30分 かつ バス無し の経路グループ（固定値_bestAdjとの比較のみで判定する
+  // ため、比較対象2件の値に依存しない単項関数=推移律を壊さない）
+  const inScope = (j) => _trDurationPriority && !_trHasBus(j) && adjArrival(j) <= _bestAdj + TRANSIT_DURPRI_WINDOW;
   // 時刻ソートの主キーと運賃ソートの同額時の第2キーで共有する
   const byArrival = (a, b) => {
+    if (_trDurationPriority) {
+      const ia = inScope(a) ? 0 : 1, ib = inScope(b) ? 0 : 1;
+      if (ia !== ib) return ia - ib; // スコープ内グループを必ず上位に
+      if (ia === 0) { // スコープ内同士: 実効所要時間昇順 → adjustedArrival昇順
+        const da = _trEffectiveDuration(a), db = _trEffectiveDuration(b);
+        if (da !== db) return da - db;
+        return adjArrival(a) - adjArrival(b);
+      }
+      // スコープ外(ia===1)同士は下の従来ロジックへそのまま流れる（従来のadjustedArrival順で残す）
+    }
     const ea = adjArrival(a), eb = adjArrival(b);
     if (ea !== eb) return ea - eb;
     const da = _trArrivesAtDest(a) ? 0 : 1, db = _trArrivesAtDest(b) ? 0 : 1;
