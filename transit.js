@@ -21,6 +21,19 @@ const TRANSIT_HUB_FANOUT = true; // 主要ハブ自動via検索の有効フラ�
 // 8本だと総待ち時間が長くなりすぎるため同時実行数を絞ったバッチ処理で折衷する）。
 const TRANSIT_HUB_TIMEOUT = 12000;
 const TRANSIT_HUB_CONCURRENCY = 3;
+// フェーズ2(ハブ経由fanout)全体の体感待ち時間対策（課題D1）。
+// 早期打ち切り: フェーズ2開始からこの合計デッドラインを超えたら、残りバッチを発行せず
+// 静かに終了する（発行済みの直近バッチは最後まで待つ。既に発行済みのfetchはtokenガードで
+// 無害なため中断はしない）。実測(高円寺→東海神、8ハブ=3バッチ)で1バッチ最大
+// TRANSIT_HUB_TIMEOUT(12秒)かかることがあり、3バッチ全滅で最大36秒、10ハブ=4バッチだと
+// 最大48秒に達し得る。20秒は「2バッチ分は粘るが3バッチ目以降の長時間待ちは避ける」という
+// 妥協値（ラウンド14で実測のうえ調整）
+const TRANSIT_HUB_PHASE2_DEADLINE_MS = 20000;
+// 適応スキップ: この時点で「指定到着駅に鉄道で着く経路(atDest、_trRailAtDest参照)」が
+// 既にこの件数以上あれば、残りのハブ経由バッチは発行しない（フェーズ1だけで十分なら
+// フェーズ2自体をスキップする分岐は下のsearchTransit内で別途行う）。4件は「表示上位に
+// 複数の選択肢が並ぶ」目安として設定（ラウンド14で実測のうえ調整）
+const TRANSIT_HUB_ATDEST_SUFFICIENT = 4;
 const TRANSIT_THROUGH_MERGE = true; // 直通結合（Part A/B）の有効フラグ
 let _trHubCache = null;
 // 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
@@ -708,6 +721,13 @@ async function searchTransit(detour) {
   // 8本一斉発行はAPI側のテイルレイテンシ悪化を招くため、TRANSIT_HUB_CONCURRENCY本ずつ
   // バッチ実行する。各バッチ完了ごとに結果を差し込んで表示するため、全8本を待たずに
   // 見つかった経路から順次UIへ反映される（ラウンド11）。
+  // 適応スキップ(課題D1): フェーズ1だけで既に「鉄道で目的駅に着く経路」が十分あれば、
+  // フェーズ2自体を発行しない。打ち切り時も通常完了と同じ扱い(専用メッセージは出さない)
+  if (hubFanout && _trSufficientRailAtDest(all)) {
+    _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
+    _trPostSearch(all, token, avoid, detour, fbPr);
+    return;
+  }
   if (!hubFanout) { _trPostSearch(all, token, avoid, detour, fbPr); return; }
   const hubs = await _trResolveHubs(pairs[0]);
   if (token !== _trSearchToken) return;
@@ -715,7 +735,12 @@ async function searchTransit(detour) {
   if (hubTasks.length) {
     const before = all.length;
     const totalBatches = Math.ceil(hubTasks.length / TRANSIT_HUB_CONCURRENCY);
+    // フェーズ2全体の合計デッドライン(課題D1)。超えたら残りバッチは発行しない。
+    // 既に発行済みのバッチは最後まで待つ(中断はしない。tokenガードで無害)
+    const phase2Deadline = Date.now() + TRANSIT_HUB_PHASE2_DEADLINE_MS;
     for (let i = 0; i < hubTasks.length; i += TRANSIT_HUB_CONCURRENCY) {
+      if (Date.now() >= phase2Deadline) break; // 早期打ち切り(課題D1): 静かに終了
+      if (_trSufficientRailAtDest(all)) break; // 適応スキップ(課題D1): 静かに終了
       const batchNum = Math.floor(i / TRANSIT_HUB_CONCURRENCY) + 1;
       // 最大36秒程度かかり得るフェーズ2の待ち時間を、バッチ進捗付きで見せる（ラウンド12）
       _trStatus(`追加経路を検索中… (${batchNum}/${totalBatches})`);
@@ -731,7 +756,11 @@ async function searchTransit(detour) {
     }
     if (all.length && before === 0 && _trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
     if (all.length) {
-      if (all.length === before) _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
+      // ループ内で最後に表示した「追加経路を検索中… (k/N)」が、そのバッチが新規経路を
+      // 0件しか追加しなかった場合や早期打ち切り(課題D1)で残ってしまうことがあるため、
+      // ループを抜けた時点で必ず最終状態のメッセージに更新する(打ち切りも通常完了と
+      // 同じ見た目にする。個別バッチで表示済みの「別経路をN件追加しました」と同じ計算式)
+      _trStatus(all.length > before ? `別経路を${all.length - before}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
       _trPostSearch(all, token, avoid, detour, fbPr);
       return;
     }
@@ -1223,12 +1252,8 @@ async function _trPostSearch(all, token, avoid, detour, pr) {
 async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
   if (detour || !pr) return null;
   if (_trRailFallbackToken === token) return null; // 1検索1回だけ
-  // 純徒歩ダミー経路（全legがwalk）は「鉄道で着く経路」に数えない。
-  // またAPIがjourneyに5分超のegressWalkSecs（降車駅→目的地の連絡徒歩）を付けている
-  // 経路は、駅名一致でatDest=trueに見えても実質は近接駅止まりとみなす（確実な指標）
-  const isPureWalk = j => j.legs && j.legs.length > 0 && j.legs.every(l => l.kind === 'walk');
-  const railAtDest = j => !isPureWalk(j) && _trArrivesAtDest(j) && !(j.egressWalkSecs > 300);
-  if (all.some(railAtDest)) return null;
+  // 「鉄道で着く経路」の判定は_trRailAtDest（課題D1でフェーズ2の適応スキップ判定と共用化）に統一
+  if (all.some(_trRailAtDest)) return null;
   _trRailFallbackToken = token;
 
   // 再planの結果を既存パイプライン形式（結合→trim→ラベル付与）に整え、
@@ -1240,7 +1265,7 @@ async function _trEnsureRailToDest(all, token, avoid, detour, pr) {
       _trTrimJourney(j);
       j._myst = '';
       j._dest = pr.to; // 表示・到着駅判定とも元の検索目的地を基準にする（駅名一致でatDest=trueになる）
-      if (railAtDest(j)) hits.push(j);
+      if (_trRailAtDest(j)) hits.push(j);
     });
     return hits;
   };
@@ -1446,6 +1471,26 @@ function _trArrivesAtDest(j) {
   const last = j.legs[j.legs.length - 1];
   if (last.kind === 'walk' && _trNorm(last.from.name) !== _trNorm(last.to.name)) return false; // 別駅へ徒歩移動して終わる
   return last.to.id === j._dest.id || _trNorm(last.to.name) === _trNorm(j._dest.name);
+}
+
+// 全legが徒歩の純徒歩ダミー経路か（「鉄道で着く経路」に数えない）
+function _trIsPureWalk(j) {
+  return !!(j.legs && j.legs.length > 0 && j.legs.every(l => l.kind === 'walk'));
+}
+
+// 「指定到着駅に鉄道で着く経路」か。純徒歩ダミーを除きatDest=trueで、かつAPIが5分超の
+// egressWalkSecs（降車駅→目的地の連絡徒歩）を付けていない経路のみ真（駅名一致でatDest=trueに
+// 見えても、5分超の連絡徒歩が付く経路は実質近接駅止まりとみなす。v4補完検索の発火判定
+// _trEnsureRailToDestと課題D1の適応スキップ判定で共用する）
+function _trRailAtDest(j) {
+  return !_trIsPureWalk(j) && _trArrivesAtDest(j) && !(j.egressWalkSecs > 300);
+}
+
+// 課題D1: フェーズ2(ハブ経由fanout)の適応スキップ判定。現時点の結果に「指定到着駅に
+// 鉄道で着く経路」がTRANSIT_HUB_ATDEST_SUFFICIENT件以上あれば、追加のハブ経由検索は
+// 不要と判断する
+function _trSufficientRailAtDest(all) {
+  return all.filter(_trRailAtDest).length >= TRANSIT_HUB_ATDEST_SUFFICIENT;
 }
 
 // 経路末尾に連続する徒歩区間（改札を出てからの目的地までの移動）の合計秒数。
