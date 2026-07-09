@@ -1451,10 +1451,16 @@ function copyTransitRoute(i) {
   const j = _trJourneys[i];
   if (!j || !j.legs.length) return;
   const from = j.legs[0].from.name;
-  const to = j.legs[j.legs.length - 1].to.name;
+  const lastName = j.legs[j.legs.length - 1].to.name;
   const dw = _trDestWalkName(j);
+  const to = dw || lastName;
   const fare = j.fare ? '・¥' + j.fare.ticket.toLocaleString() : '';
-  const text = `${from} ${_trFmtTime(j.departureSecs)} → ${to} ${_trFmtTime(j.arrivalSecs)}${dw ? `（徒歩連絡→${dw}）` : ''}（${_trFmtDur(j.durationSecs)}${fare}・乗換${j.transferCount}回）`;
+  // 徒歩連絡がある場合は画面表示（_trDisplayArrivalSecs/_trDisplayEgressSecs）と
+  // 揃えた到着時刻・所要時間にし、詳細表示と同じ文言の徒歩注記行を追加する
+  const walkNote = dw
+    ? `\n🚶 ${j.egressWalkSecs > 0 ? `${lastName}から徒歩約${_trDisplayEgressSecs(j) / 60}分` : '徒歩連絡（所要時間は経路データに含まれません）'}`
+    : '';
+  const text = `${from} ${_trFmtTime(j.departureSecs)} → ${to} ${_trFmtTime(_trDisplayArrivalSecs(j))}（${_trFmtDur(_trDisplayArrivalSecs(j) - j.departureSecs)}${fare}・乗換${j.transferCount}回）${walkNote}`;
   navigator.clipboard.writeText(text).catch(() => {});
 }
 
@@ -1557,9 +1563,9 @@ function _trBuildRouteCanvas(j, dateStr) {
   }
   y += headerH;
 
-  // ── 出発駅 → 到着駅（大きく） ──
+  // ── 出発駅 → 到着駅（大きく） ── 徒歩連絡がある場合は最終目的地の駅名を表示する
   const fromName = j.legs[0].from.name;
-  const toName = j.legs[j.legs.length - 1].to.name;
+  const toName = destWalk || j.legs[j.legs.length - 1].to.name;
   const routeText = `${fromName} → ${toName}`;
   let bigSize = 40;
   ctx.font = `bold ${bigSize}px 'Noto Sans JP', sans-serif`;
@@ -1575,7 +1581,7 @@ function _trBuildRouteCanvas(j, dateStr) {
   ctx.font = "bold 24px 'Noto Sans JP', sans-serif";
   ctx.fillStyle = '#e8e6e3';
   ctx.fillText(
-    `${_trFmtTime(j.departureSecs)} → ${_trFmtTime(j.arrivalSecs)}（${_trFmtDur(j.durationSecs)}）`,
+    `${_trFmtTime(j.departureSecs)} → ${_trFmtTime(_trDisplayArrivalSecs(j))}（${_trFmtDur(_trDisplayArrivalSecs(j) - j.departureSecs)}）`,
     PAD, y + 24
   );
   const fareText = j.fare
@@ -1685,10 +1691,13 @@ function _trBuildRouteCanvas(j, dateStr) {
     ctx.fillText(`● ${_trFmtTime(lastTo.arrivalSecs)} ${lastTo.to.name}`, textX, y + 22);
     ctx.font = "14px 'Noto Sans JP', sans-serif";
     ctx.fillStyle = '#a0a0a0';
-    ctx.fillText(`🚶 徒歩連絡`, textX, y + 48);
+    // 画面表示の詳細注記（renderTransitResults）と同じ文言・秒数(_trDisplayEgressSecs)に統一
+    ctx.fillText(j.egressWalkSecs > 0
+      ? `🚶 ${lastTo.to.name}から徒歩約${_trDisplayEgressSecs(j) / 60}分`
+      : '🚶 徒歩連絡（所要時間は経路データに含まれません）', textX, y + 48);
     ctx.font = "bold 18px 'Noto Sans JP', sans-serif";
     ctx.fillStyle = '#e8e6e3';
-    ctx.fillText(`● ${destWalk}（目的地）`, textX, y + 76);
+    ctx.fillText(`● ${j.egressWalkSecs > 0 ? `${_trFmtTime(_trDisplayArrivalSecs(j))} ` : ''}${destWalk}（目的地）`, textX, y + 76);
     y += TRANSIT_LEG_H + LEG_GAP;
   }
 
