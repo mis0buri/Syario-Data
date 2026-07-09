@@ -1000,7 +1000,7 @@ async function _trFixFromIdViaSuggest(endpoint) {
 
 // 境界再検索本体。fromEndpointのIDを静的修正表/キャッシュで解決してから検索し、
 // 404（stationNotFound）ならplaces/suggestフォールバックを1回だけ試みて再検索する。
-async function _trPlanBoundary(fromEndpoint, toEndpoint, timeHHMM, avoid) {
+async function _trPlanBoundary(fromEndpoint, toEndpoint, timeHHMM, avoid, dateOverride) {
   const known = fromEndpoint.id in _trPlanIdCache;
   const fromId = known ? (_trPlanIdCache[fromEndpoint.id] || fromEndpoint.id) : fromEndpoint.id;
   const doFetch = async (id) => {
@@ -1009,8 +1009,9 @@ async function _trPlanBoundary(fromEndpoint, toEndpoint, timeHHMM, avoid) {
     const timer = setTimeout(() => ac.abort(), 6000);
     try {
       // numItineraries: 3→4（課題D2）。問い合わせ時刻をTRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS分
-      // 早めた分、無関係な直前の便が候補の先頭を1件占める可能性があるため、1件分積んで補う
-      return await _trFetchPlan(pr, [], 4, false, ac.signal, avoid, undefined, timeHHMM, 'departure');
+      // 早めた分、無関係な直前の便が候補の先頭を1件占める可能性があるため、1件分積んで補う。
+      // dateOverride: L1到着が翌日以降(86400秒超)の境界をそのサービス日で問い合わせる(課題D3)
+      return await _trFetchPlan(pr, [], 4, false, ac.signal, avoid, undefined, timeHHMM, 'departure', dateOverride);
     } finally { clearTimeout(timer); }
   };
   try {
@@ -1054,18 +1055,29 @@ async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
   if (q === i + 1) walkSecs = 120;
 
   // 問い合わせ時刻: L1到着秒そのままだと、境界の相方列車がちょうど同秒発車(gap=0)の場合に
-  // 取りこぼす(課題D2、TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS参照)ためlookback秒早める
+  // 取りこぼす(課題D2、TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS参照)ためlookback秒早める。
+  // さらにL1到着秒が86400以上(翌日以降)の場合は、そのサービス日のdateへ繰り上げて問い合わせる
+  // (課題D3。従来は元検索のdateをそのまま使い、翌日境界で誤った日の時刻表を引いていた)。
+  // dayOffsetはlookback後の秒数から算出するため、lookbackが日境界を跨ぐ場合も一貫する
   const queriedSecs = Math.max(0, L1.arrivalSecs - TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS);
-  const timeHHMM = _trSecsToHHMM(queriedSecs);
+  const dayOffset = Math.floor(queriedSecs / 86400);
+  const timeHHMM = _trSecsToHHMM(queriedSecs - dayOffset * 86400);
+  const dateOverride = dayOffset > 0
+    ? _trAddDaysToDate(document.getElementById('transit-date').value, dayOffset)
+    : undefined;
   let candidates;
   try {
     candidates = await _trPlanBoundary(
       { id: L2.from.id, name: L2.from.name },
       { id: destId, name: destName },
-      timeHHMM, avoid
+      timeHHMM, avoid, dateOverride
     );
   } catch (e) { return null; }
   if (!candidates || !candidates.length) return null;
+  // dateOverrideで発行した場合、返り値の秒数は「そのサービス日0時」基準のため、元検索の
+  // 基準日へ揃える(+86400×日数)。揃えないとwait計算・到着悪化セーフティの比較が全て狂う
+  // (所要時間優先モードのオフセット検索の日跨ぎ修正=ラウンド13と同じ理由・同じ手法)
+  if (dayOffset > 0) candidates.forEach(c => _trShiftJourneySecs(c, dayOffset * 86400));
 
   const tn1 = _trTrainNo(L1.tripId);
 
