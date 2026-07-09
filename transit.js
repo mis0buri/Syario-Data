@@ -1130,9 +1130,11 @@ async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
     const tnc = _trTrainNo(firstT.tripId);
 
     let through = false;
-    if (_trSameTrain(tn1, tnc)) {
+    // (a)/(a')はlookback導入により到着前発車の候補が混入し得るため、下限ガードを掛ける
+    // （wait < -TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECSなら物理的にありえない続行便として不採用）
+    if (wait >= -TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS && _trSameTrain(tn1, tnc)) {
       through = true; // (a) 番号一致 → 同一物理列車
-    } else if (_trBoundaryThroughMatch(L1, firstT)) {
+    } else if (wait >= -TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS && _trBoundaryThroughMatch(L1, firstT)) {
       through = true; // (a') 境界リナンバリング規則（ラウンド6/7/8、4方向）による同一物理列車判定
     } else if (wait >= 0 && wait <= 180 && _trHsMatch(L1.headsign, firstT.headsign)) {
       through = true; // (b) 行き先正準一致 + 発車が到着+0〜180秒
