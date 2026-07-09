@@ -47,7 +47,10 @@ const TRANSIT_DURPRI_TIMEOUT = 10000;
 // 本線+オフセット3本の4本同時発行はライブ実測でAPI側のテイルレイテンシが悪化することが
 // 確認された（単発2.6〜2.8秒の想定に対し、4本同時では10秒のタイムアウトに複数本が達し、
 // 500msリトライを経て最大18秒程度かかる例を観測）。オフセットはTRANSIT_DURPRI_CONCURRENCY
-// 本ずつ順次発行することで本線を含む同時実行数を抑える（ラウンド13フォローアップ）
+// 本ずつ順次発行することで本線を含む同時実行数を抑える（ラウンド13フォローアップ）。
+// 課題D4: バス含む(rail-bias)検索もこの非本線キューに合流させ、本線1本＋このN本を超える
+// 同時発行が起きないようにした（従来はrail-bias(1本)がdurpriと別枠で本線と同時発行され、
+// バス含むON+所要優先ON時に最大4本同時になっていた）
 const TRANSIT_DURPRI_CONCURRENCY = 2;
 
 // 駅名・行先の比較用正規化。APIは「西船橋」と「西船橋 Nishi-Funabashi」のように
@@ -653,26 +656,30 @@ async function searchTransit(detour) {
   } else {
     pairs.forEach(pr => baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
-  // 本線(+rail-bias)は即時Promise.allで発行し、所要優先のオフセット追加検索(durpri)は
-  // TRANSIT_DURPRI_CONCURRENCY本ずつ順次発行する（本線とは並行して開始するため待ち時間の
-  // 増加は最小限）。ライブ実測で本線含む4本同時発行はAPI側のテイルレイテンシが悪化する
-  // ことが確認されたための調整（ラウンド13フォローアップ、上のTRANSIT_DURPRI_CONCURRENCY参照）
-  const durpriTasks = baseTasks.filter(t => t.durpri);
-  const otherTasks = baseTasks.filter(t => !t.durpri);
-  const basePromise = Promise.all(otherTasks.map(t => _trRunTask(t, detour)));
-  let durpriResults = [];
-  for (let i = 0; i < durpriTasks.length; i += TRANSIT_DURPRI_CONCURRENCY) {
-    const chunk = durpriTasks.slice(i, i + TRANSIT_DURPRI_CONCURRENCY);
-    durpriResults = durpriResults.concat(await Promise.all(chunk.map(t => _trRunTask(t, detour))));
+  // 本線(base:true)は即時Promise.allで発行する。本線以外(rail-bias・所要優先のオフセット
+  // 追加検索durpri)は「非本線」検索としてひとつにまとめ、TRANSIT_DURPRI_CONCURRENCY本ずつ
+  // 順次発行する共通キューに通す（本線とは並行して開始するため待ち時間の増加は最小限）。
+  // ライブ実測で本線含む4本同時発行はAPI側のテイルレイテンシが悪化することが確認された
+  // （ラウンド13フォローアップ）。バス含むON+所要優先ONの組み合わせでは、従来rail-bias
+  // (1本)がdurpriオフセット(2本ずつ)と別枠で本線と同時に発行され、最大4本の同時実行に
+  // なっていた(課題D4)。非本線をまとめて1本のキューに通すことで、本線1本＋非本線最大
+  // TRANSIT_DURPRI_CONCURRENCY本＝合計3本を超えないようにする
+  const primaryTasks = baseTasks.filter(t => t.base);
+  const extraTasks = baseTasks.filter(t => !t.base);
+  const basePromise = Promise.all(primaryTasks.map(t => _trRunTask(t, detour)));
+  let extraResults = [];
+  for (let i = 0; i < extraTasks.length; i += TRANSIT_DURPRI_CONCURRENCY) {
+    const chunk = extraTasks.slice(i, i + TRANSIT_DURPRI_CONCURRENCY);
+    extraResults = extraResults.concat(await Promise.all(chunk.map(t => _trRunTask(t, detour))));
   }
   // 日跨ぎオフセット検索(dateOverride付き)の結果は翌日サービス日0時基準の秒数で返るため、
   // 本検索のサービス日基準に揃える(+86400×日数)。これをしないと翌日早朝便が「同日早朝の
   // 約19時間過去の便」として表示・ソートされ(_bestAdjも汚染)、本線が返す同一便(翌HH:MM
   // 表記=86400超の秒数)とのdedupも効かない
-  durpriResults.forEach(r => {
+  extraResults.forEach(r => {
     if (r.js && r.t.secsShift) r.js.forEach(j => _trShiftJourneySecs(j, r.t.secsShift));
   });
-  const baseResults = (await basePromise).concat(durpriResults);
+  const baseResults = (await basePromise).concat(extraResults);
   if (token !== _trSearchToken) return; // 新しい検索に置き換わっていたら破棄
   btn.disabled = false;
 
