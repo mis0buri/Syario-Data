@@ -12,6 +12,14 @@ const TRANSIT_LS_HUBS = 'transit_hub_cache';          // 主要ハブ駅ID解決
 // 隠れた最速ルート＝別事業者乗換などを拾うため）。id解決結果はセッション内でキャッシュ。
 const TRANSIT_HUBS = ['新宿', '池袋', '東京', '渋谷', '大宮', '上野', '西船橋', '北千住', '御茶ノ水', '横浜'];
 const TRANSIT_HUB_FANOUT = true; // 主要ハブ自動via検索の有効フラグ（結果は段階表示で差し込む）
+// via指定のplanはAPI側の応答が遅く（実測: 単発でも3〜10秒、時に14秒超）、さらに複数本を
+// 同時発行するとサーバ側で処理が競合してテイルレイテンシが急激に悪化する（実測: 2〜3本の
+// 同時発行でも17〜37秒かかる例を複数観測）ことが判明した（ラウンド11診断）。そのため
+// 8本一斉発行はやめ、TRANSIT_HUB_CONCURRENCY本ずつ順次バッチ実行し、1本あたりの
+// タイムアウトもTRANSIT_HUB_TIMEOUTへ延長する（完全な直列(1本ずつ)が最も安定するが、
+// 8本だと総待ち時間が長くなりすぎるため同時実行数を絞ったバッチ処理で折衷する）。
+const TRANSIT_HUB_TIMEOUT = 12000;
+const TRANSIT_HUB_CONCURRENCY = 3;
 const TRANSIT_THROUGH_MERGE = true; // 直通結合（Part A/B）の有効フラグ
 let _trHubCache = null;
 // 本線＋ハブ経由検索をマージすると候補が増えるため表示件数に上限を設ける
@@ -522,20 +530,30 @@ async function searchTransit(detour) {
   const fbPr = (_trMode === 'free' && !vias.length) ? pairs[0] : null;
 
   // ── フェーズ2: 主要ハブ経由検索を裏で実行し、より良い経路を差し込む ──
+  // 8本一斉発行はAPI側のテイルレイテンシ悪化を招くため、TRANSIT_HUB_CONCURRENCY本ずつ
+  // バッチ実行する。各バッチ完了ごとに結果を差し込んで表示するため、全8本を待たずに
+  // 見つかった経路から順次UIへ反映される（ラウンド11）。
   if (!hubFanout) { _trPostSearch(all, token, avoid, detour, fbPr); return; }
   const hubs = await _trResolveHubs(pairs[0]);
   if (token !== _trSearchToken) return;
-  const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: 6000 }));
+  const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: TRANSIT_HUB_TIMEOUT }));
   if (hubTasks.length) {
-    const hubResults = await Promise.all(hubTasks.map(t => _trRunTask(t, detour)));
-    if (token !== _trSearchToken) return;
     const before = all.length;
-    all = _trDedupJourneys(_trCollect(hubResults, all.slice()));
+    _trStatus('追加経路を検索中…');
+    for (let i = 0; i < hubTasks.length; i += TRANSIT_HUB_CONCURRENCY) {
+      const batch = hubTasks.slice(i, i + TRANSIT_HUB_CONCURRENCY);
+      const batchResults = await Promise.all(batch.map(t => _trRunTask(t, detour)));
+      if (token !== _trSearchToken) return;
+      const prevLen = all.length;
+      all = _trDedupJourneys(_trCollect(batchResults, all.slice()));
+      if (all.length > prevLen) {
+        _trStatus(`別経路を${all.length - before}件追加しました`);
+        _trApplyResults(all);
+      }
+    }
     if (all.length && before === 0 && _trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
     if (all.length) {
-      const added = all.length - before;
-      _trStatus(added > 0 ? `別経路を${added}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
-      _trApplyResults(all);
+      if (all.length === before) _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
       _trPostSearch(all, token, avoid, detour, fbPr);
       return;
     }
