@@ -37,6 +37,11 @@ const TRANSIT_DURPRI_WINDOW = 1800;
 // FINDINGS.mdラウンド13/data/durpri_report.txt T2実測により3本とも間引かない
 const TRANSIT_DURPRI_OFFSETS_MIN = [10, 20, 30];
 const TRANSIT_DURPRI_TIMEOUT = 10000;
+// 本線+オフセット3本の4本同時発行はライブ実測でAPI側のテイルレイテンシが悪化することが
+// 確認された（単発2.6〜2.8秒の想定に対し、4本同時では10秒のタイムアウトに複数本が達し、
+// 500msリトライを経て最大18秒程度かかる例を観測）。オフセットはTRANSIT_DURPRI_CONCURRENCY
+// 本ずつ順次発行することで本線を含む同時実行数を抑える（ラウンド13フォローアップ）
+const TRANSIT_DURPRI_CONCURRENCY = 2;
 
 // 駅名・行先の比較用正規化。APIは「西船橋」と「西船橋 Nishi-Funabashi」のように
 // 日本語名の後ろにローマ字/英字を付ける場合があり、文字列一致が壊れるため、
@@ -603,7 +608,19 @@ async function searchTransit(detour) {
   } else {
     pairs.forEach(pr => baseTasks.push({ pr, vias, n, base: true, avoidModes: avoid }));
   }
-  const baseResults = await Promise.all(baseTasks.map(t => _trRunTask(t, detour)));
+  // 本線(+rail-bias)は即時Promise.allで発行し、所要優先のオフセット追加検索(durpri)は
+  // TRANSIT_DURPRI_CONCURRENCY本ずつ順次発行する（本線とは並行して開始するため待ち時間の
+  // 増加は最小限）。ライブ実測で本線含む4本同時発行はAPI側のテイルレイテンシが悪化する
+  // ことが確認されたための調整（ラウンド13フォローアップ、上のTRANSIT_DURPRI_CONCURRENCY参照）
+  const durpriTasks = baseTasks.filter(t => t.durpri);
+  const otherTasks = baseTasks.filter(t => !t.durpri);
+  const basePromise = Promise.all(otherTasks.map(t => _trRunTask(t, detour)));
+  let durpriResults = [];
+  for (let i = 0; i < durpriTasks.length; i += TRANSIT_DURPRI_CONCURRENCY) {
+    const chunk = durpriTasks.slice(i, i + TRANSIT_DURPRI_CONCURRENCY);
+    durpriResults = durpriResults.concat(await Promise.all(chunk.map(t => _trRunTask(t, detour))));
+  }
+  const baseResults = (await basePromise).concat(durpriResults);
   if (token !== _trSearchToken) return; // 新しい検索に置き換わっていたら破棄
   btn.disabled = false;
 
