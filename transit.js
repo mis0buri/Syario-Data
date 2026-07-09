@@ -1126,14 +1126,18 @@ function sortTransitResults(mode) {
   _trSort = mode;
   document.getElementById('transit-sort-time').classList.toggle('active', mode === 'time');
   document.getElementById('transit-sort-fare').classList.toggle('active', mode === 'fare');
-  // 到着時刻ベースの比較（実質到着＝末尾徒歩ペナルティ込み → 指定到着駅にそのまま
-  // 着くか → 所要時間）。時刻ソートの主キーと、運賃ソートの同額時の第2キーで共有する
+  // 到着時刻ベースの比較（指定到着駅にそのまま着く経路を最優先 → 実質到着＝末尾徒歩
+  // ペナルティ込み → 所要時間）。指定到着駅チェックを主キーにするのは、近接駅止まりの
+  // 経路（例: 船橋止まり→東海神へ徒歩連絡）がAPI上は徒歩legを持たず（徒歩連絡は
+  // _trDestWalkNameによる描画時の注記のみ）、到着時刻ベースのキーでは目的駅完結の
+  // 経路と区別できないため。全経路がatDest=falseのケース（目的地がランドマーク等）では
+  // このキーは定数となり無害。時刻ソートの主キーと運賃ソートの同額時の第2キーで共有する
   const byArrival = (a, b) => {
+    const da = _trArrivesAtDest(a) ? 0 : 1, db = _trArrivesAtDest(b) ? 0 : 1;
+    if (da !== db) return da - db;
     const ea = a.arrivalSecs + _trTrailingWalkSecs(a);
     const eb = b.arrivalSecs + _trTrailingWalkSecs(b);
     if (ea !== eb) return ea - eb;
-    const da = _trArrivesAtDest(a) ? 0 : 1, db = _trArrivesAtDest(b) ? 0 : 1;
-    if (da !== db) return da - db;
     return a.durationSecs - b.durationSecs;
   };
   _trJourneys.sort((a, b) => {
