@@ -30,6 +30,13 @@ const TRANSIT_MAX_RESULTS = 12;
 // 追加ペナルティ秒数。連絡徒歩秒数（APIのegressWalkSecs）に上乗せし、「徒歩込みの
 // 実質到着が鉄道完結よりこの秒数以上早いときだけ徒歩連絡経路を上に出す」閾値として働く
 const TRANSIT_ATDEST_THRESHOLD = 600;
+// Part B(_trFixBoundary)の境界再検索クエリ時刻を、L1到着秒からこの秒数だけ早めて問い合わせる
+// （課題D2）。境界の相方列車がL1到着とちょうど同秒発車(gap=0)の場合、到着分そのものを
+// time指定するとAPI側の境界挙動で除外され次発が返ってしまうことがラウンド12で実証された
+// （西船橋境界723Y↔B723S、到着分ちょうどのtime指定では次発を返し、1分早い指定では正しく
+// 返る）。1分早めても_trFixBoundary側のwait判定はL1.arrivalSecsとの差分で厳密に行うため、
+// 誤って早すぎる無関係な便を直通/乗換として採用することはない
+const TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS = 60;
 // 所要時間優先モード（設計書 data/durpri_report.txt のT3）。
 // 「バス無し・到着が最良+この秒数以内」の経路グループを実効所要時間昇順で上位に出す窓（30分）。
 const TRANSIT_DURPRI_WINDOW = 1800;
@@ -1001,7 +1008,9 @@ async function _trPlanBoundary(fromEndpoint, toEndpoint, timeHHMM, avoid) {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 6000);
     try {
-      return await _trFetchPlan(pr, [], 3, false, ac.signal, avoid, undefined, timeHHMM, 'departure');
+      // numItineraries: 3→4（課題D2）。問い合わせ時刻をTRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS分
+      // 早めた分、無関係な直前の便が候補の先頭を1件占める可能性があるため、1件分積んで補う
+      return await _trFetchPlan(pr, [], 4, false, ac.signal, avoid, undefined, timeHHMM, 'departure');
     } finally { clearTimeout(timer); }
   };
   try {
@@ -1044,7 +1053,10 @@ async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
   for (let k = i + 1; k < q; k++) walkSecs += (j.legs[k].arrivalSecs - j.legs[k].departureSecs);
   if (q === i + 1) walkSecs = 120;
 
-  const timeHHMM = _trSecsToHHMM(L1.arrivalSecs);
+  // 問い合わせ時刻: L1到着秒そのままだと、境界の相方列車がちょうど同秒発車(gap=0)の場合に
+  // 取りこぼす(課題D2、TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS参照)ためlookback秒早める
+  const queriedSecs = Math.max(0, L1.arrivalSecs - TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS);
+  const timeHHMM = _trSecsToHHMM(queriedSecs);
   let candidates;
   try {
     candidates = await _trPlanBoundary(
