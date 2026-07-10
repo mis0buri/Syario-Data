@@ -50,6 +50,32 @@ const TRANSIT_ATDEST_THRESHOLD = 600;
 // 返る）。1分早めても_trFixBoundary側のwait判定はL1.arrivalSecsとの差分で厳密に行うため、
 // 誤って早すぎる無関係な便を直通/乗換として採用することはない
 const TRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS = 60;
+// Part B(_trVerifyThrough)全体の実行時間デッドライン（課題F1、ラウンド16）。境界再検索は
+// 最大8journey×3パス×境界数を完全直列でfetchするため実測29〜52秒かかり（ラウンド15）、
+// 各fetchには6秒のAbortController打ち切りがあるものの全体の上限が無かった。ここを超えたら
+// _trVerifyThrough側で残りの境界処理（次のjourney・次のパス・次の境界）を静かにスキップして
+// 正常終了する（すでに差し替え済みのjourneyはそのまま有効。UI通知は不要＝fire-and-forgetの
+// 既存挙動を維持）。30秒はラウンド15実測（直列29〜52秒）の下限〜中央値相当の妥協値
+const TRANSIT_PARTB_DEADLINE_MS = 30000;
+// Part Bの各fetch待ちに対する、AbortController非依存の保険タイムアウト（課題F1）。
+// AbortController.abort()を呼んでもfetchのPromiseが解決/拒否されない環境が疑われる事象が
+// ラウンド13/15で観測されており（フェーズ2バッチループ・Part Bそれぞれで新規fetchが長時間
+// 発生しなくなる停止）、abort()自体に依存しないPromise.raceの保険を二重化する。元のfetch
+// Promiseの行方に関わらずこの時間で先に進み、後から元のPromiseが解決/拒否されても誰も
+// 待っていないため実害はない（GCされるだけ）
+const TRANSIT_PARTB_FETCH_HARD_TIMEOUT_MS = 8000;
+// Promise.raceの「時間切れ」を判別するための一意な番兵値
+const _TR_HARD_TIMEOUT = Symbol('tr-hard-timeout');
+// promiseがms以内に解決/拒否されなければ_TR_HARD_TIMEOUTで解決する（reject方向を含めて
+// 常にresolveする＝呼び出し側で`=== _TR_HARD_TIMEOUT`判定するだけで済むようにする）。
+// AbortControllerのabort()とは独立した仕組みなので、abort()後もfetchが内部的にハングする
+// 環境でも呼び出し側の待ちは必ずこの時間で終わる
+function _trHardTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve(_TR_HARD_TIMEOUT), ms)),
+  ]);
+}
 // 所要時間優先モード（設計書 data/durpri_report.txt のT3）。
 // 「バス無し・到着が最良+この秒数以内」の経路グループを実効所要時間昇順で上位に出す窓（30分）。
 const TRANSIT_DURPRI_WINDOW = 1800;
@@ -1082,8 +1108,13 @@ async function _trFixFromIdViaSuggest(endpoint) {
   let resolved = null;
   if (prefix) {
     try {
-      const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(endpoint.name)}&limit=30`);
-      if (res.ok) {
+      // このfetchは元々AbortControllerを持たなかった（課題F1で発見）。abort()の有無に関わらず
+      // TRANSIT_PARTB_FETCH_HARD_TIMEOUT_MSで先に進むよう_trHardTimeoutで保険をかける
+      const res = await _trHardTimeout(
+        fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(endpoint.name)}&limit=30`),
+        TRANSIT_PARTB_FETCH_HARD_TIMEOUT_MS
+      );
+      if (res !== _TR_HARD_TIMEOUT && res.ok) {
         const data = await res.json();
         const hit = (data.places || []).find(p => p.kind === 'station' && p.endpoint && p.endpoint.startsWith(prefix));
         if (hit) resolved = hit.endpoint;
@@ -1107,7 +1138,19 @@ async function _trPlanBoundary(fromEndpoint, toEndpoint, timeHHMM, avoid, dateOv
       // numItineraries: 3→4（課題D2）。問い合わせ時刻をTRANSIT_BOUNDARY_QUERY_LOOKBACK_SECS分
       // 早めた分、無関係な直前の便が候補の先頭を1件占める可能性があるため、1件分積んで補う。
       // dateOverride: L1到着が翌日以降(86400秒超)の境界をそのサービス日で問い合わせる(課題D3)
-      return await _trFetchPlan(pr, [], 4, false, ac.signal, avoid, undefined, timeHHMM, 'departure', dateOverride);
+      // 課題F1: ac.abort()がfetchのPromiseを解決/拒否させない環境の理論リスクに備え、
+      // AbortController非依存のPromise.raceタイムアウトを二重化する（6秒のabortより長い
+      // 8秒でも先に進めるようにし、abort側が正常に効く通常時は6秒側が先に決着する）
+      const r = await _trHardTimeout(
+        _trFetchPlan(pr, [], 4, false, ac.signal, avoid, undefined, timeHHMM, 'departure', dateOverride),
+        TRANSIT_PARTB_FETCH_HARD_TIMEOUT_MS
+      );
+      if (r === _TR_HARD_TIMEOUT) {
+        const err = new Error('境界再検索タイムアウト（保険）');
+        err.timedOut = true;
+        throw err;
+      }
+      return r;
     } finally { clearTimeout(timer); }
   };
   try {
@@ -1235,17 +1278,19 @@ async function _trFixBoundary(j, i, q, avoid, baseTransfers, baseArr) {
 // Part Aで結合済みのlegも構成区間(_segs)へ展開して全境界を走査し、
 // 「乗換が減る」または「到着が早くなる」続行便があれば差し替える。
 // 例: 西船橋5分停車として結合された直通でも、より早い続行便があれば置き換える。
-async function _trTryThroughFix(j, avoid) {
+// deadline: 課題F1。Date.now()基準の絶対時刻(ms)。省略時は無制限（既存呼び出しとの後方互換）
+async function _trTryThroughFix(j, avoid, deadline) {
   let cur = j, changed = false;
   for (let pass = 0; pass < 3; pass++) {
-    const fixed = await _trTryThroughFixOnce(cur, avoid);
+    if (deadline && Date.now() > deadline) break; // 全体デッドライン超過: 残りのパスはスキップ
+    const fixed = await _trTryThroughFixOnce(cur, avoid, deadline);
     if (!fixed) break;
     cur = fixed; changed = true;
   }
   return changed ? cur : null;
 }
 
-async function _trTryThroughFixOnce(j, avoid) {
+async function _trTryThroughFixOnce(j, avoid, deadline) {
   if (!j.legs) return null;
   const baseTransfers = typeof j.transferCount === 'number'
     ? j.transferCount : Math.max(0, j.legs.filter(l => l.kind === 'transit').length - 1);
@@ -1260,6 +1305,7 @@ async function _trTryThroughFixOnce(j, avoid) {
     if (q >= x.legs.length || x.legs[q].kind !== 'transit') continue;
     const gap = x.legs[q].departureSecs - L1.arrivalSecs;
     if (gap <= 60 || gap > 1800) continue; // 60秒以内は改善余地なし／30分超の待ちは対象外
+    if (deadline && Date.now() > deadline) break; // 全体デッドライン超過: 残りの境界はスキップ
     const fixed = await _trFixBoundary(x, i, q, avoid, baseTransfers, baseArr);
     if (fixed) return fixed;
     // 改善できない境界は飛ばし、後続の境界も検証する
@@ -1267,14 +1313,20 @@ async function _trTryThroughFixOnce(j, avoid) {
   return null;
 }
 
+// 課題F1（ラウンド16）: 開始からTRANSIT_PARTB_DEADLINE_MSを超えたら残りの境界処理
+// （次のjourney・次のパス・次の境界）を静かにスキップして正常終了する。処理済み分の
+// 差し替え（changed済みのall[ji]）はそのまま有効。UI通知は行わない（既存のfire-and-forget
+// 挙動を維持、専用の「打ち切りました」的な文言は出さない既存の流儀に合わせる）
 async function _trVerifyThrough(all, token, avoid, detour) {
   if (!TRANSIT_THROUGH_MERGE) return; // 直通結合は一旦無効
   if (detour) return;
+  const deadline = Date.now() + TRANSIT_PARTB_DEADLINE_MS;
   let changed = false;
   const limit = Math.min(all.length, 8);
   for (let ji = 0; ji < limit; ji++) {
     if (token !== _trSearchToken) return;
-    const fixed = await _trTryThroughFix(all[ji], avoid);
+    if (Date.now() > deadline) break;
+    const fixed = await _trTryThroughFix(all[ji], avoid, deadline);
     if (token !== _trSearchToken) return;
     if (fixed) { all[ji] = fixed; changed = true; }
   }
