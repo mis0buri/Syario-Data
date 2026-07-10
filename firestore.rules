@@ -29,6 +29,9 @@ service cloud.firestore {
 
     match /renban_events/{docId} {
       allow read, create: if true;
+      // イベント編集・期限切れ設定（manualExpired）で本人/管理者がupdateを使う
+      allow update: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isAdmin());
       allow delete: if request.auth != null &&
         (resource.data.uid == request.auth.uid || isAdmin());
       match /participants/{partId} {
