@@ -714,14 +714,18 @@ async function searchTransit(detour) {
   if (token !== _trSearchToken) return; // 新しい検索に置き換わっていたら破棄
   btn.disabled = false;
 
-  let all = _trCollect(baseResults, []);
-  if (_trMode === 'free' && baseTasks.length > 1) all = _trDedupJourneys(all);
+  // 結果プールはフェーズ2(ハブfanout)と直通境界の動的via検索(バッチE)が並行して差し込みを
+  // 行うため、再代入を共有できるオブジェクト(pool.all)として持つ。各差し込みはawait再開後に
+  // 最新のpool.allを同期的に読み直してから置き換える(JSシングルスレッドなので、交互に走っても
+  // どちらかの追加分が失われる「更新の取りこぼし」は起きない)
+  const pool = { all: _trCollect(baseResults, []) };
+  if (_trMode === 'free' && baseTasks.length > 1) pool.all = _trDedupJourneys(pool.all);
   const baseFailed = baseResults.filter(r => r.err && r.t.base);
 
-  if (all.length) {
+  if (pool.all.length) {
     if (_trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
     _trStatus(hubFanout ? 'さらに速い経路を探索中…' : (baseFailed.length ? '一部の検索に失敗しました' : ''));
-    _trApplyResults(all);
+    _trApplyResults(pool.all);
   } else if (!hubFanout) {
     _trShowNoResult(baseFailed);
     return;
@@ -741,52 +745,58 @@ async function searchTransit(detour) {
   // 見つかった経路から順次UIへ反映される（ラウンド11）。
   // 適応スキップ(課題D1): フェーズ1だけで既に「鉄道で目的駅に着く経路」が十分あれば、
   // フェーズ2自体を発行しない。打ち切り時も通常完了と同じ扱い(専用メッセージは出さない)
-  if (hubFanout && _trSufficientRailAtDest(all)) {
+  if (hubFanout && _trSufficientRailAtDest(pool.all)) {
     _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
-    _trPostSearch(all, token, avoid, detour, fbPr);
+    _trPostSearch(pool, token, avoid, detour, fbPr);
     return;
   }
-  if (!hubFanout) { _trPostSearch(all, token, avoid, detour, fbPr); return; }
+  if (!hubFanout) { _trPostSearch(pool, token, avoid, detour, fbPr); return; }
+  // 直通境界の動的via検索(バッチE)をフェーズ1の結果で先行発火し、フェーズ2と並走させる。
+  // トリガー判定に必要な「結果中の直通路線名」はフェーズ1(本線)の結果で揃うことが多く、
+  // フェーズ2完了後の直列実行では合計待ちが最悪50秒級になっていたため(ラウンド15追記)。
+  // awaitしない(進行中Promiseは_trPostSearchが拾って完走を待つ)。フェーズ1でトリガー
+  // 不成立の場合は発火済み扱いにならず、_trPostSearch内でもう一度だけ再判定される
+  _trBoundaryViaFanout(pool, token, avoid, detour, fbPr, true);
   const hubs = await _trResolveHubs(pairs[0]);
   if (token !== _trSearchToken) return;
   const hubTasks = hubs.map(h => ({ pr: pairs[0], vias: [h], n: 3, base: false, avoidModes: avoid, timeout: TRANSIT_HUB_TIMEOUT }));
   if (hubTasks.length) {
-    const before = all.length;
+    const before = pool.all.length;
     const totalBatches = Math.ceil(hubTasks.length / TRANSIT_HUB_CONCURRENCY);
     // フェーズ2全体の合計デッドライン(課題D1)。超えたら残りバッチは発行しない。
     // 既に発行済みのバッチは最後まで待つ(中断はしない。tokenガードで無害)
     const phase2Deadline = Date.now() + TRANSIT_HUB_PHASE2_DEADLINE_MS;
     for (let i = 0; i < hubTasks.length; i += TRANSIT_HUB_CONCURRENCY) {
       if (Date.now() >= phase2Deadline) break; // 早期打ち切り(課題D1): 静かに終了
-      if (_trSufficientRailAtDest(all)) break; // 適応スキップ(課題D1): 静かに終了
+      if (_trSufficientRailAtDest(pool.all)) break; // 適応スキップ(課題D1): 静かに終了
       const batchNum = Math.floor(i / TRANSIT_HUB_CONCURRENCY) + 1;
       // 最大36秒程度かかり得るフェーズ2の待ち時間を、バッチ進捗付きで見せる（ラウンド12）
       _trStatus(`追加経路を検索中… (${batchNum}/${totalBatches})`);
       const batch = hubTasks.slice(i, i + TRANSIT_HUB_CONCURRENCY);
       const batchResults = await Promise.all(batch.map(t => _trRunTask(t, detour, _trHubAbortControllers)));
       if (token !== _trSearchToken) return;
-      const prevLen = all.length;
-      all = _trDedupJourneys(_trCollect(batchResults, all.slice()));
-      if (all.length > prevLen) {
-        _trStatus(`別経路を${all.length - before}件追加しました`);
-        _trApplyResults(all);
+      const prevLen = pool.all.length;
+      pool.all = _trDedupJourneys(_trCollect(batchResults, pool.all.slice()));
+      if (pool.all.length > prevLen) {
+        _trStatus(`別経路を${pool.all.length - before}件追加しました`);
+        _trApplyResults(pool.all);
       }
     }
-    if (all.length && before === 0 && _trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
-    if (all.length) {
+    if (pool.all.length && before === 0 && _trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
+    if (pool.all.length) {
       // ループ内で最後に表示した「追加経路を検索中… (k/N)」が、そのバッチが新規経路を
       // 0件しか追加しなかった場合や早期打ち切り(課題D1)で残ってしまうことがあるため、
       // ループを抜けた時点で必ず最終状態のメッセージに更新する(打ち切りも通常完了と
       // 同じ見た目にする。個別バッチで表示済みの「別経路をN件追加しました」と同じ計算式)
-      _trStatus(all.length > before ? `別経路を${all.length - before}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
-      _trPostSearch(all, token, avoid, detour, fbPr);
+      _trStatus(pool.all.length > before ? `別経路を${pool.all.length - before}件追加しました` : (baseFailed.length ? '一部の検索に失敗しました' : ''));
+      _trPostSearch(pool, token, avoid, detour, fbPr);
       return;
     }
   }
   // 本線・ハブとも経路が見つからなかった場合
-  if (!all.length) { _trShowNoResult(baseFailed); return; }
+  if (!pool.all.length) { _trShowNoResult(baseFailed); return; }
   _trStatus(baseFailed.length ? '一部の検索に失敗しました' : '');
-  _trPostSearch(all, token, avoid, detour, fbPr);
+  _trPostSearch(pool, token, avoid, detour, fbPr);
 }
 
 // 1タスクを実行（本線=タイムアウト12秒+失敗時1回リトライ / 所要時間優先の時刻オフセット
@@ -1275,26 +1285,33 @@ async function _trVerifyThrough(all, token, avoid, detour) {
 let _trRailFallbackToken = -1;
 
 // フェーズ2確定後の後処理: 鉄道完結の補完検索（必要なとき1回だけ）→ 直通境界の動的via検索
-// （必要なとき1回だけ）→ Part B直通検証。補完・境界viaで経路が増えた場合はマージ・
-// 再描画してからPart Bへ渡す
-async function _trPostSearch(all, token, avoid, detour, pr) {
-  const extra = await _trEnsureRailToDest(all, token, avoid, detour, pr);
+// の完走待ち/フォールバック発火 → Part B直通検証。補完・境界viaで経路が増えた場合は
+// マージ・再描画してからPart Bへ渡す。poolはsearchTransitと共有する結果プール({all:[...]})
+async function _trPostSearch(pool, token, avoid, detour, pr) {
+  const extra = await _trEnsureRailToDest(pool.all, token, avoid, detour, pr);
   if (token !== _trSearchToken) return;
   if (extra && extra.length) {
-    all = _trDedupJourneys(all.concat(extra));
+    pool.all = _trDedupJourneys(pool.all.concat(extra));
     _trStatus(`目的駅まで鉄道で行く経路を${extra.length}件追加しました`);
-    _trApplyResults(all);
+    _trApplyResults(pool.all);
   }
-  const boundaryMerged = await _trBoundaryViaFanout(all, token, avoid, detour, pr);
+  // 境界via検索: フェーズ1直後の並走発火分が進行中なら、その完走を待ってからPart B検証へ
+  // 進む(境界経由で追加された経路もPart Bの対象に含めるため)。フェーズ1の結果でトリガーが
+  // 引けなかった(直通路線がフェーズ2で初めて現れた)場合は、ここで一度だけ再判定して発火する
+  const bp = _trBoundaryViaFanout(pool, token, avoid, detour, pr, false);
+  if (bp) await bp;
   if (token !== _trSearchToken) return;
-  if (boundaryMerged) all = boundaryMerged;
-  _trVerifyThrough(all, token, avoid, detour);
+  _trVerifyThrough(pool.all, token, avoid, detour);
 }
 
-// 直通境界の動的via検索を1検索につき1回だけに制限するためのトークン記録
-let _trBoundaryFallbackToken = -1;
+// 直通境界の動的via検索の発火を1検索につき合計1回だけに制限するためのトークンと、
+// 進行中(または完了済み)のPromise。「発火」＝実際にvia検索リクエストを発行すること。
+// トリガー判定だけで候補ゼロだった呼び出しは発火に数えない(＝フェーズ1で不成立でも
+// フェーズ2完了後のフォールバック判定がもう一度だけ走れる)
+let _trBoundaryFiredToken = -1;
+let _trBoundaryPromise = null;
 
-// 直通境界の動的via検索（バッチE、data/fast_report.txt案B）。現在の結果プール(all)の
+// 直通境界の動的via検索（バッチE、data/fast_report.txt案B）。共有結果プール(pool.all)の
 // transit legのrouteNameを走査し、TRANSIT_THROUGH_BOUNDARIESの路線名パターンに
 // マッチする路線を持つ境界駅を収集する。マッチした境界駅のうち、
 // (i)コリドー内(_trResolveHubsと同じdist(from,b)+dist(b,to)<=direct*1.6+3判定)
@@ -1303,18 +1320,21 @@ let _trBoundaryFallbackToken = -1;
 // 最大TRANSIT_BOUNDARY_VIA_MAX駅まで絞って、via=境界駅(geoクラスタID)の追加plan検索を
 // 並列発行する。(iii)手動via指定検索・(iv)最寄り駅一括検索/detourでは発火しない
 // （どちらもprがnull＝呼び出し元のfbPrと同じ条件のため、pr自体で判定できる）。
-// 結果は既存プールへの追加のみ（既存候補を除去しない）でマージするため、境界via強制で
-// 一部の候補が悪化して見えても最終結果は壊れない設計（fast_report.txt T2の結論通り、
-// 実アプリのphase1+phase2 dedup/merge設計であれば実害はない）。
-async function _trBoundaryViaFanout(all, token, avoid, detour, pr) {
+// 結果は共有プールへの追加のみ（既存候補を除去しない）でマージするため、境界via強制で
+// 一部の候補が悪化して見えても最終結果は壊れない設計（fast_report.txt T2の結論通り）。
+// フェーズ1直後にフェーズ2(ハブfanout)と並走発火する(ラウンド15追記)。差し込みは
+// await再開後に最新のpool.allを読み直して行うため、フェーズ2のバッチ差し込みと交互に
+// 走っても更新は失われない。発火済みなら進行中のPromiseを返す(呼び出し側が完走を待てる)。
+// silent=trueは並走発火用: フェーズ2の進捗表示(k/N)を邪魔しないよう「確認中…」は出さず、
+// 経路を追加できたときだけ件数を表示する
+function _trBoundaryViaFanout(pool, token, avoid, detour, pr, silent) {
   if (detour || !pr) return null; // 手動via指定・最寄り駅一括検索・迂回検索では発火しない
-  if (_trBoundaryFallbackToken === token) return null; // 1検索1回だけ
-  _trBoundaryFallbackToken = token;
+  if (_trBoundaryFiredToken === token) return _trBoundaryPromise; // 発火済み(進行中含む)
   if (pr.from.lat === undefined || pr.to.lat === undefined) return null; // コリドー判定不可
 
   const seen = new Set();
   const hits = [];
-  all.forEach(j => (j.legs || []).forEach(l => {
+  pool.all.forEach(j => (j.legs || []).forEach(l => {
     if (l.kind !== 'transit' || !l.routeName) return;
     TRANSIT_THROUGH_BOUNDARIES.forEach(b => {
       if (seen.has(b.name)) return;
@@ -1325,7 +1345,7 @@ async function _trBoundaryViaFanout(all, token, avoid, detour, pr) {
       hits.push(b);
     });
   }));
-  if (!hits.length) return null;
+  if (!hits.length) return null; // トリガー不成立(発火扱いにしない)
 
   const direct = _trDistKm(pr.from, pr.to);
   const candidates = hits
@@ -1333,28 +1353,32 @@ async function _trBoundaryViaFanout(all, token, avoid, detour, pr) {
     .filter(c => c.dv <= direct * 1.6 + 3)
     .sort((x, y) => (x.dv - y.dv))
     .slice(0, TRANSIT_BOUNDARY_VIA_MAX);
-  if (!candidates.length) return null;
+  if (!candidates.length) return null; // コリドー外のみ(発火扱いにしない)
 
-  // 打ち切り後は「消す」方針（既存の流儀）に合わせ、発火前のステータスを保存しておき、
-  // 新規追加が無ければ元に戻す（専用の「境界検索を打ち切りました」的な文言は出さない）
-  const prevStatus = document.getElementById('transit-status').textContent;
-  _trStatus('直通境界を経由する経路を確認中…');
-  const tasks = candidates.map(c => ({
-    pr, vias: [{ id: c.b.id, name: c.b.name, lat: c.b.lat, lon: c.b.lon }],
-    n: 3, base: false, avoidModes: avoid,
-  }));
-  const results = await Promise.all(tasks.map(t => _trPlanRetryOnce(t, detour, TRANSIT_BOUNDARY_VIA_TIMEOUT)));
-  if (token !== _trSearchToken) return null;
-
-  const before = all.length;
-  const merged = _trDedupJourneys(_trCollect(results, all.slice()));
-  if (merged.length > before) {
-    _trStatus(`直通境界経由の別経路を${merged.length - before}件追加しました`);
-    _trApplyResults(merged);
-    return merged;
-  }
-  _trStatus(prevStatus);
-  return null;
+  _trBoundaryFiredToken = token; // via発行を伴うここで初めて「発火済み」を記録
+  _trBoundaryPromise = (async () => {
+    // 非silent(フォールバック)時のみ一時表示を出し、追加ゼロなら発火前の文言に静かに戻す
+    // (既存の流儀: 専用の「打ち切りました」的な文言は出さない)。silent(並走)時はフェーズ2の
+    // 進捗表示に任せ、追加できたときだけ件数を出す
+    const prevStatus = document.getElementById('transit-status').textContent;
+    if (!silent) _trStatus('直通境界を経由する経路を確認中…');
+    const tasks = candidates.map(c => ({
+      pr, vias: [{ id: c.b.id, name: c.b.name, lat: c.b.lat, lon: c.b.lon }],
+      n: 3, base: false, avoidModes: avoid,
+    }));
+    const results = await Promise.all(tasks.map(t => _trPlanRetryOnce(t, detour, TRANSIT_BOUNDARY_VIA_TIMEOUT)));
+    if (token !== _trSearchToken) return;
+    const before = pool.all.length;
+    const merged = _trDedupJourneys(_trCollect(results, pool.all.slice()));
+    if (merged.length > before) {
+      pool.all = merged;
+      _trStatus(`直通境界経由の別経路を${merged.length - before}件追加しました`);
+      _trApplyResults(pool.all);
+    } else if (!silent) {
+      _trStatus(prevStatus);
+    }
+  })();
+  return _trBoundaryPromise;
 }
 
 // 指定到着駅まで鉄道で着く経路が1本も無いとき（numItineraries=6枠が近接駅止まり＋
