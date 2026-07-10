@@ -344,7 +344,25 @@ function toggleTransitMyStation(id, on) {
 }
 
 // ── 駅サジェスト ──
+// 小書きカナを通常カナに正規化する（例: 「阿佐ヶ谷」→「阿佐ケ谷」）。
+// API（places/suggest）は表記ゆれに対応しておらず、「ヶ」(U+30F6)入りで問い合わせると
+// 0件になる駅がある（データ側は「ケ」表記。2026-07-10 バッチE自己検証・data/fast_report.txt 注記）
+function _trNormalizeKana(q) {
+  return q.replace(/ヶ/g, 'ケ').replace(/ヵ/g, 'カ').replace(/ゕ/g, 'か').replace(/ゖ/g, 'け');
+}
+
 async function _trSuggest(q, signal) {
+  let out = await _trSuggestFetch(q, signal);
+  // 0件時は正規化した表記で再試行。入力どおりの表記を先に試すため、
+  // API側データが小書きカナ表記の駅（もしあれば）もそのまま引ける
+  if (!out.length) {
+    const nq = _trNormalizeKana(q);
+    if (nq !== q) out = await _trSuggestFetch(nq, signal);
+  }
+  return out;
+}
+
+async function _trSuggestFetch(q, signal) {
   // places/suggestを使うと所在地（description）が取れる。駅のみに絞る
   const res = await fetch(`${TRANSIT_API}/api/v1/places/suggest?q=${encodeURIComponent(q)}&limit=12`, { signal });
   if (!res.ok) return [];
