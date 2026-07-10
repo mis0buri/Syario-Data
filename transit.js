@@ -923,6 +923,38 @@ function _trIsThroughPair(a, b) {
   return TRANSIT_THROUGH_PAIRS.some(([x, y]) =>
     (a.includes(x) && b.includes(y)) || (a.includes(y) && b.includes(x)));
 }
+
+// 直通境界の動的via検索（バッチE、data/fast_report.txt案B）。
+// via無しの探索は「既存の直通ベース候補に劣る組合せ」を候補集合に生成しないため、
+// 「快速で先行し境界駅で乗換えて直通線に乗る」型の候補（例: 高円寺→東海神の
+// 快速→中野(乗換)→東西線→TR直通）が丸ごと枝刈りされることがある（fast_report.txt T1）。
+// pairはTRANSIT_THROUGH_PAIRSと同じ「路線名の部分文字列同士のペア」形式。対象は
+// fast_report.txt T4のコリドー計算・fast_boundary_coords.jsonで座標確認済みの8駅のみ
+// （西船橋・北千住は既存TRANSIT_HUBSで静的にカバー済みのため対象外、白金高輪は
+// 座標未確認のため今回は対象外）。★idは必ずgeoクラスタID形式を使う。中野を東西線の
+// 正準駅ID(odpt-tokyo-metro-part-01:odpt.Station:TokyoMetro.Tozai.Nakano)で指定すると
+// 「快速→中野→東西線」パターンが1件も出現しないことが確認済み(fast_report.txt T1(b'))。
+const TRANSIT_THROUGH_BOUNDARIES = [
+  { pair: ['東西線', '中央'],     name: '中野',       lat: 35.70614607142857,  lon: 139.66516622916666,  id: 'geo:35.706146,139.665166' },
+  { pair: ['東西線', '総武'],     name: '中野',       lat: 35.70614607142857,  lon: 139.66516622916666,  id: 'geo:35.706146,139.665166' },
+  { pair: ['千代田線', '小田急'], name: '代々木上原', lat: 35.66904089285714,  lon: 139.67972650000002,  id: 'geo:35.669041,139.679727' },
+  { pair: ['日比谷線', '東急東横'], name: '中目黒',    lat: 35.64413718174343,  lon: 139.6988560499589,   id: 'geo:35.644137,139.698856' },
+  { pair: ['副都心線', '東武東上'], name: '和光市',    lat: 35.78816173999999,  lon: 139.61244566750003,  id: 'geo:35.788162,139.612446' },
+  { pair: ['有楽町線', '東武東上'], name: '和光市',    lat: 35.78816173999999,  lon: 139.61244566750003,  id: 'geo:35.788162,139.612446' },
+  { pair: ['浅草線', '京成'],     name: '押上',       lat: 35.709520971124626, lon: 139.81342929939208,  id: 'geo:35.709521,139.813429' },
+  { pair: ['浅草線', '京急'],     name: '泉岳寺',     lat: 35.63841257730264,  lon: 139.73936017463237,  id: 'geo:35.638413,139.739360' },
+  { pair: ['三田線', '目黒線'],   name: '目黒',       lat: 35.63344893785311,  lon: 139.71576133050849,  id: 'geo:35.633449,139.715761' },
+  { pair: ['三田線', '東急目黒'], name: '目黒',       lat: 35.63344893785311,  lon: 139.71576133050849,  id: 'geo:35.633449,139.715761' },
+  { pair: ['南北線', '目黒線'],   name: '目黒',       lat: 35.63344893785311,  lon: 139.71576133050849,  id: 'geo:35.633449,139.715761' },
+  { pair: ['副都心線', '西武'],   name: '小竹向原',   lat: 35.74338070588236,  lon: 139.6795244338235,   id: 'geo:35.743381,139.679524' },
+  { pair: ['有楽町線', '西武'],   name: '小竹向原',   lat: 35.74338070588236,  lon: 139.6795244338235,   id: 'geo:35.743381,139.679524' },
+];
+// 動的境界via検索1本あたりのタイムアウト（fast_report.txt推奨B: 単発でも3〜10秒かかる
+// via指定planの実測に合わせ10秒。_trPlanRetryOnceで失敗時1回だけ再試行する）
+const TRANSIT_BOUNDARY_VIA_TIMEOUT = 10000;
+// 1検索で追加viaする境界駅の上限（コリドー迂回率が小さい順に絞る。無駄打ち削減のため）
+const TRANSIT_BOUNDARY_VIA_MAX = 2;
+
 function _trMergeThroughLegs(j) {
   if (!TRANSIT_THROUGH_MERGE) return; // 直通結合は一旦無効
   if (!j.legs || j.legs.length < 2) return;
@@ -1224,8 +1256,9 @@ async function _trVerifyThrough(all, token, avoid, detour) {
 // 鉄道完結の補完検索を1検索につき1回だけに制限するためのトークン記録（無限ループ防止）
 let _trRailFallbackToken = -1;
 
-// フェーズ2確定後の後処理: 鉄道完結の補完検索（必要なとき1回だけ）→ Part B直通検証。
-// 補完で経路が増えた場合はマージ・再描画してからPart Bへ渡す
+// フェーズ2確定後の後処理: 鉄道完結の補完検索（必要なとき1回だけ）→ 直通境界の動的via検索
+// （必要なとき1回だけ）→ Part B直通検証。補完・境界viaで経路が増えた場合はマージ・
+// 再描画してからPart Bへ渡す
 async function _trPostSearch(all, token, avoid, detour, pr) {
   const extra = await _trEnsureRailToDest(all, token, avoid, detour, pr);
   if (token !== _trSearchToken) return;
@@ -1234,7 +1267,76 @@ async function _trPostSearch(all, token, avoid, detour, pr) {
     _trStatus(`目的駅まで鉄道で行く経路を${extra.length}件追加しました`);
     _trApplyResults(all);
   }
+  const boundaryMerged = await _trBoundaryViaFanout(all, token, avoid, detour, pr);
+  if (token !== _trSearchToken) return;
+  if (boundaryMerged) all = boundaryMerged;
   _trVerifyThrough(all, token, avoid, detour);
+}
+
+// 直通境界の動的via検索を1検索につき1回だけに制限するためのトークン記録
+let _trBoundaryFallbackToken = -1;
+
+// 直通境界の動的via検索（バッチE、data/fast_report.txt案B）。現在の結果プール(all)の
+// transit legのrouteNameを走査し、TRANSIT_THROUGH_BOUNDARIESの路線名パターンに
+// マッチする路線を持つ境界駅を収集する。マッチした境界駅のうち、
+// (i)コリドー内(_trResolveHubsと同じdist(from,b)+dist(b,to)<=direct*1.6+3判定)
+// (ii)出発駅・到着駅と同名・同IDでない
+// を満たす候補だけを残し、コリドー迂回率((dist(from,b)+dist(b,to))/direct)が小さい順に
+// 最大TRANSIT_BOUNDARY_VIA_MAX駅まで絞って、via=境界駅(geoクラスタID)の追加plan検索を
+// 並列発行する。(iii)手動via指定検索・(iv)最寄り駅一括検索/detourでは発火しない
+// （どちらもprがnull＝呼び出し元のfbPrと同じ条件のため、pr自体で判定できる）。
+// 結果は既存プールへの追加のみ（既存候補を除去しない）でマージするため、境界via強制で
+// 一部の候補が悪化して見えても最終結果は壊れない設計（fast_report.txt T2の結論通り、
+// 実アプリのphase1+phase2 dedup/merge設計であれば実害はない）。
+async function _trBoundaryViaFanout(all, token, avoid, detour, pr) {
+  if (detour || !pr) return null; // 手動via指定・最寄り駅一括検索・迂回検索では発火しない
+  if (_trBoundaryFallbackToken === token) return null; // 1検索1回だけ
+  _trBoundaryFallbackToken = token;
+  if (pr.from.lat === undefined || pr.to.lat === undefined) return null; // コリドー判定不可
+
+  const seen = new Set();
+  const hits = [];
+  all.forEach(j => (j.legs || []).forEach(l => {
+    if (l.kind !== 'transit' || !l.routeName) return;
+    TRANSIT_THROUGH_BOUNDARIES.forEach(b => {
+      if (seen.has(b.name)) return;
+      if (!b.pair.some(p => l.routeName.includes(p))) return;
+      if (b.name === pr.from.name || b.name === pr.to.name ||
+          b.id === pr.from.id || b.id === pr.to.id) return;
+      seen.add(b.name);
+      hits.push(b);
+    });
+  }));
+  if (!hits.length) return null;
+
+  const direct = _trDistKm(pr.from, pr.to);
+  const candidates = hits
+    .map(b => ({ b, dv: _trDistKm(pr.from, b) + _trDistKm(b, pr.to) }))
+    .filter(c => c.dv <= direct * 1.6 + 3)
+    .sort((x, y) => (x.dv - y.dv))
+    .slice(0, TRANSIT_BOUNDARY_VIA_MAX);
+  if (!candidates.length) return null;
+
+  // 打ち切り後は「消す」方針（既存の流儀）に合わせ、発火前のステータスを保存しておき、
+  // 新規追加が無ければ元に戻す（専用の「境界検索を打ち切りました」的な文言は出さない）
+  const prevStatus = document.getElementById('transit-status').textContent;
+  _trStatus('直通境界を経由する経路を確認中…');
+  const tasks = candidates.map(c => ({
+    pr, vias: [{ id: c.b.id, name: c.b.name, lat: c.b.lat, lon: c.b.lon }],
+    n: 3, base: false, avoidModes: avoid,
+  }));
+  const results = await Promise.all(tasks.map(t => _trPlanRetryOnce(t, detour, TRANSIT_BOUNDARY_VIA_TIMEOUT)));
+  if (token !== _trSearchToken) return null;
+
+  const before = all.length;
+  const merged = _trDedupJourneys(_trCollect(results, all.slice()));
+  if (merged.length > before) {
+    _trStatus(`直通境界経由の別経路を${merged.length - before}件追加しました`);
+    _trApplyResults(merged);
+    return merged;
+  }
+  _trStatus(prevStatus);
+  return null;
 }
 
 // 指定到着駅まで鉄道で着く経路が1本も無いとき（numItineraries=6枠が近接駅止まり＋
