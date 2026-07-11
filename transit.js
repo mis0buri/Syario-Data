@@ -80,8 +80,10 @@ function _trHardTimeout(promise, ms) {
 // 「バス無し・到着が最良+この秒数以内」の経路グループを実効所要時間昇順で上位に出す窓（30分）。
 const TRANSIT_DURPRI_WINDOW = 1800;
 // 所要時間優先ON時に本線と並列発行する出発時刻オフセット追加検索（分）。
-// FINDINGS.mdラウンド13/data/durpri_report.txt T2実測により3本とも間引かない
-const TRANSIT_DURPRI_OFFSETS_MIN = [10, 20, 30];
+// ラウンド17/data/inv_report.txt調査2実測により、支配経路改善の91%(21件中19件)は+10分で
+// 発見され+20分の寄与は0件だったため+20を間引き、+10/+30の2本構成にした
+// （カバレッジはほぼ不変でリクエスト33%減）
+const TRANSIT_DURPRI_OFFSETS_MIN = [10, 30];
 const TRANSIT_DURPRI_TIMEOUT = 10000;
 // 本線+オフセット3本の4本同時発行はライブ実測でAPI側のテイルレイテンシが悪化することが
 // 確認された（単発2.6〜2.8秒の想定に対し、4本同時では10秒のタイムアウトに複数本が達し、
