@@ -468,9 +468,11 @@ function _renderSwarmCheckinList(ns) {
     const loc = venue.location || {};
     const dateStr = c.createdAt ? new Date(c.createdAt * 1000).toLocaleString('ja-JP') : '';
     const placeStr = [loc.city, loc.state].filter(Boolean).join(', ');
+    const withStr = (c.with || []).map(u => [u.firstName, u.lastName].filter(Boolean).join(' ') || u.id).filter(Boolean).join('、');
     return `<div class="swarm-checkin-card">
       <div class="swarm-checkin-venue">${_esc(venue.name || '(不明な場所)')}</div>
       <div class="swarm-checkin-meta">${_esc(dateStr)}${placeStr ? ' &nbsp;' + _esc(placeStr) : ''}</div>
+      ${withStr ? `<div class="swarm-checkin-meta">👥 ${_esc(withStr)}と一緒</div>` : ''}
       ${c.shout ? `<div class="swarm-checkin-shout">${_esc(c.shout)}</div>` : ''}
       <div class="swarm-checkin-actions">
         <button class="admin-btn sm primary" onclick="postSwarmCheckinToX('${ns}', ${idx})">Xに投稿</button>
