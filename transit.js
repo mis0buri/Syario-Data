@@ -1503,13 +1503,23 @@ function _trOffsetFillMonotone(railJourneys) {
   return true;
 }
 
+// 鉄道legを1本も含まない純徒歩経路か（baseに毎回1件混入し得るダミー経路。約10時間徒歩の
+// ような経路を支配判定の比較対象に含めると、オフセットの鉄道経路がほぼ無条件にこれを
+// 支配してtrueになり「支配のみマージ」が実質バイパスされてしまう＝独立検証の指摘）
+function _trOffsetFillWalkOnly(j) {
+  return !(j.legs || []).some(l => l.kind === 'transit');
+}
+
 // jが既存プールexistingのいずれかを「支配」するか（同時刻以降に出発して早く着く上位互換）。
-// dep>=既存dep かつ arr<=既存arr かつ少なくとも一方は真に改善、を満たす既存経路が
-// 1件でもあればtrue（既存経路の削除はしない。通常のdedup/ソートに乗せて自然に沈める）
+// 比較集合から純徒歩経路を除外した上で、dep>=既存dep かつ arr<既存arr（到着の厳格改善）を
+// 満たす既存経路が1件でもあればtrue（既存経路の削除はしない。通常のdedup/ソートに乗せて
+// 自然に沈める）。到着同着で発車が遅いだけの候補（同着後発）は、体感できる改善ではなく
+// 退化クラスタを増やすだけのためマージしない（独立検証の指摘により、当初の
+// 「arr<=かつ一方は真に改善」から到着の厳格改善(arr<)要求へ修正）
 function _trOffsetFillDominatesSome(j, existing) {
   return existing.some(e =>
-    j.departureSecs >= e.departureSecs && j.arrivalSecs <= e.arrivalSecs &&
-    (j.departureSecs > e.departureSecs || j.arrivalSecs < e.arrivalSecs)
+    !_trOffsetFillWalkOnly(e) &&
+    j.departureSecs >= e.departureSecs && j.arrivalSecs < e.arrivalSecs
   );
 }
 
@@ -1527,7 +1537,7 @@ function _trOffsetFillFanout(pool, token, avoid, detour, pr, baseJourneys) {
   if (_trOffsetFillFiredToken === token) return _trOffsetFillPromise; // 発火済み(進行中含む)
   if (!baseJourneys) return null;
 
-  const rail = baseJourneys.filter(j => (j.legs || []).some(l => l.kind === 'transit'));
+  const rail = baseJourneys.filter(j => !_trOffsetFillWalkOnly(j));
   if (rail.length < 2 || !_trOffsetFillMonotone(rail)) return null; // トリガー不成立(発火扱いにしない)
 
   _trOffsetFillFiredToken = token; // plan発行を伴うここで初めて「発火済み」を記録
