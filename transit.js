@@ -686,6 +686,10 @@ async function searchTransit(detour) {
   // フリー検索・via指定なし・detourでない・type=departureのときのみ（ハブfanoutと同型の
   // 除外条件だが、始発/終電に加え到着指定検索も対象外にする点がhubFanoutより狭い）
   const durpriGate = _trDurationPriority && _trMode === 'free' && !detour && !vias.length && _trType === 'departure';
+  // 通常検索(所要時間優先OFF)向けの条件付き+10分オフセット補完のゲート（バッチG、
+  // data/inv_report.txt調査2案b）。durpriGateと排他（所要時間優先ON時は既存のdurpri
+  // オフセット(+10/+30)がこの役割を担うため、こちらは発火しない）
+  const offsetFillGate = !_trDurationPriority && _trMode === 'free' && !detour && !vias.length && _trType === 'departure';
 
   // ── フェーズ1: 本線(+rail-bias)検索。結果が出たら即表示し、ハブ経由は裏で続ける ──
   const baseTasks = [];
@@ -738,7 +742,8 @@ async function searchTransit(detour) {
   extraResults.forEach(r => {
     if (r.js && r.t.secsShift) r.js.forEach(j => _trShiftJourneySecs(j, r.t.secsShift));
   });
-  const baseResults = (await basePromise).concat(extraResults);
+  const primaryResults = await basePromise;
+  const baseResults = primaryResults.concat(extraResults);
   if (token !== _trSearchToken) return; // 新しい検索に置き換わっていたら破棄
   btn.disabled = false;
 
@@ -749,6 +754,11 @@ async function searchTransit(detour) {
   const pool = { all: _trCollect(baseResults, []) };
   if (_trMode === 'free' && baseTasks.length > 1) pool.all = _trDedupJourneys(pool.all);
   const baseFailed = baseResults.filter(r => r.err && r.t.base);
+  // 条件付き+10分オフセット補完(バッチG)のトリガー判定は「フェーズ1のbase結果」
+  // (本線=primaryTasksのみ。rail-bias・durpriオフセット等の追加検索は含めない)に対して
+  // 行う。_trCollectは同じjourney参照に対しても冪等（結合/trim/ラベル付与を再実行しても
+  // 結果は変わらない）なので、pool.all構築と別に呼び直してよい
+  const baseOnlyJourneys = offsetFillGate ? _trCollect(primaryResults, []) : null;
 
   if (pool.all.length) {
     if (_trMode === 'free' && !detour) _trSaveHistory(_trSel.from, _trSel.to);
@@ -766,6 +776,12 @@ async function searchTransit(detour) {
   // 鉄道完結補完(_trEnsureRailToDest)の対象: フリー検索かつvia指定なしの単一ペアのみ
   // （via指定検索でviaを無視した補完をしない・最寄り駅一括検索はペア毎に目的地が違うため）
   const fbPr = (_trMode === 'free' && !vias.length) ? pairs[0] : null;
+
+  // 条件付き+10分オフセット補完(バッチG)をフェーズ1の結果で発火し、以降のフェーズ2/
+  // 境界via検索と並走させる（fire-and-forget。_trPostSearchが完走を待つ）。トリガー判定は
+  // baseOnlyJourneys(フェーズ1のbase結果)だけに基づくため、hubFanoutの分岐に関わらず
+  // ここで一度だけ判定・発火すればよい（境界via検索と同じ段）
+  if (offsetFillGate) _trOffsetFillFanout(pool, token, avoid, detour, fbPr, baseOnlyJourneys);
 
   // ── フェーズ2: 主要ハブ経由検索を裏で実行し、より良い経路を差し込む ──
   // 8本一斉発行はAPI側のテイルレイテンシ悪化を招くため、TRANSIT_HUB_CONCURRENCY本ずつ
@@ -1364,6 +1380,12 @@ async function _trPostSearch(pool, token, avoid, detour, pr) {
   const bp = _trBoundaryViaFanout(pool, token, avoid, detour, pr, false);
   if (bp) await bp;
   if (token !== _trSearchToken) return;
+  // 条件付き+10分オフセット補完(バッチG): フェーズ1直後に発火済み(または発火なし)のはずだが、
+  // 進行中なら完走を待ってからPart B検証へ渡す(第2引数nullは既発火時のみ安全=第2回呼び出しは
+  // 常にトークン一致で早期returnし、baseJourneysの再評価は発生しない)
+  const ofp = _trOffsetFillFanout(pool, token, avoid, detour, pr, null);
+  if (ofp) await ofp;
+  if (token !== _trSearchToken) return;
   _trVerifyThrough(pool.all, token, avoid, detour);
 }
 
@@ -1448,6 +1470,95 @@ function _trBoundaryViaFanout(pool, token, avoid, detour, pr, silent) {
     }
   })();
   return _trBoundaryPromise;
+}
+
+// ── 条件付き+10分オフセット補完（バッチG、data/inv_report.txt調査2案b） ──
+// 通常検索(所要時間優先OFF)でも、baseの結果が「単調」(=同一到着時刻(±60秒)のバンチングが
+// 3件以上、または後発の経路の到着がすべて先発以下で単調性が破れない=候補多様性ゼロ)な場合
+// に限り、time+10分の直行plan1本を発火し、既存プールを支配する経路(同時刻以降に出発して
+// 早く着く上位互換)だけをマージする。inv_report.txt調査2実測(20セル・base経路120件)で
+// 支配改善の91%(21件中19件)がp10由来・最良到着(1位)の改善は0件だったため、常時オフセット化
+// (対策案a)ではなく本ヒューリスティック限定発火(対策案b)を採用した
+const TRANSIT_OFFSETFILL_MIN = 10; // 発火時に加算する分
+const TRANSIT_OFFSETFILL_TIMEOUT = 10000; // _trPlanRetryOnce用タイムアウト(仕様どおり10秒)
+const TRANSIT_OFFSETFILL_BUNCH_WINDOW_SEC = 60; // 同一到着時刻とみなす許容誤差(±60秒)
+const TRANSIT_OFFSETFILL_BUNCH_MIN_COUNT = 3; // バンチング判定の最小件数
+
+// base結果(鉄道legを含む経路のみ、徒歩のみ経路は除外)が「単調」かどうかを判定する。
+// (a) 同一到着時刻(±60秒)の経路が3件以上（arrivalSecs昇順に並べた隣接窓で判定。
+//     ソート済み配列なので窓の両端差が60秒以内なら間の全件も60秒以内に収まる）
+// (b) 出発昇順に並べたとき、後発の経路の到着がすべて直前の先発以下（＝arrivalSecsが
+//     非増加のまま単調性が一度も破れない。破れる=departureSecsが増えてもarrivalSecsが
+//     増える候補が1件でもあれば「多様性あり」でfalseになる）。判定不能な1件以下はfalse
+function _trOffsetFillMonotone(railJourneys) {
+  const arrs = railJourneys.map(j => j.arrivalSecs).slice().sort((a, b) => a - b);
+  for (let i = 0; i + (TRANSIT_OFFSETFILL_BUNCH_MIN_COUNT - 1) < arrs.length; i++) {
+    if (arrs[i + (TRANSIT_OFFSETFILL_BUNCH_MIN_COUNT - 1)] - arrs[i] <= TRANSIT_OFFSETFILL_BUNCH_WINDOW_SEC) return true;
+  }
+  const byDep = railJourneys.slice().sort((a, b) => a.departureSecs - b.departureSecs);
+  if (byDep.length < 2) return false;
+  for (let i = 1; i < byDep.length; i++) {
+    if (byDep[i].arrivalSecs > byDep[i - 1].arrivalSecs) return false; // 単調性の破れ=多様性あり
+  }
+  return true;
+}
+
+// jが既存プールexistingのいずれかを「支配」するか（同時刻以降に出発して早く着く上位互換）。
+// dep>=既存dep かつ arr<=既存arr かつ少なくとも一方は真に改善、を満たす既存経路が
+// 1件でもあればtrue（既存経路の削除はしない。通常のdedup/ソートに乗せて自然に沈める）
+function _trOffsetFillDominatesSome(j, existing) {
+  return existing.some(e =>
+    j.departureSecs >= e.departureSecs && j.arrivalSecs <= e.arrivalSecs &&
+    (j.departureSecs > e.departureSecs || j.arrivalSecs < e.arrivalSecs)
+  );
+}
+
+// 発火を1検索につき合計1回だけに制限するためのトークンと、進行中(または完了済み)のPromise
+let _trOffsetFillFiredToken = -1;
+let _trOffsetFillPromise = null;
+
+// baseJourneysはフェーズ1のbase結果（呼び出し側=searchTransitがoffsetFillGate成立時に
+// 一度だけ渡す）。2回目以降の呼び出し(_trPostSearchの完走待ち)はnullで構わない
+// （すでに発火済みならトークン一致で即座に保存済みPromiseを返し、baseJourneysは
+// 参照しない。未発火のままnullで来ることは無い＝offsetFillGateがfalseだった場合と同じ
+// 扱いで単にnullを返す）
+function _trOffsetFillFanout(pool, token, avoid, detour, pr, baseJourneys) {
+  if (detour || !pr) return null; // 手動via指定・最寄り駅一括検索・迂回検索では発火しない
+  if (_trOffsetFillFiredToken === token) return _trOffsetFillPromise; // 発火済み(進行中含む)
+  if (!baseJourneys) return null;
+
+  const rail = baseJourneys.filter(j => (j.legs || []).some(l => l.kind === 'transit'));
+  if (rail.length < 2 || !_trOffsetFillMonotone(rail)) return null; // トリガー不成立(発火扱いにしない)
+
+  _trOffsetFillFiredToken = token; // plan発行を伴うここで初めて「発火済み」を記録
+  const ofs = _trAddMinutesToTime(document.getElementById('transit-time').value, TRANSIT_OFFSETFILL_MIN);
+  const dateOverride = ofs.dayOffset > 0
+    ? _trAddDaysToDate(document.getElementById('transit-date').value, ofs.dayOffset)
+    : undefined;
+  const secsShift = ofs.dayOffset > 0 ? ofs.dayOffset * 86400 : 0;
+  const task = {
+    pr, vias: [], n: 3, base: false,
+    avoidModes: avoid, timeout: TRANSIT_OFFSETFILL_TIMEOUT, timeOverride: ofs.time, dateOverride,
+  };
+
+  _trOffsetFillPromise = (async () => {
+    const r = await _trPlanRetryOnce(task, detour, TRANSIT_OFFSETFILL_TIMEOUT);
+    if (token !== _trSearchToken) return;
+    if (!r.js) return;
+    // 日跨ぎ(24:00超のoffset)はdateOverrideで発行した翌日サービス日0時基準の秒数を、
+    // 本検索のサービス日基準に揃える(ラウンド13の日跨ぎ欠陥修正と同じ部品を再利用)
+    if (secsShift) r.js.forEach(j => _trShiftJourneySecs(j, secsShift));
+    const candidates = _trCollect([r], []);
+    const dominating = candidates.filter(j => _trOffsetFillDominatesSome(j, pool.all));
+    if (!dominating.length) return;
+    const before = pool.all.length;
+    pool.all = _trDedupJourneys(pool.all.concat(dominating));
+    if (pool.all.length > before) {
+      _trStatus(`より早く着く経路を${pool.all.length - before}件追加しました`);
+      _trApplyResults(pool.all);
+    }
+  })();
+  return _trOffsetFillPromise;
 }
 
 // 指定到着駅まで鉄道で着く経路が1本も無いとき（numItineraries=6枠が近接駅止まり＋
