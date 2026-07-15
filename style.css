@@ -118,7 +118,8 @@
     position: sticky; top: 0; z-index: 100;
     background: rgba(13,13,13,0.95); backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
-    padding: 0 24px; height: 56px;
+    padding: env(safe-area-inset-top) 24px 0;
+    height: calc(56px + env(safe-area-inset-top));
     display: flex; align-items: center; justify-content: space-between;
   }
   .logo { font-family: 'Noto Serif JP', serif; font-size: 24px; font-weight: 900; color: var(--accent); letter-spacing: .15em; }
@@ -878,6 +879,12 @@
   .mypage-close-btn:hover { color:var(--text); }
   .mypage-stamp-btn { background:none; border:1px solid var(--accent); color:var(--accent); font-family:'Noto Sans JP',sans-serif; font-size:13px; padding:10px; border-radius:8px; cursor:pointer; transition:all .2s; text-align:center; font-weight:700; }
   .mypage-stamp-btn:hover { background:rgba(200,169,110,.12); }
+
+  #a2hs-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:10000; align-items:center; justify-content:center; padding:16px; }
+  #a2hs-modal.open { display:flex; }
+  .a2hs-step { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text); line-height:1.5; }
+  .a2hs-step-num { flex-shrink:0; width:22px; height:22px; border-radius:50%; background:var(--accent); color:#1a1610; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .a2hs-icon { width:15px; height:15px; vertical-align:-3px; color:var(--accent); }
   .mypage-theme-btns { display:flex; flex-wrap:wrap; gap:6px; }
   .mypage-theme-btn { background:var(--bg); border:1px solid var(--border); color:var(--dim); font-family:'Noto Sans JP',sans-serif; font-size:12px; padding:5px 12px; border-radius:20px; cursor:pointer; transition:all .2s; }
   .mypage-theme-btn:hover { border-color:var(--accent); color:var(--text); }
@@ -1047,7 +1054,7 @@
   /* ── MOBILE ── */
   @media(max-width:640px){
     /* ヘッダー：セーフエリア対応 */
-    header { padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); height: 60px; }
+    header { padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); height: calc(60px + env(safe-area-inset-top)); }
     .logo { font-size: 19px; display: grid; grid-template-columns: 1fr 1fr; line-height: 1.15; flex-shrink: 0; }
     .logo span { margin-left: 6px; font-size: 11px; }
     /* ナビ：タッチターゲット改善 */

@@ -26,7 +26,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<link rel="stylesheet" href="./style.css?v=20260709">
+<link rel="stylesheet" href="./style.css?v=20260715">
 </head>
 <body>
 
@@ -1918,8 +1918,36 @@
       </div>
     </div>
     <button class="mypage-stamp-btn" onclick="closeMyPage();showSection('stamp')">スタンプカード 🎫</button>
+    <button class="mypage-stamp-btn" id="a2hs-trigger-btn" onclick="closeMyPage();openA2HSGuide()" style="display:none;">📱 ホーム画面に追加</button>
     <button class="mypage-logout-btn" onclick="myPageSignOut()">ログアウト</button>
     <button class="mypage-close-btn" onclick="closeMyPage()">閉じる</button>
+  </div>
+</div>
+
+<!-- ── ホーム画面に追加ガイド ── -->
+<div id="a2hs-modal" onclick="if(event.target===this)closeA2HSGuide()">
+  <div class="mypage-box">
+    <h3>ホーム画面に追加</h3>
+    <div class="mypage-section" style="gap:14px;">
+      <div class="a2hs-step">
+        <span class="a2hs-step-num">1</span>
+        <span>画面下の共有ボタン
+          <svg class="a2hs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 16V4"/><path d="M7 8l5-5 5 5"/><rect x="4" y="12" width="16" height="8" rx="2"/>
+          </svg>
+          をタップ
+        </span>
+      </div>
+      <div class="a2hs-step">
+        <span class="a2hs-step-num">2</span>
+        <span>メニューを下にスクロールして「ホーム画面に追加」をタップ</span>
+      </div>
+      <div class="a2hs-step">
+        <span class="a2hs-step-num">3</span>
+        <span>右上の「追加」をタップすれば完了です</span>
+      </div>
+    </div>
+    <button class="mypage-close-btn" onclick="closeA2HSGuide()">閉じる</button>
   </div>
 </div>
 

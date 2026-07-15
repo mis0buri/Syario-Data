@@ -875,10 +875,27 @@ function openMyPage() {
   document.querySelectorAll('.mypage-theme-btn').forEach(btn => {
     btn.classList.toggle('active', _seasonOverride === null ? btn.dataset.season === '' : btn.dataset.season === _seasonOverride);
   });
+  const a2hsBtn = document.getElementById('a2hs-trigger-btn');
+  if (a2hsBtn) a2hsBtn.style.display = (_isIOS() && !_isStandalone()) ? '' : 'none';
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
   document.getElementById('mypage-modal').classList.remove('open');
+}
+
+// ── ホーム画面に追加ガイド ──
+// iOSのSafariにはA2HSを直接起動するAPIが無いため、手順を案内するモーダルを表示する
+function _isIOS() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+function _isStandalone() {
+  return window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
+function openA2HSGuide() {
+  document.getElementById('a2hs-modal').classList.add('open');
+}
+function closeA2HSGuide() {
+  document.getElementById('a2hs-modal').classList.remove('open');
 }
 async function _loadMyPageName() {
   const input = document.getElementById('mypage-name-input');
