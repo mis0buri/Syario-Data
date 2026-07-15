@@ -1,0 +1,18 @@
+{
+  "name": "シャリオ Swarm連携",
+  "short_name": "Swarm連携",
+  "description": "シャリオ Swarm連携 — チェックインして仲間に共有",
+  "start_url": "/swarm-app.html",
+  "scope": "/swarm-app.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FF7A1A",
+  "theme_color": "#FF7A1A",
+  "lang": "ja",
+  "icons": [
+    { "src": "/swarm-icons/swarm-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/swarm-icons/swarm-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/swarm-icons/swarm-icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/swarm-icons/swarm-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
