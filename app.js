@@ -786,6 +786,8 @@ function updateAuthUI(user) {
     _isManager = false;
     const _navAdminBtn = document.getElementById('nav-admin-btn');
     if (_navAdminBtn) _navAdminBtn.style.display = 'none';
+    const _navTransitBtn = document.getElementById('nav-transit-btn');
+    if (_navTransitBtn) _navTransitBtn.style.display = 'none';
     _refreshBoardIfActive();
     _refreshJareIfActive();
   }
@@ -984,6 +986,9 @@ async function _loadUserData(user) {
   // 管理者ナビボタンの表示制御
   const navAdminBtn = document.getElementById('nav-admin-btn');
   if (navAdminBtn) navAdminBtn.style.display = _isAdmin ? '' : 'none';
+  // 乗換案内ナビボタン（管理者のみ）
+  const navTransitBtn = document.getElementById('nav-transit-btn');
+  if (navTransitBtn) navTransitBtn.style.display = _isAdmin ? '' : 'none';
   // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
   const fbName = document.getElementById('fb-name');
   if (fbName && !fbName.value) fbName.value = _registeredName;
