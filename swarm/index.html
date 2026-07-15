@@ -37,13 +37,13 @@
 <main class="sw-main">
 
   <!-- ① アカウント連携 -->
-  <section class="sw-card" id="account-section">
+  <section class="sw-card sw-collapsible" id="account-section">
     <h2 class="sw-card-title sw-card-title-toggle" onclick="toggleAccountSection()">
       <span>アカウント連携</span>
       <span id="account-header-status" class="sw-card-title-status" style="display:none">連携済み ✓</span>
       <span id="account-toggle-icon" class="sw-toggle-icon" style="display:none">▾</span>
     </h2>
-    <div id="account-section-body">
+    <div id="account-section-body" class="sw-collapsible-body">
       <div id="account-status" class="sw-empty">読み込み中...</div>
       <div id="not-configured" class="sw-empty" style="display:none">サイト管理者がまだFoursquare連携の設定をしていません</div>
       <div id="connect-form" style="display:none">
@@ -60,36 +60,41 @@
   </section>
 
   <!-- ② チェックイン -->
-  <section class="sw-card">
-    <h2 class="sw-card-title">チェックイン</h2>
-    <div class="sw-note" style="margin:0 0 10px;">※ここからのチェックインはSwarmのメイヤーカウントに含まれません</div>
-    <div class="sw-form-group">
-      <label>検索キーワード（未入力なら現在地から近いスポットを表示）</label>
-      <input type="text" id="venue-query" class="sw-input" placeholder="店名・施設名など（任意）">
-    </div>
-    <div class="sw-form-group">
-      <label>場所（未入力なら現在地を使用）</label>
-      <input type="text" id="venue-near" class="sw-input" placeholder="例: 渋谷区">
-    </div>
-    <button class="sw-btn" style="width:100%;margin-bottom:8px;" onclick="searchVenues()">場所を検索</button>
-    <div id="venue-results" class="sw-venue-results"></div>
+  <section class="sw-card sw-collapsible" id="checkin-section">
+    <h2 class="sw-card-title sw-card-title-toggle" onclick="toggleCheckinSection()">
+      <span>チェックイン</span>
+      <span class="sw-toggle-icon">▾</span>
+    </h2>
+    <div id="checkin-section-body" class="sw-collapsible-body">
+      <div class="sw-note" style="margin:0 0 10px;">※ここからのチェックインはSwarmのメイヤーカウントに含まれません</div>
+      <div class="sw-form-group">
+        <label>検索キーワード（未入力なら現在地から近いスポットを表示）</label>
+        <input type="text" id="venue-query" class="sw-input" placeholder="店名・施設名など（任意）">
+      </div>
+      <div class="sw-form-group">
+        <label>場所（未入力なら現在地を使用）</label>
+        <input type="text" id="venue-near" class="sw-input" placeholder="例: 渋谷区">
+      </div>
+      <button class="sw-btn" style="width:100%;margin-bottom:8px;" onclick="searchVenues()">場所を検索</button>
+      <div id="venue-results" class="sw-venue-results"></div>
 
-    <div id="checkin-form" style="display:none;margin-top:12px;">
-      <hr class="sw-divider">
-      <div class="sw-form-group">
-        <label>選択した場所</label>
-        <div id="selected-venue" class="sw-selected-venue"></div>
+      <div id="checkin-form" style="display:none;margin-top:12px;">
+        <hr class="sw-divider">
+        <div class="sw-form-group">
+          <label>選択した場所</label>
+          <div id="selected-venue" class="sw-selected-venue"></div>
+        </div>
+        <div class="sw-form-group">
+          <label>コメント（任意）</label>
+          <textarea id="checkin-shout" class="sw-input" rows="2" placeholder="一言コメント"></textarea>
+        </div>
+        <button class="sw-btn primary" style="width:100%" onclick="submitCheckin()">チェックインする</button>
       </div>
-      <div class="sw-form-group">
-        <label>コメント（任意）</label>
-        <textarea id="checkin-shout" class="sw-input" rows="2" placeholder="一言コメント"></textarea>
+      <div id="status-checkin" class="sw-status"></div>
+      <div id="quick-share" class="sw-checkin-actions" style="display:none;margin-top:10px;">
+        <button class="sw-btn sm primary" onclick="postQuickShareToX()">Xに投稿</button>
+        <button class="sw-btn sm" onclick="copyQuickShareText()">テキストをコピー</button>
       </div>
-      <button class="sw-btn primary" style="width:100%" onclick="submitCheckin()">チェックインする</button>
-    </div>
-    <div id="status-checkin" class="sw-status"></div>
-    <div id="quick-share" class="sw-checkin-actions" style="display:none;margin-top:10px;">
-      <button class="sw-btn sm primary" onclick="postQuickShareToX()">Xに投稿</button>
-      <button class="sw-btn sm" onclick="copyQuickShareText()">テキストをコピー</button>
     </div>
   </section>
 

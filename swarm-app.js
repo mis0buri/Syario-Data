@@ -24,6 +24,7 @@ let _checkins = [];
 let _venueResults = [];
 let _selectedVenue = null;
 let _accountCollapsed = false;
+let _checkinCollapsed = false;
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -110,6 +111,11 @@ function toggleAccountSection() {
   if (!(_account && _account.accessToken)) return;
   _accountCollapsed = !_accountCollapsed;
   renderAccountStatus();
+}
+
+function toggleCheckinSection() {
+  _checkinCollapsed = !_checkinCollapsed;
+  document.getElementById('checkin-section').classList.toggle('collapsed', _checkinCollapsed);
 }
 
 // ── 連携（OAuth） ──

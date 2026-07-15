@@ -103,9 +103,9 @@ body {
   flex-shrink: 0;
   transition: transform .2s ease;
 }
-#account-section.collapsed .sw-toggle-icon { transform: rotate(-90deg); }
-#account-section.collapsed #account-section-body { display: none; }
-#account-section.collapsed .sw-card-title { margin-bottom: 0; }
+.sw-collapsible.collapsed .sw-toggle-icon { transform: rotate(-90deg); }
+.sw-collapsible.collapsed .sw-collapsible-body { display: none; }
+.sw-collapsible.collapsed .sw-card-title { margin-bottom: 0; }
 
 .sw-form-group { margin-bottom: 12px; }
 .sw-form-group label {
