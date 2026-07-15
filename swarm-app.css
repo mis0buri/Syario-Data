@@ -87,6 +87,26 @@ body {
   display: inline-block;
 }
 
+.sw-card-title-toggle { cursor: pointer; user-select: none; }
+.sw-card-title-status {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--sw-teal-dark);
+  background: rgba(0,194,168,.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.sw-toggle-icon {
+  font-size: 13px;
+  color: var(--sw-dim);
+  flex-shrink: 0;
+  transition: transform .2s ease;
+}
+#account-section.collapsed .sw-toggle-icon { transform: rotate(-90deg); }
+#account-section.collapsed #account-section-body { display: none; }
+#account-section.collapsed .sw-card-title { margin-bottom: 0; }
+
 .sw-form-group { margin-bottom: 12px; }
 .sw-form-group label {
   display: block;

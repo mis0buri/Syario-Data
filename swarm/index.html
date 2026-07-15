@@ -37,19 +37,25 @@
 <main class="sw-main">
 
   <!-- ① アカウント連携 -->
-  <section class="sw-card">
-    <h2 class="sw-card-title">アカウント連携</h2>
-    <div id="account-status" class="sw-empty">読み込み中...</div>
-    <div id="not-configured" class="sw-empty" style="display:none">サイト管理者がまだFoursquare連携の設定をしていません</div>
-    <div id="connect-form" style="display:none">
-      <div id="status-connect" class="sw-status"></div>
-      <button class="sw-btn primary" style="width:100%" onclick="connectAccount()">Swarmと連携する</button>
-    </div>
-    <div id="linked-info" style="display:none">
-      <div class="sw-linked-badge">連携済み ✓</div>
-      <button class="sw-btn" style="width:100%;margin-bottom:8px" onclick="switchAccount()">別のアカウントに切り替える</button>
-      <div class="sw-note">Foursquareは既にログイン済みのアカウントで再連携されるため、切り替えには一度Foursquare側からログアウトする必要があります。上のボタンを押すとログアウト用ページが新しいタブで開きます。ログアウトできたらこのタブに戻り「Swarmと連携する」を押してください。</div>
-      <button class="sw-btn danger" style="width:100%" onclick="unlinkAccount()">連携を解除する</button>
+  <section class="sw-card" id="account-section">
+    <h2 class="sw-card-title sw-card-title-toggle" onclick="toggleAccountSection()">
+      <span>アカウント連携</span>
+      <span id="account-header-status" class="sw-card-title-status" style="display:none">連携済み ✓</span>
+      <span id="account-toggle-icon" class="sw-toggle-icon" style="display:none">▾</span>
+    </h2>
+    <div id="account-section-body">
+      <div id="account-status" class="sw-empty">読み込み中...</div>
+      <div id="not-configured" class="sw-empty" style="display:none">サイト管理者がまだFoursquare連携の設定をしていません</div>
+      <div id="connect-form" style="display:none">
+        <div id="status-connect" class="sw-status"></div>
+        <button class="sw-btn primary" style="width:100%" onclick="connectAccount()">Swarmと連携する</button>
+      </div>
+      <div id="linked-info" style="display:none">
+        <div class="sw-linked-badge">連携済み ✓</div>
+        <button class="sw-btn" style="width:100%;margin-bottom:8px" onclick="switchAccount()">別のアカウントに切り替える</button>
+        <div class="sw-note">Foursquareは既にログイン済みのアカウントで再連携されるため、切り替えには一度Foursquare側からログアウトする必要があります。上のボタンを押すとログアウト用ページが新しいタブで開きます。ログアウトできたらこのタブに戻り「Swarmと連携する」を押してください。</div>
+        <button class="sw-btn danger" style="width:100%" onclick="unlinkAccount()">連携を解除する</button>
+      </div>
     </div>
   </section>
 

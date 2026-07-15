@@ -23,6 +23,7 @@ let _account = null;
 let _checkins = [];
 let _venueResults = [];
 let _selectedVenue = null;
+let _accountCollapsed = false;
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -42,6 +43,7 @@ async function init() {
 
   await loadConfig();
   loadAccount();
+  if (_account && _account.accessToken) _accountCollapsed = true;
   renderAccountStatus();
   if (_account && _account.accessToken) {
     fetchCheckins();
@@ -71,6 +73,7 @@ function loadAccount() {
 function saveAccount(accessToken) {
   localStorage.setItem(SWARM_APP_LOCAL_KEY, JSON.stringify({ accessToken }));
   _account = { accessToken };
+  _accountCollapsed = true;
   renderAccountStatus();
   fetchCheckins();
 }
@@ -80,8 +83,12 @@ function renderAccountStatus() {
   const notConfiguredEl = document.getElementById('not-configured');
   const connectFormEl = document.getElementById('connect-form');
   const linkedEl = document.getElementById('linked-info');
+  const sectionEl = document.getElementById('account-section');
+  const headerStatusEl = document.getElementById('account-header-status');
+  const toggleIconEl = document.getElementById('account-toggle-icon');
+  const linked = !!(_account && _account.accessToken);
   statusEl.style.display = 'none';
-  if (_account && _account.accessToken) {
+  if (linked) {
     notConfiguredEl.style.display = 'none';
     connectFormEl.style.display = 'none';
     linkedEl.style.display = '';
@@ -94,6 +101,15 @@ function renderAccountStatus() {
     connectFormEl.style.display = 'none';
     linkedEl.style.display = 'none';
   }
+  headerStatusEl.style.display = linked ? '' : 'none';
+  toggleIconEl.style.display = linked ? '' : 'none';
+  sectionEl.classList.toggle('collapsed', linked && _accountCollapsed);
+}
+
+function toggleAccountSection() {
+  if (!(_account && _account.accessToken)) return;
+  _accountCollapsed = !_accountCollapsed;
+  renderAccountStatus();
 }
 
 // ── 連携（OAuth） ──
