@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Xアーカイブ: 閲覧・アップロードとも管理者のみ。
+    // ※Storageルールは/adminsコレクションを参照できないため、管理者のUIDを直接列挙する。
+    //   追加手順: 本人にサインインしてもらい「アーカイブ閲覧」画面に表示されるUIDを、
+    //   下のリストに追記して firebase deploy --only storage で反映する。
+    match /archives/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid in [
+        // 'ここに管理者のUIDを列挙'
+      ];
+    }
+  }
+}
