@@ -169,7 +169,7 @@ Two escape helpers in app.js — use them for all user-provided strings:
 - **Feedback form** → Discord webhook (`WEBHOOK_URL` hardcoded in app.js)
 - **First-time login** → separate Discord webhook (deduplicated via localStorage key `syario_loggedin_{uid}`)
 - **Google login** (`loginWithGoogle`) — uses `signInWithPopup` on desktop, but `signInWithRedirect` on mobile (`_isMobileBrowser()` checks `navigator.userAgent`) since popups are frequently blocked or fail to open on mobile browsers and in-app browsers (LINE/X/Instagram). The redirect result is picked up via `_auth.getRedirectResult()` in `initFirebase()` to fire the first-time-login Discord notification.
-- **X (Twitter) login** (`loginWithTwitter` in app.js) — button disabled in the login modal (`index.html`) as of 2026-06; X's API tier changes broke Firebase's Twitter OAuth flow (`auth/invalid-credential`) even with correct keys/callback config. The function itself is left intact in case X login is re-enabled later (e.g. paid API tier).
+- **X (Twitter) login** (`loginWithTwitter` in app.js) — re-enabled 2026-07 after moving to a paid X API tier (previously disabled 2026-06 when X's API tier changes broke Firebase's Twitter OAuth with `auth/invalid-credential`). The login-modal button (`index.html`) calls `loginWithTwitter()`; the flow mirrors Google (popup on desktop/PWA, redirect on plain mobile). If `auth/invalid-credential` returns, check the X API tier/keys and the Firebase Twitter provider callback config before re-disabling the button.
 
 ### Adding a New Admin Section
 
