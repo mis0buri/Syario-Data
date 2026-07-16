@@ -127,7 +127,7 @@ function filteredGathers() {
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
 const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
-const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss','admin-swarm'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss','admin-swarm','admin-xarchive','admin-xarchive-add'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
@@ -179,7 +179,7 @@ function showSection(id) {
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論','admin-swarm':'Swarm連携'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論','admin-swarm':'Swarm連携','admin-xarchive':'アーカイブ閲覧','admin-xarchive-add':'アーカイブ追加'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
@@ -207,6 +207,8 @@ function showSection(id) {
   if (id==='admin-schedule') initAdminSchedule();
   if (id==='admin-ai-discuss') initAdminAiDiscuss();
   if (id==='admin-swarm') initSwarm('admin');
+  if (id==='admin-xarchive') initAdminXArchive();
+  if (id==='admin-xarchive-add') initAdminXArchiveAdd();
   if (id==='swarm') initSwarm('main');
   if (id==='transit') initTransit();
   if (id==='column') initColumn();
@@ -655,6 +657,7 @@ const FIREBASE_CONFIG = {
 
 let _db = null;
 let _auth = null;
+let _storage = null;
 let _currentUser = null; // ログイン中ユーザー (null = 未ログイン)
 let _authResolved = false; // onAuthStateChanged が1度でも発火したか
 let _registeredName = null; // マイページで設定した登録名
@@ -667,6 +670,7 @@ function initFirebase() {
       firebase.initializeApp(FIREBASE_CONFIG);
       _db = firebase.firestore();
       _auth = firebase.auth();
+      _storage = firebase.storage();
       _mergeFirestoreGathers();
       _auth.onAuthStateChanged(user => {
         _currentUser = user;

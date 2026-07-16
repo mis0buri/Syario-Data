@@ -26,6 +26,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <link rel="stylesheet" href="./style.css?v=20260715">
 </head>
 <body>
@@ -83,6 +84,8 @@
   <button onclick="showSection('admin-schedule')">スケジュール</button>
   <button onclick="showSection('admin-ai-discuss')">AI議論</button>
   <button onclick="showSection('admin-swarm')">Swarm連携</button>
+  <button onclick="showSection('admin-xarchive')">アーカイブ閲覧</button>
+  <button onclick="showSection('admin-xarchive-add')">アーカイブ追加</button>
 </div>
 
 <!-- 全画面共通 期間フィルター -->
@@ -1470,6 +1473,57 @@
     </div>
   </div>
 
+  <div id="sec-admin-xarchive" class="section">
+    <div class="card">
+      <div class="admin-section-title">アーカイブ閲覧</div>
+      <div id="xa-view-guard" class="admin-status"></div>
+      <div id="xa-view-body">
+        <div class="xa-filterbar">
+          <div id="xa-accounts" class="xa-accounts"></div>
+          <div class="xa-filter-row">
+            <input type="date" id="xa-date-from" class="admin-input" aria-label="開始日">
+            <span>〜</span>
+            <input type="date" id="xa-date-to" class="admin-input" aria-label="終了日">
+            <button type="button" class="admin-btn sm" onclick="xaClearDates()">クリア</button>
+          </div>
+          <div class="xa-filter-row">
+            <input type="search" id="xa-search" class="admin-input" placeholder="本文を検索（スペース区切りAND）">
+            <button type="button" class="admin-btn sm" onclick="xaToggleOrder()"><span id="xa-order-label">古い順</span></button>
+          </div>
+          <div class="xa-filter-row">
+            <button type="button" class="admin-btn sm" onclick="xaApplyFilters()">表示</button>
+            <button type="button" class="admin-btn sm" onclick="xaReload()">再読込</button>
+            <button type="button" class="admin-btn sm" onclick="xaClearCache()">キャッシュ削除</button>
+          </div>
+        </div>
+        <div id="xa-status" class="admin-status"></div>
+        <div id="xa-timeline" class="xa-timeline"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-admin-xarchive-add" class="section">
+    <div class="card">
+      <div class="admin-section-title">アーカイブ追加</div>
+      <div class="admin-form-group">
+        <label>ハンドル名（@は不要）</label>
+        <input type="text" id="xa-add-username" class="admin-input" placeholder="例: syario_mahjong" autocomplete="off">
+      </div>
+      <div class="admin-form-group">
+        <label>表示名</label>
+        <input type="text" id="xa-add-displayname" class="admin-input" placeholder="例: シャリオ雀荘" autocomplete="off">
+      </div>
+      <div class="admin-form-group">
+        <label>アーカイブの tweets.js / tweets-part*.js を選択（複数可）</label>
+        <input type="file" id="xa-add-files" class="admin-input" accept=".js,application/javascript,text/javascript" multiple>
+        <div class="admin-note" style="margin-top:6px">X公式アーカイブ内の data/tweets.js（分割時は tweets-part1.js 等も全て）を選択してください。DM等その他のファイルは選ばないでください。処理はブラウザ内で行われ、本文・日時・メディアURLのみが抽出・アップロードされます。</div>
+      </div>
+      <button type="button" id="xa-add-upload-btn" class="admin-btn primary" style="width:100%" onclick="xaUpload()">解析してアップロード</button>
+      <div id="xa-add-progress" class="admin-status"></div>
+      <div id="xa-add-status" class="admin-status"></div>
+    </div>
+  </div>
+
   <!-- 乗換案内 -->
   <div id="sec-transit" class="section">
 
@@ -1611,6 +1665,7 @@
 <script src="./boshu.js"></script>
 <script src="./stamp.js"></script>
 <script src="./admin.js"></script>
+<script src="./xarchive.js"></script>
 <script src="./swarm.js"></script>
 <script src="./transit.js?v=20260710-5"></script>
 
