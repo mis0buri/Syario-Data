@@ -812,43 +812,36 @@ function _isMobileBrowser() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-// ── Google ログイン ──
-async function loginWithGoogle() {
+// ── 共通ログイン処理 ──
+// リダイレクト方式は、サイト(github.io)とFirebaseの認証ハンドラ(firebaseapp.com)が
+// 別ドメインのため、Safari ITP/Chromeのサードパーティ保管庫分離で戻り時にセッションを
+// 復元できず「認証は通るのにログイン状態にならない」問題が起きる。そのため全環境で
+// ポップアップ方式（postMessageで結果を受け取るので別ドメインの影響を受けない）を使う。
+// ポップアップはログインボタンのユーザー操作起点で開くため通常のモバイルブラウザでも開く。
+async function _doLogin(provider, label) {
   if (!_auth) return;
-  const provider = new firebase.auth.GoogleAuthProvider();
-  // 通常のモバイルブラウザ（アプリ内ブラウザ含む）はポップアップが弾かれるためリダイレクト方式。
-  // ただしPWA（standalone）ではリダイレクトが別コンテキスト（Safari）に飛んでセッションが戻らず
-  // ログイン状態にならないため、ポップアップ方式を使う（postMessageで結果を受け取るので
-  // 別ドメインauthDomain＋サードパーティ保管庫ブロックの影響を受けない）。
-  if (_isMobileBrowser() && !_isStandalone()) {
-    _auth.signInWithRedirect(provider);
-    return;
-  }
   try {
     const result = await _auth.signInWithPopup(provider);
-    _notifyDiscordLogin(result.user, 'Google');
+    _notifyDiscordLogin(result.user, label);
     location.reload();
   } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    if (e.code === 'auth/popup-blocked') {
+      alert('ポップアップがブロックされました。ブラウザのポップアップを許可するか、Safari/Chromeなど通常のブラウザで開いてから再度お試しください。');
+      return;
+    }
+    alert('ログインに失敗しました: ' + e.message);
   }
+}
+
+// ── Google ログイン ──
+async function loginWithGoogle() {
+  await _doLogin(new firebase.auth.GoogleAuthProvider(), 'Google');
 }
 
 // ── X (Twitter) ログイン ──
 async function loginWithTwitter() {
-  if (!_auth) return;
-  const provider = new firebase.auth.TwitterAuthProvider();
-  // PWA（standalone）ではポップアップ方式を使う（理由はloginWithGoogle参照）
-  if (_isMobileBrowser() && !_isStandalone()) {
-    _auth.signInWithRedirect(provider);
-    return;
-  }
-  try {
-    const result = await _auth.signInWithPopup(provider);
-    _notifyDiscordLogin(result.user, 'X');
-    location.reload();
-  } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user') alert('ログインに失敗しました: ' + e.message);
-  }
+  await _doLogin(new firebase.auth.TwitterAuthProvider(), 'X');
 }
 
 async function _notifyDiscordLogin(user, provider) {
