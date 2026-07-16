@@ -816,7 +816,11 @@ function _isMobileBrowser() {
 async function loginWithGoogle() {
   if (!_auth) return;
   const provider = new firebase.auth.GoogleAuthProvider();
-  if (_isMobileBrowser()) {
+  // 通常のモバイルブラウザ（アプリ内ブラウザ含む）はポップアップが弾かれるためリダイレクト方式。
+  // ただしPWA（standalone）ではリダイレクトが別コンテキスト（Safari）に飛んでセッションが戻らず
+  // ログイン状態にならないため、ポップアップ方式を使う（postMessageで結果を受け取るので
+  // 別ドメインauthDomain＋サードパーティ保管庫ブロックの影響を受けない）。
+  if (_isMobileBrowser() && !_isStandalone()) {
     _auth.signInWithRedirect(provider);
     return;
   }
@@ -833,7 +837,8 @@ async function loginWithGoogle() {
 async function loginWithTwitter() {
   if (!_auth) return;
   const provider = new firebase.auth.TwitterAuthProvider();
-  if (_isMobileBrowser()) {
+  // PWA（standalone）ではポップアップ方式を使う（理由はloginWithGoogle参照）
+  if (_isMobileBrowser() && !_isStandalone()) {
     _auth.signInWithRedirect(provider);
     return;
   }
