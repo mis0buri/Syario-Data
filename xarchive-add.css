@@ -1,0 +1,208 @@
+/* Xのダークテーマをイメージした配色 */
+:root {
+  --xaa-bg-top: #1C2732;
+  --xaa-bg-bottom: #0F1419;
+  --xaa-accent: #1D9BF0;
+  --xaa-accent-dark: #1478BC;
+  --xaa-card: #FFFFFF;
+  --xaa-text: #21262B;
+  --xaa-dim: #78838D;
+  --xaa-danger: #E0533D;
+  --xaa-ok: #00A892;
+  --xaa-border: #E3E8ED;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Nunito', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+  color: var(--xaa-text);
+  background: linear-gradient(160deg, var(--xaa-bg-top) 0%, var(--xaa-bg-bottom) 60%);
+  background-attachment: fixed;
+  padding-bottom: 40px;
+}
+
+.xaa-header {
+  text-align: center;
+  padding: calc(36px + env(safe-area-inset-top)) 16px 24px;
+  color: #fff;
+}
+
+.xaa-logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 10px;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,.3));
+}
+.xaa-logo svg { width: 100%; height: 100%; }
+
+.xaa-header h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+
+.xaa-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  opacity: .85;
+}
+
+.xaa-main {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.xaa-card {
+  background: var(--xaa-card);
+  border-radius: 18px;
+  padding: 18px 18px 20px;
+  box-shadow: 0 10px 30px rgba(0, 20, 40, .28);
+}
+
+.xaa-card-title {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--xaa-accent-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.xaa-card-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--xaa-accent);
+  display: inline-block;
+}
+
+.xaa-form-group { margin-bottom: 12px; }
+.xaa-form-group label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--xaa-dim);
+  margin-bottom: 5px;
+}
+
+.xaa-input {
+  width: 100%;
+  font-size: 16px; /* iOSズーム防止 */
+  padding: 10px 12px;
+  border: 1.5px solid var(--xaa-border);
+  border-radius: 10px;
+  background: #F7FAFC;
+  color: var(--xaa-text);
+  font-family: inherit;
+  min-height: 42px;
+}
+.xaa-input:focus {
+  outline: none;
+  border-color: var(--xaa-accent);
+}
+
+.xaa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  background: #EDF1F5;
+  color: var(--xaa-text);
+  transition: transform .08s ease, opacity .15s ease;
+}
+.xaa-btn:active { transform: scale(.97); }
+.xaa-btn:disabled { opacity: .5; cursor: default; }
+.xaa-btn.primary { background: linear-gradient(135deg, var(--xaa-accent), var(--xaa-accent-dark)); color: #fff; }
+.xaa-btn.sm { padding: 7px 12px; font-size: 13px; border-radius: 9px; }
+
+.xaa-status {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 6px 0;
+  min-height: 1px;
+  overflow-wrap: break-word;
+}
+.xaa-status.ok { color: var(--xaa-ok); }
+.xaa-status.error { color: var(--xaa-danger); }
+
+.xaa-empty {
+  font-size: 13px;
+  color: var(--xaa-dim);
+  text-align: center;
+  padding: 14px 0;
+}
+
+.xaa-badge {
+  display: inline-block;
+  background: rgba(29,155,240,.12);
+  color: var(--xaa-accent-dark);
+  font-weight: 800;
+  font-size: 13.5px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+.xaa-badge.error {
+  background: rgba(224,83,61,.1);
+  color: var(--xaa-danger);
+}
+
+.xaa-note {
+  font-size: 12px;
+  color: var(--xaa-dim);
+  line-height: 1.6;
+  margin: 10px 0 14px;
+}
+
+.xaa-uid-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.xaa-uid-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--xaa-dim);
+  flex-shrink: 0;
+}
+.xaa-uid {
+  font-size: 12px;
+  background: #F0F3F6;
+  border-radius: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.xaa-manifest-list { display: flex; flex-direction: column; gap: 10px; }
+.xaa-manifest-card {
+  border: 1.5px solid var(--xaa-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.xaa-manifest-name { font-weight: 800; font-size: 14px; }
+.xaa-manifest-handle { font-size: 12.5px; color: var(--xaa-dim); font-weight: 700; margin-left: 4px; }
+.xaa-manifest-meta { font-size: 11.5px; color: var(--xaa-dim); margin-top: 3px; }
+
+@media (max-width: 480px) {
+  .xaa-header h1 { font-size: 22px; }
+  .xaa-card { padding: 16px 14px 18px; border-radius: 16px; }
+}

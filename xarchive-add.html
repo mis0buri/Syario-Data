@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Xアーカイブ追加 | シャリオ</title>
+<meta name="theme-color" content="#0F1419">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./xarchive-add.css">
+</head>
+<body>
+
+<header class="xaa-header">
+  <div class="xaa-logo" aria-hidden="true">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="14" width="48" height="36" rx="6" fill="#fff"/>
+      <path d="M20 26h24M20 33h24M20 40h14" stroke="#0F1419" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M44 44l8 8" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <h1>Xアーカイブ追加</h1>
+  <p class="xaa-sub">管理者専用 — X公式アーカイブをアップロード</p>
+</header>
+
+<main class="xaa-main">
+
+  <!-- ① ログイン -->
+  <section class="xaa-card" id="auth-section">
+    <h2 class="xaa-card-title">ログイン</h2>
+    <div id="auth-loading" class="xaa-empty">確認中...</div>
+    <div id="auth-login" style="display:none">
+      <div class="xaa-note" style="margin-top:0">アーカイブの追加には管理者アカウントでのログインが必要です。</div>
+      <button class="xaa-btn primary" style="width:100%;margin-bottom:8px" onclick="xaaLoginGoogle()">Googleでログイン</button>
+      <button class="xaa-btn" style="width:100%" onclick="xaaLoginTwitter()">X (Twitter) でログイン</button>
+    </div>
+    <div id="auth-info" style="display:none">
+      <div id="auth-badge" class="xaa-badge"></div>
+      <div id="auth-guard" class="xaa-status"></div>
+      <div class="xaa-uid-row">
+        <span class="xaa-uid-label">UID:</span>
+        <code id="auth-uid" class="xaa-uid"></code>
+        <button type="button" class="xaa-btn sm" onclick="xaaCopyUid()">コピー</button>
+      </div>
+      <button class="xaa-btn" style="width:100%;margin-top:10px" onclick="xaaLogout()">ログアウト</button>
+    </div>
+  </section>
+
+  <!-- ② アップロード -->
+  <section class="xaa-card" id="upload-section" style="display:none">
+    <h2 class="xaa-card-title">アーカイブ追加</h2>
+    <div class="xaa-form-group">
+      <label>ハンドル名（@は不要）</label>
+      <input type="text" id="xa-add-username" class="xaa-input" placeholder="例: syario_mahjong" autocomplete="off">
+    </div>
+    <div class="xaa-form-group">
+      <label>表示名</label>
+      <input type="text" id="xa-add-displayname" class="xaa-input" placeholder="例: シャリオ雀荘" autocomplete="off">
+    </div>
+    <div class="xaa-form-group">
+      <label>アーカイブの tweets.js / tweets-part*.js を選択（複数可）</label>
+      <input type="file" id="xa-add-files" class="xaa-input" accept=".js,application/javascript,text/javascript" multiple>
+      <div class="xaa-note" style="margin-bottom:0">X公式アーカイブ内の data/tweets.js（分割時は tweets-part1.js 等も全て）を選択してください。DM等その他のファイルは選ばないでください。処理はブラウザ内で行われ、本文・日時・メディアURLのみが抽出・アップロードされます。</div>
+    </div>
+    <button type="button" id="xa-add-upload-btn" class="xaa-btn primary" style="width:100%" onclick="xaUpload()">解析してアップロード</button>
+    <div id="xa-add-progress" class="xaa-status"></div>
+    <div id="xa-add-status" class="xaa-status"></div>
+  </section>
+
+  <!-- ③ 登録済みアカウント -->
+  <section class="xaa-card" id="manifest-section" style="display:none">
+    <h2 class="xaa-card-title">登録済みアカウント</h2>
+    <div id="manifest-list" class="xaa-manifest-list">
+      <div class="xaa-empty">読み込み中...</div>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="./xarchive-add.js"></script>
+</body>
+</html>
