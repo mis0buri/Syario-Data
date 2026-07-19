@@ -99,7 +99,7 @@ async function _xaLoadManifest() {
   if (!_storage) return;
   try {
     const url = await _storage.ref('archives/manifest.json').getDownloadURL();
-    const manifest = await (await fetch(url)).json();
+    const manifest = await (await fetch(url, { cache: 'no-store' })).json();
     _xaManifest = (manifest && typeof manifest === 'object') ? manifest : { generated_at: '', accounts: [] };
     if (!Array.isArray(_xaManifest.accounts)) _xaManifest.accounts = [];
     _xaSetGuard('', '');
@@ -317,6 +317,28 @@ async function xaUpload() {
       return;
     }
 
+    // 既存マニフェストをチャンクのアップロード前に読み込む。
+    // 「無い」以外の読み込み失敗時は中断する（空マニフェスト扱いで続行すると
+    // 既存アカウントを消したマニフェストで上書きしてしまうため）。
+    _setProgress('既存マニフェストを確認中…');
+    let manifest = null;
+    try {
+      const url = await _storage.ref('archives/manifest.json').getDownloadURL();
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('manifest fetch failed: ' + res.status);
+      manifest = await res.json();
+    } catch (e) {
+      if (e && e.code === 'storage/object-not-found') {
+        manifest = { generated_at: '', accounts: [] };
+      } else {
+        _setStatus('既存マニフェストの読み込みに失敗したため中断しました（登録済みアカウントを消さないための安全策です）。時間をおいて再試行してください: ' + (e && e.message ? e.message : e), false);
+        _setProgress('');
+        return;
+      }
+    }
+    if (!manifest || typeof manifest !== 'object') manifest = { generated_at: '', accounts: [] };
+    if (!Array.isArray(manifest.accounts)) manifest.accounts = [];
+
     // 月ごとにグループ化
     const byMonth = new Map();
     allTweets.forEach(function (tw) {
@@ -342,16 +364,6 @@ async function xaUpload() {
 
     // マニフェストのマージ
     _setProgress('マニフェストを更新中…');
-    let manifest;
-    try {
-      const url = await _storage.ref('archives/manifest.json').getDownloadURL();
-      manifest = await (await fetch(url)).json();
-    } catch (e) {
-      manifest = { generated_at: '', accounts: [] };
-    }
-    if (!manifest || typeof manifest !== 'object') manifest = { generated_at: '', accounts: [] };
-    if (!Array.isArray(manifest.accounts)) manifest.accounts = [];
-
     const sortedAll = allTweets.slice().sort(function (a, b) { return a.created_at < b.created_at ? -1 : (a.created_at > b.created_at ? 1 : 0); });
     const from = sortedAll[0].created_at;
     const to = sortedAll[sortedAll.length - 1].created_at;
