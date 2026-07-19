@@ -412,9 +412,13 @@ async function _doShareJareImages(data, url) {
     return;
   }
 
+  // 各段落の先頭に①②…を付けて何段落目か分かるようにする
+  const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
+  const marked = paras.map((p, i) => (CIRCLED[i] || (i + 1) + '.') + ' ' + p);
+
   const groups = [];
-  for (let i = 0; i < paras.length && groups.length < 4; i += 2) {
-    groups.push(paras.slice(i, i + 2));
+  for (let i = 0; i < marked.length && groups.length < 4; i += 2) {
+    groups.push(marked.slice(i, i + 2));
   }
 
   let files;
