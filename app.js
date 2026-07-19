@@ -561,6 +561,56 @@ loadData();
 // ── ご意見 送信 ──
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1485897903431221330/HkGtTtH24xS2EmdxlGK_CkSoCp1rl8JnALHU_XhLpXHr3tggH0FioGsumKFYvBuOc3Mc';
 
+// 画像をブラウザ内で縮小・JPEG化してDiscordの添付上限に収まりやすくする。
+// 長辺2048px・品質0.85でも縮小効果が無い（元の方が小さい）場合は元ファイルを返す。
+// 画像以外・GIF（アニメ保持）・変換失敗時も元ファイルを返す。
+async function _fbCompressImage(file) {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  try {
+    let width, height, drawSource;
+    let bitmap = null;
+    try {
+      bitmap = await createImageBitmap(file);
+      width = bitmap.width;
+      height = bitmap.height;
+      drawSource = bitmap;
+    } catch(_e) {
+      const url = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const im = new Image();
+          im.onload = () => resolve(im);
+          im.onerror = reject;
+          im.src = url;
+        });
+        width = img.naturalWidth;
+        height = img.naturalHeight;
+        drawSource = img;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+    if (!width || !height) return file;
+    const MAX_EDGE = 2048;
+    const longEdge = Math.max(width, height);
+    const scale = longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1;
+    const outW = Math.round(width * scale);
+    const outH = Math.round(height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(drawSource, 0, 0, outW, outH);
+    if (bitmap && bitmap.close) bitmap.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    const baseName = file.name.replace(/\.[^.\/]+$/, '') || file.name;
+    return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+  } catch(_e) {
+    return file;
+  }
+}
+
 async function submitFeedback(e) {
   e.preventDefault();
   const name     = document.getElementById('fb-name').value.trim() || '匿名';
@@ -576,22 +626,68 @@ async function submitFeedback(e) {
 
   try {
     const content = `**名前：** ${name}\n**種別：** ${category}\n**内容：** ${message}`;
-    let res;
+
     if (fbFiles.length > 0) {
-      const fd = new FormData();
-      fd.append('payload_json', JSON.stringify({ content }));
-      fbFiles.slice(0, 10).forEach((f, i) => fd.append(`files[${i}]`, f, f.name));
-      res = await fetch(WEBHOOK_URL, { method:'POST', body: fd });
+      status.textContent = '画像を圧縮中...';
+      const files = [];
+      for (const f of fbFiles.slice(0, 10)) files.push(await _fbCompressImage(f));
+      status.textContent = '送信中...';
+
+      const LIMIT = 9 * 1024 * 1024; // Discord webhook実用上限(10MB)に対する安全マージン
+      const batches = [];
+      const tooBig = [];
+      let current = [];
+      let currentSize = 0;
+      for (const f of files) {
+        if (f.size > LIMIT) {
+          tooBig.push(f.name);
+          continue;
+        }
+        if (current.length >= 10 || (current.length > 0 && currentSize + f.size > LIMIT)) {
+          batches.push(current);
+          current = [];
+          currentSize = 0;
+        }
+        current.push(f);
+        currentSize += f.size;
+      }
+      if (current.length) batches.push(current);
+
+      if (batches.length === 0) {
+        const res = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } else {
+        for (let i = 0; i < batches.length; i++) {
+          const fd = new FormData();
+          const payload = i === 0
+            ? { content }
+            : { content: `（添付の続き ${i + 1}/${batches.length}）` };
+          fd.append('payload_json', JSON.stringify(payload));
+          batches[i].forEach((f, j) => fd.append(`files[${j}]`, f, f.name));
+          const res = await fetch(WEBHOOK_URL, { method:'POST', body: fd });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        }
+      }
+
+      status.style.color = 'var(--green)';
+      status.textContent = tooBig.length
+        ? '送信しました！（サイズ超過のため添付できず: ' + tooBig.join(', ') + '）'
+        : '送信しました！';
     } else {
-      res = await fetch(WEBHOOK_URL, {
+      const res = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      status.style.color = 'var(--green)';
+      status.textContent = '送信しました！';
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    status.style.color = 'var(--green)';
-    status.textContent = '送信しました！';
+
     document.getElementById('fb-name').value = '';
     document.getElementById('fb-message').value = '';
     fbFiles = [];
