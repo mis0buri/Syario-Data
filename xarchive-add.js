@@ -3,7 +3,8 @@
 // 保存先は本体サイトの「アーカイブ閲覧/追加」と同じFirebase Storage
 // （archives/manifest.json + archives/{username}/{YYYY-MM}.json）なので、
 // ここでアップロードしたアーカイブは本体サイトの「アーカイブ閲覧」にそのまま反映される。
-// UIは/admins/{uid}の存在でゲートし、実際の書き込み権限はstorage.rulesのUID許可リストで制御される。
+// ログイン機能は持たない（storage.rulesが未ログインアップロードを許可している前提）。
+// アクセス制御が必要になった場合はstorage.rules側で行う。
 
 const XAA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDG2F8MDiSpNZWfcISJVCI5kAWaJYF0B7k",
@@ -14,11 +15,7 @@ const XAA_FIREBASE_CONFIG = {
   appId: "1:494285110412:web:ee00a71bd8866a68890fa9"
 };
 
-let _auth = null;
-let _db = null;
 let _storage = null;
-let _currentUser = null;
-let _isAdmin = false;
 
 function _esc(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -26,91 +23,8 @@ function _esc(s) {
 
 function init() {
   firebase.initializeApp(XAA_FIREBASE_CONFIG);
-  _auth = firebase.auth();
-  _db = firebase.firestore();
   _storage = firebase.storage();
-  _auth.onAuthStateChanged(async user => {
-    _currentUser = user;
-    _isAdmin = false;
-    if (user) {
-      try {
-        const doc = await _db.collection('admins').doc(user.uid).get();
-        _isAdmin = doc.exists;
-      } catch (e) {
-        console.warn('管理者チェック失敗:', e);
-      }
-    }
-    renderAuth();
-  });
-}
-
-function renderAuth() {
-  const loadingEl = document.getElementById('auth-loading');
-  const loginEl = document.getElementById('auth-login');
-  const infoEl = document.getElementById('auth-info');
-  const badgeEl = document.getElementById('auth-badge');
-  const guardEl = document.getElementById('auth-guard');
-  const uidEl = document.getElementById('auth-uid');
-  const uploadEl = document.getElementById('upload-section');
-  const manifestEl = document.getElementById('manifest-section');
-
-  loadingEl.style.display = 'none';
-  if (!_currentUser) {
-    loginEl.style.display = '';
-    infoEl.style.display = 'none';
-    uploadEl.style.display = 'none';
-    manifestEl.style.display = 'none';
-    return;
-  }
-  loginEl.style.display = 'none';
-  infoEl.style.display = '';
-  uidEl.textContent = _currentUser.uid;
-  if (_isAdmin) {
-    badgeEl.textContent = (_currentUser.displayName || _currentUser.email || '') + ' — 管理者 ✓';
-    badgeEl.className = 'xaa-badge';
-    guardEl.textContent = '';
-    guardEl.className = 'xaa-status';
-    uploadEl.style.display = '';
-    manifestEl.style.display = '';
-    loadManifestList();
-  } else {
-    badgeEl.textContent = (_currentUser.displayName || _currentUser.email || '') + ' — 管理者ではありません';
-    badgeEl.className = 'xaa-badge error';
-    guardEl.textContent = 'このアカウントには管理者権限がありません。管理者に連絡してください。';
-    guardEl.className = 'xaa-status error';
-    uploadEl.style.display = 'none';
-    manifestEl.style.display = 'none';
-  }
-}
-
-// ── ログイン（app.jsの_doLoginと同じ理由で全環境ポップアップ方式） ──
-async function _xaaLogin(provider) {
-  if (!_auth) return;
-  try {
-    await _auth.signInWithPopup(provider);
-  } catch (e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-    if (e.code === 'auth/popup-blocked') {
-      alert('ポップアップがブロックされました。ブラウザのポップアップを許可するか、Safari/Chromeなど通常のブラウザで開いてから再度お試しください。');
-      return;
-    }
-    alert('ログインに失敗しました: ' + e.message);
-  }
-}
-
-function xaaLoginGoogle() { _xaaLogin(new firebase.auth.GoogleAuthProvider()); }
-function xaaLoginTwitter() { _xaaLogin(new firebase.auth.TwitterAuthProvider()); }
-
-function xaaLogout() {
-  if (!_auth) return;
-  _auth.signOut();
-}
-
-function xaaCopyUid() {
-  if (!_currentUser) return;
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(_currentUser.uid).catch(() => {});
-  }
+  loadManifestList();
 }
 
 // ── 登録済みアカウント一覧 ──
@@ -137,7 +51,7 @@ async function loadManifestList() {
     if (err && err.code === 'storage/object-not-found') {
       listEl.innerHTML = '<div class="xaa-empty">アーカイブがまだありません</div>';
     } else if (err && err.code === 'storage/unauthorized') {
-      listEl.innerHTML = '<div class="xaa-empty">閲覧権限がありません。UIDをstorage.rulesの許可リストに追加してデプロイしてください。</div>';
+      listEl.innerHTML = '<div class="xaa-empty">閲覧権限がありません。storage.rulesの設定を確認してください。</div>';
     } else {
       listEl.innerHTML = '<div class="xaa-empty">マニフェストの読み込みに失敗しました</div>';
     }
@@ -217,7 +131,7 @@ function _xaNormalizeTweet(el) {
 
 // ── アップロード（xarchive.jsのxaUploadと同一ロジック） ──
 async function xaUpload() {
-  if (!_isAdmin || !_storage) return;
+  if (!_storage) return;
 
   const statusEl = document.getElementById('xa-add-status');
   const progEl = document.getElementById('xa-add-progress');
@@ -343,7 +257,7 @@ async function xaUpload() {
     loadManifestList();
   } catch (err) {
     if (err && err.code === 'storage/unauthorized') {
-      _setStatus('アップロード権限がありません。あなたのUID（' + (_currentUser ? _currentUser.uid : '不明') + '）をstorage.rulesの許可リストに追加してデプロイしてください。', false);
+      _setStatus('アップロード権限がありません。storage.rulesの設定を確認してください。', false);
     } else {
       _setStatus('失敗しました: ' + (err && err.message ? err.message : err), false);
     }

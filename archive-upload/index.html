@@ -21,34 +21,13 @@
     </svg>
   </div>
   <h1>Xアーカイブ追加</h1>
-  <p class="xaa-sub">管理者専用 — X公式アーカイブをアップロード</p>
+  <p class="xaa-sub">X公式アーカイブをアップロード</p>
 </header>
 
 <main class="xaa-main">
 
-  <!-- ① ログイン -->
-  <section class="xaa-card" id="auth-section">
-    <h2 class="xaa-card-title">ログイン</h2>
-    <div id="auth-loading" class="xaa-empty">確認中...</div>
-    <div id="auth-login" style="display:none">
-      <div class="xaa-note" style="margin-top:0">アーカイブの追加には管理者アカウントでのログインが必要です。</div>
-      <button class="xaa-btn primary" style="width:100%;margin-bottom:8px" onclick="xaaLoginGoogle()">Googleでログイン</button>
-      <button class="xaa-btn" style="width:100%" onclick="xaaLoginTwitter()">X (Twitter) でログイン</button>
-    </div>
-    <div id="auth-info" style="display:none">
-      <div id="auth-badge" class="xaa-badge"></div>
-      <div id="auth-guard" class="xaa-status"></div>
-      <div class="xaa-uid-row">
-        <span class="xaa-uid-label">UID:</span>
-        <code id="auth-uid" class="xaa-uid"></code>
-        <button type="button" class="xaa-btn sm" onclick="xaaCopyUid()">コピー</button>
-      </div>
-      <button class="xaa-btn" style="width:100%;margin-top:10px" onclick="xaaLogout()">ログアウト</button>
-    </div>
-  </section>
-
-  <!-- ② アップロード -->
-  <section class="xaa-card" id="upload-section" style="display:none">
+  <!-- ① アップロード -->
+  <section class="xaa-card" id="upload-section">
     <h2 class="xaa-card-title">アーカイブ追加</h2>
     <div class="xaa-form-group">
       <label>ハンドル名（@は不要）</label>
@@ -68,8 +47,8 @@
     <div id="xa-add-status" class="xaa-status"></div>
   </section>
 
-  <!-- ③ 登録済みアカウント -->
-  <section class="xaa-card" id="manifest-section" style="display:none">
+  <!-- ② 登録済みアカウント -->
+  <section class="xaa-card" id="manifest-section">
     <h2 class="xaa-card-title">登録済みアカウント</h2>
     <div id="manifest-list" class="xaa-manifest-list">
       <div class="xaa-empty">読み込み中...</div>
@@ -79,8 +58,6 @@
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="../xarchive-add.js"></script>
 </body>

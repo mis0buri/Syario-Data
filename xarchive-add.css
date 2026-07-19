@@ -149,47 +149,11 @@ body {
   padding: 14px 0;
 }
 
-.xaa-badge {
-  display: inline-block;
-  background: rgba(29,155,240,.12);
-  color: var(--xaa-accent-dark);
-  font-weight: 800;
-  font-size: 13.5px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  margin-bottom: 10px;
-}
-.xaa-badge.error {
-  background: rgba(224,83,61,.1);
-  color: var(--xaa-danger);
-}
-
 .xaa-note {
   font-size: 12px;
   color: var(--xaa-dim);
   line-height: 1.6;
   margin: 10px 0 14px;
-}
-
-.xaa-uid-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.xaa-uid-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--xaa-dim);
-  flex-shrink: 0;
-}
-.xaa-uid {
-  font-size: 12px;
-  background: #F0F3F6;
-  border-radius: 6px;
-  padding: 4px 8px;
-  overflow-wrap: anywhere;
-  min-width: 0;
 }
 
 .xaa-manifest-list { display: flex; flex-direction: column; gap: 10px; }
