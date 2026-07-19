@@ -26,33 +26,17 @@
 
 <main class="xaa-main">
 
-  <!-- ① アップロード -->
+  <!-- アップロード -->
   <section class="xaa-card" id="upload-section">
     <h2 class="xaa-card-title">アーカイブ追加</h2>
     <div class="xaa-form-group">
-      <label>ハンドル名（@は不要）</label>
-      <input type="text" id="xa-add-username" class="xaa-input" placeholder="例: syario_mahjong" autocomplete="off">
-    </div>
-    <div class="xaa-form-group">
-      <label>表示名</label>
-      <input type="text" id="xa-add-displayname" class="xaa-input" placeholder="例: シャリオ雀荘" autocomplete="off">
-    </div>
-    <div class="xaa-form-group">
-      <label>アーカイブの tweets.js / tweets-part*.js を選択（複数可）</label>
+      <label>アーカイブの account.js と tweets.js / tweets-part*.js を選択（複数可）</label>
       <input type="file" id="xa-add-files" class="xaa-input" accept=".js,application/javascript,text/javascript" multiple>
-      <div class="xaa-note" style="margin-bottom:0">X公式アーカイブ内の data/tweets.js（分割時は tweets-part1.js 等も全て）を選択してください。DM等その他のファイルは選ばないでください。処理はブラウザ内で行われ、本文・日時・メディアURLのみが抽出・アップロードされます。</div>
+      <div class="xaa-note" style="margin-bottom:0">X公式アーカイブ内の data/account.js と data/tweets.js（分割時は tweets-part1.js 等も全て）をまとめて選択してください。ハンドル名・表示名は account.js から自動取得します。DM等その他のファイルは選ばないでください。処理はブラウザ内で行われ、本文・日時・メディアURLのみが抽出・アップロードされます。</div>
     </div>
     <button type="button" id="xa-add-upload-btn" class="xaa-btn primary" style="width:100%" onclick="xaUpload()">解析してアップロード</button>
     <div id="xa-add-progress" class="xaa-status"></div>
     <div id="xa-add-status" class="xaa-status"></div>
-  </section>
-
-  <!-- ② 登録済みアカウント -->
-  <section class="xaa-card" id="manifest-section">
-    <h2 class="xaa-card-title">登録済みアカウント</h2>
-    <div id="manifest-list" class="xaa-manifest-list">
-      <div class="xaa-empty">読み込み中...</div>
-    </div>
   </section>
 
 </main>

@@ -17,45 +17,9 @@ const XAA_FIREBASE_CONFIG = {
 
 let _storage = null;
 
-function _esc(s) {
-  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 function init() {
   firebase.initializeApp(XAA_FIREBASE_CONFIG);
   _storage = firebase.storage();
-  loadManifestList();
-}
-
-// ── 登録済みアカウント一覧 ──
-async function loadManifestList() {
-  const listEl = document.getElementById('manifest-list');
-  listEl.innerHTML = '<div class="xaa-empty">読み込み中...</div>';
-  try {
-    const url = await _storage.ref('archives/manifest.json').getDownloadURL();
-    const manifest = await (await fetch(url)).json();
-    const accounts = (manifest && Array.isArray(manifest.accounts)) ? manifest.accounts : [];
-    if (!accounts.length) {
-      listEl.innerHTML = '<div class="xaa-empty">アーカイブがまだありません</div>';
-      return;
-    }
-    listEl.innerHTML = accounts.map(acc => {
-      if (!acc || !acc.username) return '';
-      const period = acc.period ? (String(acc.period.from || '').slice(0, 10) + ' 〜 ' + String(acc.period.to || '').slice(0, 10)) : '';
-      return `<div class="xaa-manifest-card">
-        <div class="xaa-manifest-name">${_esc(acc.display_name || acc.username)}<span class="xaa-manifest-handle">@${_esc(acc.username)}</span></div>
-        <div class="xaa-manifest-meta">${acc.total_count || 0}件 / ${(acc.chunks || []).length}チャンク${period ? ' / ' + _esc(period) : ''}</div>
-      </div>`;
-    }).join('');
-  } catch (err) {
-    if (err && err.code === 'storage/object-not-found') {
-      listEl.innerHTML = '<div class="xaa-empty">アーカイブがまだありません</div>';
-    } else if (err && err.code === 'storage/unauthorized') {
-      listEl.innerHTML = '<div class="xaa-empty">閲覧権限がありません。storage.rulesの設定を確認してください。</div>';
-    } else {
-      listEl.innerHTML = '<div class="xaa-empty">マニフェストの読み込みに失敗しました</div>';
-    }
-  }
 }
 
 // ── ツイート正規化（xarchive.jsの_xaNormalizeTweetと同一ロジック） ──
@@ -136,8 +100,6 @@ async function xaUpload() {
   const statusEl = document.getElementById('xa-add-status');
   const progEl = document.getElementById('xa-add-progress');
   const btnEl = document.getElementById('xa-add-upload-btn');
-  const usernameEl = document.getElementById('xa-add-username');
-  const displayNameEl = document.getElementById('xa-add-displayname');
   const filesEl = document.getElementById('xa-add-files');
 
   const _setStatus = function (msg, ok) {
@@ -149,13 +111,10 @@ async function xaUpload() {
     if (progEl) progEl.textContent = msg || '';
   };
 
-  let username = (usernameEl && usernameEl.value || '').trim();
-  if (username.charAt(0) === '@') username = username.slice(1);
-  const displayName = (displayNameEl && displayNameEl.value || '').trim();
   const files = (filesEl && filesEl.files) ? Array.from(filesEl.files) : [];
 
-  if (!username || files.length < 1) {
-    _setStatus('ユーザー名とファイルを指定してください。', false);
+  if (files.length < 1) {
+    _setStatus('ファイルを指定してください。', false);
     return;
   }
 
@@ -166,6 +125,8 @@ async function xaUpload() {
   try {
     const byId = new Map();
     const skipped = [];
+    let username = '';
+    let displayName = '';
 
     for (const file of files) {
       try {
@@ -176,12 +137,25 @@ async function xaUpload() {
         const s = text.slice(start, end + 1);
         const arr = JSON.parse(s);
         arr.forEach(function (el) {
+          // account.js のエントリ（{account: {username, accountDisplayName, ...}}）から
+          // ハンドル名・表示名を自動取得する
+          if (el && el.account && el.account.username) {
+            if (!username) username = String(el.account.username).trim().replace(/^@/, '');
+            if (!displayName) displayName = String(el.account.accountDisplayName || '').trim();
+            return;
+          }
           const norm = _xaNormalizeTweet(el);
           if (norm && !byId.has(norm.id)) byId.set(norm.id, norm);
         });
       } catch (e) {
         skipped.push(file.name);
       }
+    }
+
+    if (!username) {
+      _setStatus('account.js が見つかりませんでした。data/account.js も一緒に選択してください。' + (skipped.length ? '（解析できず除外: ' + skipped.join(', ') + '）' : ''), false);
+      _setProgress('');
+      return;
     }
 
     const allTweets = Array.from(byId.values());
@@ -254,7 +228,6 @@ async function xaUpload() {
     if (skipped.length) msg += '（解析できず除外: ' + skipped.join(', ') + '）';
     _setStatus(msg, true);
     _setProgress('');
-    loadManifestList();
   } catch (err) {
     if (err && err.code === 'storage/unauthorized') {
       _setStatus('アップロード権限がありません。storage.rulesの設定を確認してください。', false);
