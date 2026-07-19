@@ -6,6 +6,10 @@
 // ログイン機能は持たない（storage.rulesが未ログインアップロードを許可している前提）。
 // アクセス制御が必要になった場合はstorage.rules側で行う。
 
+// ご意見フォームと同じDiscord webhook（app.jsのWEBHOOK_URLと同一。このページはapp.jsを
+// 読み込まないためここにも定義する。変更時は両方を更新すること）
+const XAA_WEBHOOK_URL = 'https://discord.com/api/webhooks/1485897903431221330/HkGtTtH24xS2EmdxlGK_CkSoCp1rl8JnALHU_XhLpXHr3tggH0FioGsumKFYvBuOc3Mc';
+
 const XAA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDG2F8MDiSpNZWfcISJVCI5kAWaJYF0B7k",
   authDomain: "syariodate.firebaseapp.com",
@@ -240,6 +244,18 @@ async function xaUpload() {
     if (skipped.length) msg += '（解析できず除外: ' + skipped.join(', ') + '）';
     _setStatus(msg, true);
     _setProgress('');
+
+    // ご意見と同じDiscord webhookでアップロードを通知（通知失敗はアップロード成功に影響させない）
+    try {
+      await fetch(XAA_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content:
+          '📦 Xアーカイブがアップロードされました（単独アップロードページから）\n' +
+          'アカウント: @' + username + '（' + (displayName || username) + '）\n' +
+          '内容: ' + allTweets.length + '件・' + months.length + 'チャンク（' + from.slice(0, 10) + '〜' + to.slice(0, 10) + '）' })
+      });
+    } catch (e) { console.warn('Discord通知失敗:', e); }
   } catch (err) {
     if (err && err.code === 'storage/unauthorized') {
       _setStatus('アップロード権限がありません。storage.rulesの設定を確認してください。', false);

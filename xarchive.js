@@ -410,6 +410,18 @@ async function xaUpload() {
     if (skipped.length) msg += '（解析できず除外: ' + skipped.join(', ') + '）';
     _setStatus(msg, true);
     _setProgress('');
+
+    // ご意見と同じDiscord webhookでアップロードを通知（通知失敗はアップロード成功に影響させない）
+    try {
+      await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content:
+          '📦 Xアーカイブがアップロードされました\n' +
+          'アカウント: @' + username + '（' + (displayName || username) + '）\n' +
+          '内容: ' + allTweets.length + '件・' + months.length + 'チャンク（' + from.slice(0, 10) + '〜' + to.slice(0, 10) + '）' })
+      });
+    } catch (e) { console.warn('Discord通知失敗:', e); }
   } catch (err) {
     if (err && err.code === 'storage/unauthorized') {
       _setStatus('アップロード権限がありません。あなたのUIDをstorage.rulesの許可リストに追加してデプロイしてください。', false);
