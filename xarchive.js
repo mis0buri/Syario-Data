@@ -96,14 +96,16 @@ function _xaSetGuard(msg, cls) {
   el.className = 'admin-status' + (cls ? ' ' + cls : '');
 }
 
+// 成功時 true / 失敗時 false を返す（失敗時も _xaManifest は空マニフェストになる）
 async function _xaLoadManifest() {
-  if (!_storage) return;
+  if (!_storage) return false;
   try {
     const url = await _storage.ref('archives/manifest.json').getDownloadURL();
     const manifest = await (await fetch(url, { cache: 'no-store' })).json();
     _xaManifest = (manifest && typeof manifest === 'object') ? manifest : { generated_at: '', accounts: [] };
     if (!Array.isArray(_xaManifest.accounts)) _xaManifest.accounts = [];
     _xaSetGuard('', '');
+    return true;
   } catch (err) {
     if (err && err.code === 'storage/object-not-found') {
       _xaManifest = { generated_at: '', accounts: [] };
@@ -116,6 +118,7 @@ async function _xaLoadManifest() {
       _xaManifest = { generated_at: '', accounts: [] };
       _xaSetStatus('マニフェストの読み込みに失敗しました: ' + (err && err.message ? err.message : err), 'error');
     }
+    return false;
   }
 }
 
@@ -180,10 +183,15 @@ async function initXArchive() {
   }
   if (body) body.style.display = '';
   _xaSetGuard('', '');
-  // 画面を開いただけでは読み込まない（チャンク取得の時間・帯域を消費するため、
-  // 「読込」ボタンを押した時だけ読み込む）。読み込み済みなら表示をそのまま維持
+  // ポスト本体（チャンク）は時間・帯域を消費するため「読込」を押すまで読み込まないが、
+  // アカウント一覧（マニフェスト）は小さいので画面表示時に読み込んでチップを出す。
+  // 読み込み済みなら表示をそのまま維持
   if (!_xaManifest) {
-    _xaSetStatus('期間・アカウントを指定して「読込」を押すとアーカイブを読み込みます。', '');
+    _xaSetStatus('アカウント一覧を読み込み中…', '');
+    const ok = await _xaLoadManifest();
+    _xaRenderAccountChips();
+    _xaSetDateHints();
+    if (ok) _xaSetStatus('期間・アカウントを指定して「読込」を押すとポストを読み込みます。', '');
   }
 }
 
@@ -543,6 +551,23 @@ function _xaLinkify(rawText) {
   });
 }
 
+// アバター: unavatar.io経由で現在のXアイコンを表示し、取得できない場合は
+// イニシャル（表示名の頭文字＋ユーザー名から決めた色の丸）にフォールバック。
+// fallback=false指定でunavatar側のデフォルト画像ではなく404を返させ、
+// onerrorでimgを消すと下のイニシャルが見える仕組み。
+function _xaAvatarHtml(username, displayName) {
+  const initial = String(displayName || username || '?').trim().charAt(0) || '?';
+  const s = String(username || '');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  const hue = hash % 360;
+  const src = 'https://unavatar.io/twitter/' + encodeURIComponent(s) + '?fallback=false';
+  return '<span class="xa-avatar" style="background:hsl(' + hue + ',45%,38%)" aria-hidden="true">' +
+    _esc(initial) +
+    '<img class="xa-avatar-img" loading="lazy" src="' + _escHtml(src) + '" alt="" onerror="this.remove()">' +
+    '</span>';
+}
+
 function _xaPostCardHtml(post) {
   const username = post._u || '';
   const dn = post._dn || username;
@@ -583,17 +608,20 @@ function _xaPostCardHtml(post) {
 
   return (
     '<div class="xa-post">' +
-      '<div class="xa-post-head">' +
-        '<span class="xa-post-name">' + _esc(dn) + '</span>' +
-        '<span class="xa-post-handle">@' + _esc(username) + '</span>' +
-        badge +
-      '</div>' +
-      subline +
-      '<div class="xa-post-body">' + _xaLinkify(post.text) + '</div>' +
-      mediaHtml +
-      '<div class="xa-post-foot">' +
-        '<span class="xa-post-time">' + _esc(dtLabel) + '</span>' +
-        '<button type="button" class="admin-btn sm" onclick="xaCopyPostUrl(\'' + safeUsernameAttr + '\',\'' + safeIdAttr + '\')">コピー</button>' +
+      _xaAvatarHtml(username, dn) +
+      '<div class="xa-post-main">' +
+        '<div class="xa-post-head">' +
+          '<span class="xa-post-name">' + _esc(dn) + '</span>' +
+          '<span class="xa-post-handle">@' + _esc(username) + '</span>' +
+          badge +
+        '</div>' +
+        subline +
+        '<div class="xa-post-body">' + _xaLinkify(post.text) + '</div>' +
+        mediaHtml +
+        '<div class="xa-post-foot">' +
+          '<span class="xa-post-time">' + _esc(dtLabel) + '</span>' +
+          '<button type="button" class="admin-btn sm" onclick="xaCopyPostUrl(\'' + safeUsernameAttr + '\',\'' + safeIdAttr + '\')">コピー</button>' +
+        '</div>' +
       '</div>' +
     '</div>'
   );
