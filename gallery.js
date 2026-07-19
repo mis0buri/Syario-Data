@@ -278,16 +278,172 @@ function _renderJareDetail(docId, data) {
 
 async function shareJare(docId) {
   const doc = _jareDocs.find(d => d.id === docId);
-  const title = doc ? (doc.data().title || '（無題）') : '';
+  const data = doc ? doc.data() : {};
   const url = location.origin + location.pathname + '#jare/' + docId;
-  await _doShareJare(title, url);
+  await _doShareJareImages(data, url);
 }
 
 async function shareJareDetail() {
-  const url = location.origin + location.pathname + '#jare/' + (_jareDetailDocId || '');
-  const titleEl = document.getElementById('jare-detail-title');
-  const title = titleEl ? titleEl.textContent.replace(/^👑\s*/, '') : '';
-  await _doShareJare(title, url);
+  const docId = _jareDetailDocId || '';
+  const doc = _jareDocs.find(d => d.id === docId);
+  const data = doc ? doc.data() : {};
+  const url = location.origin + location.pathname + '#jare/' + docId;
+  await _doShareJareImages(data, url);
+}
+
+function _jareWrapText(ctx, text, maxWidth) {
+  const lines = [];
+  const hardLines = String(text || '').split('\n');
+  hardLines.forEach(hardLine => {
+    if (hardLine === '') { lines.push(''); return; }
+    let cur = '';
+    for (const ch of hardLine) {
+      const test = cur + ch;
+      if (cur !== '' && ctx.measureText(test).width > maxWidth) {
+        lines.push(cur);
+        cur = ch;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur !== '') lines.push(cur);
+  });
+  return lines;
+}
+
+function _jareBuildStoryCanvas(data, groupParas, pageNo, pageTotal) {
+  const W = 1080, dpr = 2, PAD = 64;
+  const titleFont = "bold 40px 'Noto Sans JP', sans-serif";
+  const metaFont = "20px 'Noto Sans JP', sans-serif";
+  const bodyFont = "30px 'Noto Sans JP', sans-serif";
+  const footerFont = "16px 'Noto Sans JP', sans-serif";
+  const bodyLineHeight = 50;
+  const paraGap = 28;
+  const maxTextWidth = W - PAD * 2;
+
+  // --- Pass 1: measure using an offscreen canvas ---
+  const measureCanvas = document.createElement('canvas');
+  const mctx = measureCanvas.getContext('2d');
+
+  mctx.font = titleFont;
+  const titleLines = _jareWrapText(mctx, data.title || '（無題）', maxTextWidth).slice(0, 2);
+
+  let headerH = PAD; // top padding
+  headerH += titleLines.length * 48; // title line height
+  headerH += 36; // meta line
+  headerH += 24; // divider spacing
+  headerH += 20; // spacing before body
+
+  mctx.font = bodyFont;
+  const paraLineGroups = groupParas.map(p => _jareWrapText(mctx, p, maxTextWidth));
+  let bodyH = 0;
+  paraLineGroups.forEach((lines, i) => {
+    bodyH += lines.length * bodyLineHeight;
+    if (i < paraLineGroups.length - 1) bodyH += paraGap;
+  });
+
+  const footerH = 60;
+  let H = headerH + bodyH + footerH;
+  if (H < 1080) H = 1080;
+
+  // --- Pass 2: draw ---
+  const canvas = document.createElement('canvas');
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#1a1b1e';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#00E5FF';
+  ctx.fillRect(0, 0, 8, H);
+
+  let y = PAD + 4;
+  ctx.font = titleFont;
+  ctx.fillStyle = '#e8e6e3';
+  ctx.textAlign = 'left';
+  titleLines.forEach(line => {
+    y += 40;
+    ctx.fillText(line, PAD, y);
+    y += 8;
+  });
+
+  y += 28;
+  ctx.font = metaFont;
+  ctx.fillStyle = '#a0a0a0';
+  const metaText = [data.date, data.theme ? 'テーマ: ' + data.theme : ''].filter(Boolean).join('　');
+  ctx.fillText(metaText, PAD, y);
+
+  ctx.textAlign = 'right';
+  ctx.fillText(`${pageNo}/${pageTotal}`, W - PAD, y);
+  ctx.textAlign = 'left';
+
+  y += 24;
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+
+  y += 20;
+  ctx.font = bodyFont;
+  ctx.fillStyle = '#e8e6e3';
+  paraLineGroups.forEach((lines, gi) => {
+    lines.forEach(line => {
+      y += bodyLineHeight;
+      ctx.fillText(line, PAD, y - 14);
+    });
+    if (gi < paraLineGroups.length - 1) y += paraGap;
+  });
+
+  ctx.font = footerFont;
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'left';
+  ctx.fillText('シャリオ じゃれ本', PAD, H - 24);
+  ctx.textAlign = 'right';
+  ctx.fillText(`${pageNo}/${pageTotal}`, W - PAD, H - 24);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
+async function _doShareJareImages(data, url) {
+  const title = (data && data.title) || '（無題）';
+  const paras = ((data && data.paragraphs) || []).map(p => (p || '').trim()).filter(Boolean);
+  if (paras.length === 0) {
+    await _doShareJare(title, url);
+    return;
+  }
+
+  const groups = [];
+  for (let i = 0; i < paras.length && groups.length < 4; i += 2) {
+    groups.push(paras.slice(i, i + 2));
+  }
+
+  let files;
+  try {
+    const pageTotal = groups.length;
+    files = groups.map((groupParas, idx) => {
+      const pageNo = idx + 1;
+      const canvas = _jareBuildStoryCanvas(data, groupParas, pageNo, pageTotal);
+      const dataUrl = canvas.toDataURL('image/png');
+      const bin = atob(dataUrl.split(',')[1]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new File([bytes], `jare-${pageNo}.png`, { type: 'image/png' });
+    });
+  } catch (e) {
+    await _doShareJare(title, url);
+    return;
+  }
+
+  try {
+    if (navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files, text: `${title}\n${url}` });
+    } else {
+      throw new Error('files not supported');
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    await _doShareJare(title, url);
+  }
 }
 
 async function _doShareJare(title, url) {
