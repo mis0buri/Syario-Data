@@ -126,8 +126,8 @@ function filteredGathers() {
 // ── ナビ ──
 // ── ナビ ──
 const _STATS = ['ranking','member','graph','history'];
-const _GALLERY = ['gallery','jare','jare-detail','walk','column'];
-const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss','admin-swarm','admin-xarchive','admin-xarchive-add'];
+const _GALLERY = ['gallery','jare','jare-detail','walk','column','xarchive'];
+const _ADMIN = ['admin-members','admin-gather','admin-score','admin-schedule','admin-ai-discuss','admin-swarm','admin-xarchive-add'];
 // schedule.js の元データのスナップショット（Firestore上書き前）
 const _SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA);
 // Firestore から読み込んだスケジュール上書きデータ
@@ -142,6 +142,7 @@ const _HASH_TO_SECTION = {
   renban: 'renban', feedback: 'feedback', boshu: 'boshu', stamp: 'stamp', vote: 'vote', column: 'column',
   swarm: 'swarm',
   transit: 'transit',
+  xarchive: 'xarchive',
 };
 
 function showSection(id) {
@@ -175,11 +176,11 @@ function showSection(id) {
     document.querySelectorAll('#subnav button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isGallery) {
-    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本',walk:'散歩ログ',column:'コラム'};
+    const subLabels = {jare:'じゃれ本','jare-detail':'じゃれ本',walk:'散歩ログ',column:'コラム',xarchive:'Twitterアーカイブ'};
     document.querySelectorAll('#subnav-gallery button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
   if (isAdmin) {
-    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論','admin-swarm':'Swarm連携','admin-xarchive':'アーカイブ閲覧','admin-xarchive-add':'アーカイブ追加'};
+    const subLabels = {'admin-members':'メンバー管理','admin-gather':'対局登録','admin-score':'スコア入力','admin-schedule':'スケジュール','admin-ai-discuss':'AI議論','admin-swarm':'Swarm連携','admin-xarchive-add':'アーカイブ追加'};
     document.querySelectorAll('#subnav-admin button').forEach(b=>b.classList.toggle('active', b.textContent===subLabels[id]));
   }
 
@@ -207,8 +208,8 @@ function showSection(id) {
   if (id==='admin-schedule') initAdminSchedule();
   if (id==='admin-ai-discuss') initAdminAiDiscuss();
   if (id==='admin-swarm') initSwarm('admin');
-  if (id==='admin-xarchive') initAdminXArchive();
   if (id==='admin-xarchive-add') initAdminXArchiveAdd();
+  if (id==='xarchive') initXArchive();
   if (id==='swarm') initSwarm('main');
   if (id==='transit') initTransit();
   if (id==='column') initColumn();
@@ -228,6 +229,8 @@ function showSection(id) {
 function _handleAdminHashRoute() {
   const m = location.hash.match(/^#admin\/([a-z-]+)$/);
   if (!m) return;
+  // 旧リンク #admin/xarchive はギャラリー配下の閲覧ページへ
+  if (m[1] === 'xarchive') { showSection('xarchive'); return; }
   const secId = 'admin-' + m[1];
   if (!_ADMIN.includes(secId)) return;
   if (_isAdmin) {
@@ -876,6 +879,8 @@ function updateAuthUI(user) {
         _handleAdminHashRoute();
         // Swarm連携を直リンクで開いていた場合、ログイン情報確定後に再初期化
         if (currentSection === 'swarm') initSwarm('main');
+        // Twitterアーカイブ閲覧を直リンクで開いていた場合、ログイン確定後にガードを再評価
+        if (currentSection === 'xarchive') initXArchive();
       }
     });
   } else {
@@ -890,6 +895,7 @@ function updateAuthUI(user) {
     if (_navTransitBtn) _navTransitBtn.style.display = 'none';
     _refreshBoardIfActive();
     _refreshJareIfActive();
+    if (currentSection === 'xarchive') initXArchive();
   }
   const rbHint = document.getElementById('rb-login-hint');
   if (rbHint) rbHint.style.display = user ? 'none' : 'inline';

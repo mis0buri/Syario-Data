@@ -1717,7 +1717,8 @@ body.public-mode main { padding-top: 20px; }
 .xa-accounts {
   display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; -webkit-overflow-scrolling: touch;
 }
-.xa-accounts:empty::after { content: 'アカウントがありません'; font-size: 12px; color: var(--dim); }
+/* 読込後（.loaded付与後）に0件のときだけプレースホルダを出す */
+.xa-accounts.loaded:empty::after { content: 'アカウントがありません'; font-size: 12px; color: var(--dim); }
 .xa-account-chip {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
   min-height: 36px; padding: 6px 14px; border-radius: 20px;
@@ -1790,7 +1791,7 @@ body.public-mode main { padding-top: 20px; }
 .xa-sentinel { height: 1px; }
 
 @media (max-width: 640px) {
-  #sec-admin-xarchive .admin-input { font-size: 16px; /* iOSズーム防止 */ }
+  #sec-xarchive .admin-input { font-size: 16px; /* iOSズーム防止 */ }
   .xa-post-name { font-size: 13.5px; }
   .xa-post-body { font-size: 13.5px; }
 }

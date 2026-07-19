@@ -74,6 +74,7 @@
   <button class="active" onclick="showSection('jare')">じゃれ本</button>
   <button onclick="showSection('walk')">散歩ログ</button>
   <button onclick="showSection('column')">コラム</button>
+  <button onclick="showSection('xarchive')">Twitterアーカイブ</button>
 </div>
 
 <!-- 管理者サブナビ -->
@@ -84,7 +85,6 @@
   <button onclick="showSection('admin-schedule')">スケジュール</button>
   <button onclick="showSection('admin-ai-discuss')">AI議論</button>
   <button onclick="showSection('admin-swarm')">Swarm連携</button>
-  <button onclick="showSection('admin-xarchive')">アーカイブ閲覧</button>
   <button onclick="showSection('admin-xarchive-add')">アーカイブ追加</button>
 </div>
 
@@ -1052,6 +1052,7 @@
         <button class="gallery-hub-btn" onclick="showSection('jare')">じゃれ本</button>
         <button class="gallery-hub-btn" onclick="showSection('walk')">散歩ログ</button>
         <button class="gallery-hub-btn" onclick="showSection('column')">コラム</button>
+        <button class="gallery-hub-btn" onclick="showSection('xarchive')">Twitterアーカイブ</button>
       </div>
     </div>
   </div>
@@ -1473,9 +1474,10 @@
     </div>
   </div>
 
-  <div id="sec-admin-xarchive" class="section">
+  <!-- Twitterアーカイブ閲覧（ギャラリー配下・要ログイン） -->
+  <div id="sec-xarchive" class="section">
     <div class="card">
-      <div class="admin-section-title">アーカイブ閲覧</div>
+      <div class="card-title">Twitterアーカイブ</div>
       <div id="xa-view-guard" class="admin-status"></div>
       <div id="xa-view-body">
         <div class="xa-filterbar">

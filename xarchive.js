@@ -1,7 +1,8 @@
-// ── Xアーカイブ閲覧（管理者専用） ──
+// ── Xアーカイブ ──
 // 複数アカウントのXアーカイブをFirebase Storageのchunk JSONとして保存し、
-// 混合時系列タイムラインとして閲覧する。UIは_isAdminでゲート、保存はstorage.rulesの
-// 管理者UID許可リストで制御（Storageルールは/adminsを参照できないため直書き）。
+// 混合時系列タイムラインとして閲覧する。閲覧はギャラリー配下（#sec-xarchive）で
+// 未ログイン時は非表示（UI側のゲートのみ。Storage側のアクセス制御はstorage.rulesの
+// デプロイ済みルールに委ねる）。追加（アップロード）は管理者メニューのまま。
 // Storage構成: archives/manifest.json, archives/{username}/{YYYY-MM}.json
 
 // ── 閲覧 ──
@@ -133,6 +134,8 @@ function _xaRenderAccountChips() {
   const wrap = document.getElementById('xa-accounts');
   if (!wrap) return;
   wrap.innerHTML = '';
+  // 読込後にだけ空プレースホルダ（アカウントがありません）を出す
+  wrap.classList.add('loaded');
   const accounts = (_xaManifest && _xaManifest.accounts) || [];
   accounts.forEach(function (acc) {
     if (!acc || !acc.username) return;
@@ -167,8 +170,15 @@ function _xaSetDateHints() {
   if (toEl && minD) toEl.min = minD.slice(0, 10);
 }
 
-async function initAdminXArchive() {
-  if (!_isAdmin) return;
+async function initXArchive() {
+  const body = document.getElementById('xa-view-body');
+  if (!_currentUser) {
+    // ログイン確定前は空表示、未ログイン確定後は案内を出す
+    if (body) body.style.display = 'none';
+    _xaSetGuard(_authResolved ? 'Twitterアーカイブの閲覧にはログインが必要です。' : '', '');
+    return;
+  }
+  if (body) body.style.display = '';
   _xaSetGuard('', '');
   // 画面を開いただけでは読み込まない（チャンク取得の時間・帯域を消費するため、
   // 「読込」ボタンを押した時だけ読み込む）。読み込み済みなら表示をそのまま維持
