@@ -170,11 +170,11 @@ function _xaSetDateHints() {
 async function initAdminXArchive() {
   if (!_isAdmin) return;
   _xaSetGuard('', '');
-  _xaSetStatus('読み込み中…', '');
-  await _xaLoadManifest();
-  _xaRenderAccountChips();
-  _xaSetDateHints();
-  await xaApplyFilters();
+  // 画面を開いただけでは読み込まない（チャンク取得の時間・帯域を消費するため、
+  // 「読込」ボタンを押した時だけ読み込む）。読み込み済みなら表示をそのまま維持
+  if (!_xaManifest) {
+    _xaSetStatus('期間・アカウントを指定して「読込」を押すとアーカイブを読み込みます。', '');
+  }
 }
 
 // ── 追加（アップロード） ──
@@ -658,7 +658,7 @@ function xaToggleOrder() {
 }
 
 async function xaReload() {
-  _xaSetStatus('再読込中…', '');
+  _xaSetStatus('読み込み中…', '');
   await _xaLoadManifest();
   _xaRenderAccountChips();
   _xaSetDateHints();
