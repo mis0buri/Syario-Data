@@ -1492,9 +1492,10 @@
           </div>
           <div class="xa-filter-row">
             <button type="button" class="admin-btn sm" onclick="xaApplyFilters()">表示</button>
-            <button type="button" class="admin-btn sm" onclick="xaReload()">再読込</button>
+            <button type="button" class="admin-btn sm" onclick="xaReload()">読込</button>
             <button type="button" class="admin-btn sm" onclick="xaClearCache()">キャッシュ削除</button>
           </div>
+          <div class="admin-note">※期間を絞らずに読み込むと全期間のデータを取得するため時間がかかります。開始日・終了日で期間を指定してから「読込」を押すのがおすすめです。</div>
         </div>
         <div id="xa-status" class="admin-status"></div>
         <div id="xa-timeline" class="xa-timeline"></div>
@@ -1666,7 +1667,7 @@
 <script src="./boshu.js"></script>
 <script src="./stamp.js"></script>
 <script src="./admin.js"></script>
-<script src="./xarchive.js?v=20260713-1"></script>
+<script src="./xarchive.js?v=20260713-2"></script>
 <script src="./swarm.js"></script>
 <script src="./transit.js?v=20260710-5"></script>
 
