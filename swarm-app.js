@@ -31,6 +31,10 @@ function _esc(s) {
 }
 
 async function init() {
+  // PWA関連の案内(.pwa-note)はPWAとして起動中は表示しない（display-mode非対応環境向けのJSフォールバック）
+  const _standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (_standalone) document.querySelectorAll('.pwa-note').forEach(function (el) { el.style.display = 'none'; });
+
   firebase.initializeApp(SWARM_APP_FIREBASE_CONFIG);
   _db = firebase.firestore();
 
