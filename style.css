@@ -1806,3 +1806,9 @@ body.public-mode main { padding-top: 20px; }
   .xa-post-body { font-size: 13.5px; }
   .xa-avatar { width: 34px; height: 34px; font-size: 14.5px; }
 }
+
+/* ── PWA案内（.pwa-note）はPWAとして起動中は表示しない ── */
+@media (display-mode: standalone) {
+  .pwa-note { display: none !important; }
+}
+.pwa-note a { color: var(--accent); }
