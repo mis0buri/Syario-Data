@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWA化の手順 | シャリオ</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: #1a1b1e;
+    color: #e8e6e3;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.7;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0 0 20px;
+    text-align: center;
+  }
+  h2 {
+    font-size: 17px;
+    margin: 0 0 12px;
+    color: #00E5FF;
+  }
+  .card {
+    background: #232529;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 18px 18px;
+    margin-bottom: 16px;
+  }
+  ul, ol {
+    margin: 0;
+    padding-left: 1.4em;
+  }
+  ul li, ol li {
+    margin-bottom: 8px;
+  }
+  ol li:last-child, ul li:last-child {
+    margin-bottom: 0;
+  }
+  .sub {
+    color: #a0a0a0;
+    font-size: 14px;
+    text-align: center;
+    margin: 0 0 24px;
+  }
+  a {
+    color: #00E5FF;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  .footer-links {
+    text-align: center;
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  strong {
+    color: #e8e6e3;
+  }
+  code {
+    background: #1a1b1e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.9em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📱 PWA化（ホーム画面に追加）の手順</h1>
+  <p class="sub">シャリオをホーム画面に追加して、アプリのように使えるようにする手順です。</p>
+
+  <div class="card">
+    <h2>PWA化すると何がうれしい？</h2>
+    <ul>
+      <li>アプリのように全画面で起動できる（アドレスバー無し）</li>
+      <li><strong>読み込んだデータ（Twitterアーカイブのキャッシュ等）が端末に保持されやすくなる</strong>。iPhoneのSafariは、しばらく使っていないサイトの保存データを自動削除することがありますが、ホーム画面に追加したPWAのデータは削除対象になりません</li>
+      <li>2回目以降の表示が速くなる</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>iPhone / iPad（Safari）</h2>
+    <ol>
+      <li><strong>Safari</strong>でシャリオ（このサイト）を開く（Chrome等ではなくSafari推奨）</li>
+      <li>画面下（iPadは右上）の<strong>共有ボタン（□に↑のアイコン）</strong>をタップ</li>
+      <li>メニューを下にスクロールして<strong>「ホーム画面に追加」</strong>をタップ</li>
+      <li>名前を確認して右上の<strong>「追加」</strong></li>
+      <li>ホーム画面に追加された<strong>シャリオのアイコンから起動</strong>する</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Android（Chrome）</h2>
+    <ol>
+      <li>Chromeでシャリオを開く</li>
+      <li>右上の<strong>メニュー（⋮）</strong></li>
+      <li><strong>「アプリをインストール」</strong>（または「ホーム画面に追加」）</li>
+      <li>案内に従って追加</li>
+      <li>ホーム画面のアイコンから起動</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>PC（Chrome / Edge）</h2>
+    <ol>
+      <li>アドレスバー右端の<strong>インストールアイコン（⊕やモニタのマーク）</strong>をクリック → 「インストール」</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>PWAで起動できているかの確認</h2>
+    <p>ホーム画面のアイコンから開いて、<strong>アドレスバーが無い全画面表示</strong>になっていればPWAとして起動しています。PWAで起動中は、サイト内のPWA案内は自動的に非表示になります。</p>
+  </div>
+
+  <div class="footer-links">
+    <a href="./index.html#xarchive">← Twitterアーカイブへ戻る</a>
+    <a href="./index.html">シャリオのトップへ</a>
+  </div>
+</div>
+</body>
+</html>

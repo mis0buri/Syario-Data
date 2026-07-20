@@ -30,6 +30,8 @@ Open `http://localhost:8000`. No automated tests. Test on iOS Safari for layout 
 
 `swarm/index.html` is a clean-URL mirror of `swarm-app.html` (served at `/swarm/` on GitHub Pages), referencing the same `swarm-app.css`/`swarm-app.js` via `../` paths. Since `connectAccount()` in `swarm-app.js` builds the Foursquare OAuth `redirect_uri` from `location.origin + location.pathname`, **the `/swarm/` path is a distinct redirect URI from `/swarm-app.html`** and must be separately registered in the Foursquare app's OAuth settings, or the "Swarmと連携する" button will fail with a redirect URI mismatch. When editing the Swarm checkin/account logic, keep both `swarm-app.html` and `swarm/index.html` in sync manually (they're plain copies, not templated).
 
+`pwa-guide.html` — a self-contained PWA installation guide page (linked from the Twitterアーカイブ section). Site-wide convention: PWA-related notices get the `pwa-note` class and are hidden when running as an installed PWA (CSS `@media (display-mode: standalone)` + `_isStandalone()` JS fallback in app.js).
+
 ### Script Load Order
 
 Scripts load sequentially at bottom of `<body>` — **order matters**:

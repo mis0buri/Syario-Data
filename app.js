@@ -1195,6 +1195,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('header').addEventListener('click', () => {
     if (_bgPreview) toggleBgPreview();
   });
+  // PWA関連の案内(.pwa-note)はPWAとして起動中は表示しない
+  // （CSSの@media (display-mode: standalone)が効かない環境向けのJSフォールバック）
+  if (_isStandalone()) document.querySelectorAll('.pwa-note').forEach(el => el.style.display = 'none');
 });
 
 let _nightOverride = false;
