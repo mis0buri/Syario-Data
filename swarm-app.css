@@ -225,3 +225,9 @@ textarea.sw-input { min-height: unset; resize: vertical; }
   .sw-header h1 { font-size: 22px; }
   .sw-card { padding: 16px 14px 18px; border-radius: 16px; }
 }
+
+/* ── PWA案内（.pwa-note）はPWAとして起動中は表示しない ── */
+@media (display-mode: standalone) {
+  .pwa-note { display: none !important; }
+}
+.pwa-note a { color: var(--sw-orange-dark); text-decoration: underline; }
