@@ -924,7 +924,8 @@ async function _doLogin(provider, label) {
   if (!_auth) return;
   try {
     const result = await _auth.signInWithPopup(provider);
-    _notifyDiscordLogin(result.user, label);
+    // reloadでfetchが中断されると通知が届かないため、送信完了を待ってから再読み込みする
+    await _notifyDiscordLogin(result.user, label);
     location.reload();
   } catch(e) {
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
@@ -953,10 +954,12 @@ async function _notifyDiscordLogin(user, provider) {
   const name = user.displayName || '(名前なし)';
   const email = user.email || '(メールなし)';
   const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  // keepalive: ページ遷移(reload)後もリクエストを継続させる
   await fetch('https://discord.com/api/webhooks/1486620241294397483/moDgwuhBw70TSEbnEvLqQhgc7t8cjPFeqUDmWPVawx00_-O2CUJ3lN027EVUG_7g_nwW', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: `🔑 初回ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` })
+    body: JSON.stringify({ content: `🔑 初回ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` }),
+    keepalive: true
   }).catch(() => {});
 }
 
