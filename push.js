@@ -3,7 +3,7 @@
 // `fcm_tokens/{token}` に保存し、Cloud Functions が予約作成時にまとめて送信する。
 
 // Firebase Console → プロジェクト設定 → Cloud Messaging → Web Push証明書 で生成した公開鍵を貼る（公開鍵なのでコミット可）
-const FCM_VAPID_KEY = '';
+const FCM_VAPID_KEY = 'BKLLpba2YVU2eJeDPA5O0aXjVJCh1g59me3LIYHCSFmI1UCCjawinVAgNQewam_jY5ERxXjTOmwdKjmREBnUHBE';
 
 const PUSH_LS_KEY = 'push_enabled';
 
