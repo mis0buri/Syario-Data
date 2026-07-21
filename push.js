@@ -8,14 +8,32 @@ const FCM_VAPID_KEY = 'BKLLpba2YVU2eJeDPA5O0aXjVJCh1g59me3LIYHCSFmI1UCCjawinVAgN
 const PUSH_LS_KEY = 'push_enabled';
 
 async function _pushSupported() {
-  return !!(window.firebase && firebase.messaging && await firebase.messaging.isSupported().catch(() => false)) && 'serviceWorker' in navigator && 'Notification' in window;
+  try {
+    if (!window.firebase || !firebase.messaging) return false;
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) return false;
+    // compat SDKのisSupported()はbooleanを同期で返す（modularはPromise）。両対応する
+    const s = firebase.messaging.isSupported ? firebase.messaging.isSupported() : true;
+    const ok = (s && typeof s.then === 'function') ? await s : s;
+    return !!ok;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function initPushUI() {
   const btn = document.getElementById('push-toggle-btn');
   const status = document.getElementById('push-status');
   if (!btn || !status) return;
+  try {
+    await _initPushUIInner(btn, status);
+  } catch (e) {
+    // 想定外のエラーでも無言にせず表示する（原因調査を可能にするため）
+    status.textContent = '通知設定の初期化に失敗しました: ' + (e && e.message ? e.message : e);
+    btn.style.display = 'none';
+  }
+}
 
+async function _initPushUIInner(btn, status) {
   if (!FCM_VAPID_KEY) {
     status.textContent = '通知の設定が未完了です（VAPIDキー未設定）';
     btn.style.display = 'none';
