@@ -129,5 +129,11 @@ service cloud.firestore {
     match /admin_secrets/{docId} {
       allow read, write: if isAdmin();
     }
+
+    match /fcm_tokens/{token} {
+      // 通知トークン: 登録・解除は誰でも可（トークン自体が推測不能な秘密）。読み取りは不可
+      allow read: if false;
+      allow create, update, delete: if true;
+    }
   }
 }

@@ -986,6 +986,7 @@ function openMyPage() {
   });
   const a2hsBtn = document.getElementById('a2hs-trigger-btn');
   if (a2hsBtn) a2hsBtn.style.display = (_isIOS() && !_isStandalone()) ? '' : 'none';
+  if (typeof initPushUI === 'function') initPushUI();
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
