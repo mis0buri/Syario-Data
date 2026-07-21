@@ -27,6 +27,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <link rel="stylesheet" href="./style.css?v=20260715">
 </head>
 <body>
@@ -1660,6 +1661,7 @@
 
 <script src="./schedule.js"></script>
 <script src="./app.js"></script>
+<script src="./push.js"></script>
 <script src="./stats.js"></script>
 <script src="./schedule-ui.js"></script>
 <script src="./board.js"></script>
@@ -1950,6 +1952,10 @@
       <div id="mypage-manager-badge" style="display:none;">
         <span style="display:inline-block;background:rgba(97,175,239,.12);border:1px solid #61afef;color:#61afef;font-size:12px;font-weight:700;padding:4px 16px;border-radius:20px;letter-spacing:.1em;">マネージャー</span>
       </div>
+    </div>
+    <div id="push-notify-block" style="margin-top:12px;">
+      <button type="button" id="push-toggle-btn" class="mypage-theme-btn" style="width:100%;display:none;" onclick="togglePushNotifications()">予約通知を受け取る</button>
+      <div id="push-status" class="admin-status" style="margin-top:6px;"></div>
     </div>
     <div class="mypage-section">
       <span class="mypage-label">登録名</span>

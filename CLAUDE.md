@@ -40,6 +40,8 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 2. `app.js` — captures `_SCHEDULE_ORIG = Object.assign({}, SCHEDULE_DATA)` at parse time
 3. `stats.js`, `schedule-ui.js`, `board.js`, `vote.js`, `column.js`, `gallery.js`, `renban.js`, `boshu.js`, `stamp.js`, `admin.js`, `swarm.js`
 
+`push.js` loads immediately after `app.js` (before `stats.js`, etc.) since it only needs `_db`/`_auth`/`_currentUser`/`_isIOS()`/`_isStandalone()` from app.js scope.
+
 ### Module Organization
 
 | File | Purpose |
@@ -59,6 +61,7 @@ Scripts load sequentially at bottom of `<body>` — **order matters**:
 | **swarm.js** | Swarm連携 — Foursquare/Swarm OAuth check-in linking + X share; namespaced (`main`/`admin`) to support two independent Client IDs; usable without login (account stored in `localStorage` key `swarm_local_account_{ns}`, migrated to Firestore on later login) |
 | **xarchive.js** | Xアーカイブ — viewer is the gallery section `#sec-xarchive`(Twitterアーカイブ, `initXArchive()`, **login-gated**: `_currentUser` required, guard message + hidden body when logged out, re-evaluated on auth resolve/logout via `updateAuthUI`); upload stays the admin section `#sec-admin-xarchive-add`(追加, gated by `_isAdmin`). The account-chip empty placeholder（アカウントがありません）only shows after a manifest load (`.xa-accounts.loaded:empty::after`; `.loaded` added by `_xaRenderAccountChips`). Stores parsed X archives in **Firebase Storage** (`_storage`, compat SDK): `archives/manifest.json` + `archives/{username}/{YYYY-MM}.json` (month chunks). Upload parses `tweets.js` in-browser (`_xaNormalizeTweet`), extracting only text/date/type/media-URL (DMs etc. never read). Viewer merges accounts into one chronological timeline with account/date filters + AND search, incremental render via IntersectionObserver, IndexedDB chunk cache (`xarchive` DB, invalidated by manifest `generated_at`). Post cards show an avatar (`_xaAvatarHtml`): current X icon via `unavatar.io/twitter/{username}?fallback=false`, falling back to an initials circle (hue from username hash) when the fetch 404s/fails (`onerror` removes the overlay `<img>`). Media referenced by pbs.twimg.com URL (not stored). The login gate is **UI-only** — Storage-side access control is left to the deployed `storage.rules` (repo file: **UID allowlist**, unchanged by the gallery move; Storage rules can't read `/admins`, so admins add their UID and `firebase deploy --only storage`). The viewer reads chunks via `fetch()` of the download URL, so the bucket **needs a CORS policy** allowing the site origin (`https://mis0buri.github.io`) — without it, uploads succeed but the viewer shows "アーカイブがまだありません" (CORS-blocked fetch). Apply once with `gsutil cors set cors.json gs://syariodate.firebasestorage.app` (config kept in repo-root `cors.json`); bucket-level, no site redeploy needed. Media (`<img>`/`<video>` tags) is CORS-exempt |
 | **schedule.js** | Static `SCHEDULE_DATA` object only |
+| **push.js** | 予約プッシュ通知 — FCM Web Push opt-in (マイページ button → SW register + token to Firestore `fcm_tokens/{token}`); requires `FCM_VAPID_KEY` (public, committed) and `functions/` deploy. SW: `firebase-messaging-sw.js` (config inlined; registered with explicit path because the site lives under /Syario-Data/) |
 
 ### Global State (app.js)
 
@@ -123,6 +126,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 | `stamp_cards` | Own UID only |
 | `swarm_accounts`, `swarm_accounts_admin` | Own UID only — Foursquare OAuth access tokens for the main-tab and admin-only Swarm integrations respectively |
 | `admins`, `managers` | Server only (client read-only) |
+| `fcm_tokens` | Anyone create/update/delete (unguessable token ids); read: nobody (Functions read via Admin SDK) |
 
 ### Rating System (stats.js `calcRatings`)
 
@@ -172,7 +176,7 @@ Two escape helpers in app.js — use them for all user-provided strings:
 
 - **Feedback form** → Discord webhook (`WEBHOOK_URL` hardcoded in app.js)
 - **Xアーカイブ upload success** → same Discord webhook as feedback, from both `xaUpload` implementations (app.js's `WEBHOOK_URL` in xarchive.js; standalone page duplicates it as `XAA_WEBHOOK_URL` in xarchive-add.js — update both when rotating the URL). Notification failure never fails the upload (try/catch + console.warn)
-- **First-time login** → separate Discord webhook (deduplicated via localStorage key `syario_loggedin_{uid}`)
+- **First-time login** → separate Discord webhook (deduplicated via localStorage key `syario_loggedin_{uid}`). Fires for **both** Google and X via `_doLogin` → `_notifyDiscordLogin`; the fetch is `await`ed and sent with `keepalive: true` so the `location.reload()` right after login can't abort it (the dedup key is set before sending, so an aborted request would otherwise be lost forever)
 - **Login** (`loginWithGoogle` / `loginWithTwitter`, both via `_doLogin()`) — uses `signInWithPopup` in **all** environments (desktop, PWA, and plain mobile browsers). `signInWithRedirect` was dropped because the site (`github.io`) and Firebase auth handler (`firebaseapp.com`) are different domains, so Safari ITP / Chrome third-party-storage partitioning drops the session on return → "auth succeeds but login state never applies". Popups open fine from the login-button user gesture; `auth/popup-blocked` (mainly in-app browsers like LINE/Instagram) shows a "open in a normal browser" alert. `_auth.getRedirectResult()` in `initFirebase()` is now effectively a no-op kept only to drain any stale pending redirect.
 - **X (Twitter) login** (`loginWithTwitter`) — re-enabled 2026-07 after moving to a paid X API tier (previously disabled 2026-06 when X's API tier changes broke Firebase's Twitter OAuth with `auth/invalid-credential`). Firebase's Twitter provider uses OAuth **1.0a** — the "API Key & Secret" (Consumer Keys), not the Bearer Token or OAuth2 client id. If `auth/invalid-credential` returns, check the X API tier/keys and the Firebase Twitter provider callback config (`https://<project>.firebaseapp.com/__/auth/handler`).
 
