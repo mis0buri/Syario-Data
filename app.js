@@ -1004,6 +1004,11 @@ function _isStandalone() {
 function openA2HSGuide() {
   document.getElementById('a2hs-modal').classList.add('open');
 }
+
+// 最新版に更新（PWAには更新ボタンが無いため、キャッシュを無視するクエリ付きで開き直す）
+function forceReloadApp() {
+  location.href = location.pathname + '?r=' + Date.now() + location.hash;
+}
 function closeA2HSGuide() {
   document.getElementById('a2hs-modal').classList.remove('open');
 }
