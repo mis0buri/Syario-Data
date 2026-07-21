@@ -632,7 +632,7 @@ function _xaPostCardHtml(post) {
         mediaHtml +
         '<div class="xa-post-foot">' +
           '<span class="xa-post-time">' + _esc(dtLabel) + '</span>' +
-          '<button type="button" class="admin-btn sm" onclick="xaCopyPostUrl(\'' + safeUsernameAttr + '\',\'' + safeIdAttr + '\')">コピー</button>' +
+          '<button type="button" class="admin-btn sm" onclick="xaCopyPostUrl(\'' + safeUsernameAttr + '\',\'' + safeIdAttr + '\')">リンクをコピー</button>' +
         '</div>' +
       '</div>' +
     '</div>'
