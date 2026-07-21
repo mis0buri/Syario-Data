@@ -127,9 +127,26 @@
   </div>
 
   <div class="footer-links">
-    <a href="./index.html#xarchive">← Twitterアーカイブへ戻る</a>
+    <a href="./index.html#xarchive" id="back-link" hidden>← Twitterアーカイブへ戻る</a>
     <a href="./index.html">シャリオのトップへ</a>
   </div>
 </div>
+<script>
+(function () {
+  // リンク元ページが ?from= で戻り先を指定する（ホワイトリスト外・指定なしなら非表示）
+  var MAP = {
+    'xarchive':  { href: './index.html#xarchive', label: '← Twitterアーカイブへ戻る' },
+    'swarm':     { href: './swarm/',              label: '← Swarm連携ページへ戻る' },
+    'swarm-app': { href: './swarm-app.html',      label: '← Swarm連携ページへ戻る' }
+  };
+  var back = MAP[new URLSearchParams(location.search).get('from')];
+  if (back) {
+    var a = document.getElementById('back-link');
+    a.href = back.href;
+    a.textContent = back.label;
+    a.hidden = false;
+  }
+})();
+</script>
 </body>
 </html>

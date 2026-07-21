@@ -1812,3 +1812,30 @@ body.public-mode main { padding-top: 20px; }
   .pwa-note { display: none !important; }
 }
 .pwa-note a { color: var(--accent); }
+
+/* ── 通知機能の告知（NEWバッジ＋吹き出し） ── */
+#mypage-open-btn { position: relative; }
+.new-badge {
+  position: absolute; top: -7px; right: -8px;
+  background: var(--red); color: #fff;
+  font-size: 9px; font-weight: 700; line-height: 1;
+  padding: 3px 5px; border-radius: 8px; letter-spacing: .05em;
+  pointer-events: none;
+}
+.notice-bubble {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.notice-bubble::after,
+.notice-bubble::before {
+  content: ''; position: absolute; left: 24px;
+  border: 6px solid transparent;
+}
+.notice-bubble::before { bottom: -13px; border-top-color: var(--accent); }
+.notice-bubble::after  { bottom: -11px; border-top-color: var(--surface); }

@@ -57,7 +57,7 @@
     <button id="auth-login-btn" class="auth-btn primary" onclick="openLoginModal()" style="display:none;">ログイン</button>
     <!-- ログイン済み -->
     <div id="auth-user-info" style="display:none;">
-      <button class="auth-btn" onclick="openMyPage()">マイページ</button>
+      <button class="auth-btn" id="mypage-open-btn" onclick="openMyPage()">マイページ<span id="mypage-new-badge" class="new-badge" hidden>NEW</span></button>
     </div>
   </div>
 </header>
@@ -1499,7 +1499,7 @@
             <button type="button" class="admin-btn sm" onclick="xaClearCache()">キャッシュ削除</button>
           </div>
           <div class="admin-note">※期間を絞らずに読み込むと全期間のデータを取得するため時間がかかります。開始日・終了日で期間を指定してから「読込」を押すのがおすすめです。</div>
-          <div class="admin-note pwa-note">📱 このサイトをPWA化（ホーム画面に追加）すると、読み込んだアーカイブデータが端末に保持され、再読み込みなしで素早く表示できます。<a href="./pwa-guide.html" target="_blank" rel="noopener">PWA化の手順はこちら</a></div>
+          <div class="admin-note pwa-note">📱 このサイトをPWA化（ホーム画面に追加）すると、読み込んだアーカイブデータが端末に保持され、再読み込みなしで素早く表示できます。<a href="./pwa-guide.html?from=xarchive" target="_blank" rel="noopener">PWA化の手順はこちら</a></div>
         </div>
         <div id="xa-status" class="admin-status"></div>
         <div id="xa-timeline" class="xa-timeline"></div>
@@ -1954,6 +1954,7 @@
       </div>
     </div>
     <div id="push-notify-block" style="margin-top:12px;">
+      <div id="push-notice-bubble" class="notice-bubble" hidden>🔔 予約の通知をオンにすることができます</div>
       <button type="button" id="push-toggle-btn" class="mypage-theme-btn" style="width:100%;display:none;" onclick="togglePushNotifications()">予約通知を受け取る</button>
       <div id="push-status" class="admin-status" style="margin-top:6px;"></div>
     </div>

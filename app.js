@@ -987,11 +987,31 @@ function openMyPage() {
   const a2hsBtn = document.getElementById('a2hs-trigger-btn');
   if (a2hsBtn) a2hsBtn.style.display = (_isIOS() && !_isStandalone()) ? '' : 'none';
   if (typeof initPushUI === 'function') initPushUI();
+  const noticeBubble = document.getElementById('push-notice-bubble');
+  if (noticeBubble) {
+    const showNotice = localStorage.getItem(PUSH_NOTICE_LS_KEY) !== '1' && localStorage.getItem('push_enabled') !== '1';
+    noticeBubble.hidden = !showNotice;
+    if (showNotice) {
+      localStorage.setItem(PUSH_NOTICE_LS_KEY, '1');
+      _updatePushNoticeBadge();
+    }
+  }
   document.getElementById('mypage-modal').classList.add('open');
 }
 function closeMyPage() {
   document.getElementById('mypage-modal').classList.remove('open');
 }
+
+// ── 通知機能の告知（1回だけのNEWバッジ＋吹き出し） ──
+// マイページを一度開いたら既読（push_notice_seen）になり、以後は表示しない。
+// すでに通知オン（push_enabled）の人にはバッジ自体を出さない。
+const PUSH_NOTICE_LS_KEY = 'push_notice_seen';
+function _updatePushNoticeBadge() {
+  const badge = document.getElementById('mypage-new-badge');
+  if (!badge) return;
+  badge.hidden = localStorage.getItem(PUSH_NOTICE_LS_KEY) === '1' || localStorage.getItem('push_enabled') === '1';
+}
+_updatePushNoticeBadge();
 
 // ── ホーム画面に追加ガイド ──
 // iOSのSafariにはA2HSを直接起動するAPIが無いため、手順を案内するモーダルを表示する
