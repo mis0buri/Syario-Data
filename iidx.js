@@ -583,9 +583,9 @@ async function iidxAutoFetchTable() {
       + '[{"tier":"地力S+","songs":["曲名1","曲名2"]},{"tier":"個人差S+","songs":["..."]}]\n'
       + 'ティア名と曲名はページの表記のまま（†や記号も含めて）省略せずすべて出力してください。'
       + '「未定」「難易度未定」などランクが決まっていない曲のグループも、あればティアとして含めてください。';
-    const attempt = async () => {
+    const attempt = async (model) => {
       const key = _nextGeminiKey();
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -594,20 +594,36 @@ async function iidxAutoFetchTable() {
           generationConfig: { maxOutputTokens: 65536 },
         })
       });
+      if (res.status === 503 || res.status === 429) return { overloaded: true, status: res.status };
       if (!res.ok) await _throwApiError(res, 'Gemini');
       const data = await res.json();
       const cand = data?.candidates?.[0];
       const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
       return { cand, text, tiers: _iidxParseTiersJson(text) };
     };
-    let { cand, text, tiers } = await attempt();
-    if (!tiers.length) {
-      // wikiの読み取りは一時的に失敗することがあるため、1回だけ自動で再試行する
-      showProgress('抽出に失敗したため再試行中');
-      ({ cand, text, tiers } = await attempt());
+    // 混雑(503/429)や一時的な抽出失敗に備え、モデルを切り替えながら最大4回試す
+    // （url_context対応モデル: 2.5-flash → 2.5-flash-lite の順にフォールバック）
+    const plan = ['gemini-2.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash-lite'];
+    let last = null, lastOverload = null;
+    for (let i = 0; i < plan.length; i++) {
+      if (i > 0) {
+        showProgress(`${i === 1 ? '再試行中' : '別モデルで再試行中'}（${i + 1}回目・${plan[i]}）`);
+        await new Promise(r => setTimeout(r, 2500));
+      }
+      const r = await attempt(plan[i]);
+      if (r.overloaded) { lastOverload = r.status; continue; }
+      last = r;
+      if (r.tiers.length) break;
     }
     // 確認ダイアログや結果表示を経過表示で上書きしないよう、抽出前にタイマーを止める
     clearInterval(timer); timer = null;
+    if (!last && lastOverload) {
+      throw new Error(`Geminiが混雑しています（${lastOverload}）。数分おいて再試行してください。`);
+    }
+    if (!last) {
+      throw new Error('Gemini応答を取得できませんでした。時間をおいて再試行してください。');
+    }
+    let { cand, text, tiers } = last;
     if (!tiers.length) {
       // 失敗原因を切り分けてメッセージに反映（デバッグ用に生応答もコンソールへ）
       const urlMeta = cand?.urlContextMetadata?.urlMetadata || cand?.url_context_metadata?.url_metadata || [];
