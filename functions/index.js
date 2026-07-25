@@ -101,7 +101,7 @@ exports.fetchIidxWiki = onRequest({
   cors: ['https://mis0buri.github.io', 'http://localhost:8000', 'http://127.0.0.1:8000'],
 }, async (req, res) => {
   const WIKI_URL = 'https://w.atwiki.jp/bemani2sp11/pages/19.html';
-  const cacheFile = admin.storage().bucket().file('cache/iidx-wiki.html');
+  const cacheFile = admin.storage().bucket('syariodate.firebasestorage.app').file('cache/iidx-wiki.html');
   let html = null;
   let source = 'live';
   try {
@@ -116,7 +116,9 @@ exports.fetchIidxWiki = onRequest({
     if (!r.ok) throw new Error('wiki fetch failed: ' + r.status);
     html = await r.text();
     // 最終成功キャッシュを更新（保存失敗は本応答に影響させない）
-    cacheFile.save(html, { contentType: 'text/html' }).catch((e) => console.warn('iidx wiki cache save failed', e));
+    cacheFile.save(html, { contentType: 'text/html' })
+      .then(() => console.log('iidx wiki cache saved'))
+      .catch((e) => console.warn('iidx wiki cache save failed', e));
   } catch (liveErr) {
     // wikiが読めない時（atwikiのIPブロック等）は最後に成功したHTMLを返す
     try {
