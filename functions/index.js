@@ -100,15 +100,37 @@ exports.fetchIidxWiki = onRequest({
   region: 'asia-northeast1',
   cors: ['https://mis0buri.github.io', 'http://localhost:8000', 'http://127.0.0.1:8000'],
 }, async (req, res) => {
+  const WIKI_URL = 'https://w.atwiki.jp/bemani2sp11/pages/19.html';
+  const cacheFile = admin.storage().bucket().file('cache/iidx-wiki.html');
+  let html = null;
+  let source = 'live';
   try {
-    const r = await fetch('https://w.atwiki.jp/bemani2sp11/pages/19.html', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SyarioIIDX/1.0)' },
+    const r = await fetch(WIKI_URL, {
+      headers: {
+        // データセンターIP向けの単純なUAブロックを避けるため、実ブラウザ相当のヘッダを送る
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ja,en-US;q=0.8,en;q=0.6',
+      },
     });
-    if (!r.ok) { res.status(502).json({ error: 'wiki fetch failed: ' + r.status }); return; }
-    const html = await r.text();
-    res.set('Cache-Control', 'public, max-age=300');
-    res.status(200).type('text/html').send(html);
-  } catch (e) {
-    res.status(502).json({ error: String((e && e.message) || e) });
+    if (!r.ok) throw new Error('wiki fetch failed: ' + r.status);
+    html = await r.text();
+    // 最終成功キャッシュを更新（保存失敗は本応答に影響させない）
+    cacheFile.save(html, { contentType: 'text/html' }).catch((e) => console.warn('iidx wiki cache save failed', e));
+  } catch (liveErr) {
+    // wikiが読めない時（atwikiのIPブロック等）は最後に成功したHTMLを返す
+    try {
+      const [buf] = await cacheFile.download();
+      html = buf.toString('utf8');
+      source = 'cache';
+      console.warn('iidx wiki live fetch failed, serving cache:', String(liveErr && liveErr.message || liveErr));
+    } catch (cacheErr) {
+      res.status(502).json({ error: 'wiki取得に失敗し、キャッシュもありません: ' + String(liveErr && liveErr.message || liveErr) });
+      return;
+    }
   }
+  res.set('Access-Control-Expose-Headers', 'X-Iidx-Source');
+  res.set('X-Iidx-Source', source);
+  res.set('Cache-Control', 'no-store');
+  res.status(200).type('text/html').send(html);
 });
