@@ -1,5 +1,6 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onRequest } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -94,31 +95,55 @@ exports.notifyReservation = onDocumentCreated(
   }
 );
 
-// 弐寺地力表wikiの中継。atwikiはCORSを返さずブラウザから直接読めないため、
-// サーバー側でfetchしてHTMLを返す（対象URLは固定・認証情報は扱わない）
+// ── 弐寺地力表wikiの取得まわり ──
+// atwikiはCORS非対応かつGoogle系IPを間欠的にブロックするため、
+// ライブ取得＋最終成功キャッシュ（Cloud Storage）＋定期ウォームで構成する。
+const IIDX_WIKI_URL = 'https://w.atwiki.jp/bemani2sp11/pages/19.html';
+const _iidxCacheFile = () => admin.storage().bucket('syariodate.firebasestorage.app').file('cache/iidx-wiki.html');
+
+// ライブ取得して成功したらキャッシュを更新する（成功時はHTMLを返し、失敗時はthrow）
+async function _iidxFetchLiveAndCache() {
+  const r = await fetch(IIDX_WIKI_URL, {
+    headers: {
+      // データセンターIP向けの単純なUAブロックを避けるため、実ブラウザ相当のヘッダを送る
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'ja,en-US;q=0.8,en;q=0.6',
+    },
+  });
+  if (!r.ok) throw new Error('wiki fetch failed: ' + r.status);
+  const html = await r.text();
+  await _iidxCacheFile().save(html, { contentType: 'text/html' })
+    .then(() => console.log('iidx wiki cache saved'))
+    .catch((e) => console.warn('iidx wiki cache save failed', e));
+  return html;
+}
+
+// 定期ウォーム: atwikiのブロックは間欠的なので、4時間おきに自動でライブ取得を試み、
+// 成功した時点のHTMLをキャッシュしておく。ユーザーの取り込みは常にキャッシュで成立する
+exports.refreshIidxWikiCache = onSchedule({
+  schedule: 'every 4 hours',
+  region: 'asia-northeast1',
+  timeZone: 'Asia/Tokyo',
+}, async () => {
+  try {
+    const html = await _iidxFetchLiveAndCache();
+    console.log('iidx wiki cache refreshed:', html.length, 'bytes');
+  } catch (e) {
+    console.warn('iidx wiki cache refresh failed:', String((e && e.message) || e));
+  }
+});
+
+// 弐寺地力表wikiの中継。ライブ取得を試み、失敗時は最終成功キャッシュを返す
 exports.fetchIidxWiki = onRequest({
   region: 'asia-northeast1',
   cors: ['https://mis0buri.github.io', 'http://localhost:8000', 'http://127.0.0.1:8000'],
 }, async (req, res) => {
-  const WIKI_URL = 'https://w.atwiki.jp/bemani2sp11/pages/19.html';
-  const cacheFile = admin.storage().bucket('syariodate.firebasestorage.app').file('cache/iidx-wiki.html');
+  const cacheFile = _iidxCacheFile();
   let html = null;
   let source = 'live';
   try {
-    const r = await fetch(WIKI_URL, {
-      headers: {
-        // データセンターIP向けの単純なUAブロックを避けるため、実ブラウザ相当のヘッダを送る
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ja,en-US;q=0.8,en;q=0.6',
-      },
-    });
-    if (!r.ok) throw new Error('wiki fetch failed: ' + r.status);
-    html = await r.text();
-    // 最終成功キャッシュを更新（保存失敗は本応答に影響させない）
-    cacheFile.save(html, { contentType: 'text/html' })
-      .then(() => console.log('iidx wiki cache saved'))
-      .catch((e) => console.warn('iidx wiki cache save failed', e));
+    html = await _iidxFetchLiveAndCache();
   } catch (liveErr) {
     // wikiが読めない時（atwikiのIPブロック等）は最後に成功したHTMLを返す
     try {
