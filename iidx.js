@@ -595,11 +595,25 @@ async function iidxAutoFetchTable() {
     });
     if (!res.ok) await _throwApiError(res, 'Gemini');
     const data = await res.json();
-    const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+    const cand = data?.candidates?.[0];
+    const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
     // 確認ダイアログや結果表示を経過表示で上書きしないよう、抽出前にタイマーを止める
     clearInterval(timer); timer = null;
     const tiers = _iidxParseTiersJson(text);
-    if (!tiers.length) throw new Error('地力表を抽出できませんでした。時間をおいて再試行するか、コピペでの取り込みをお試しください。');
+    if (!tiers.length) {
+      // 失敗原因を切り分けてメッセージに反映（デバッグ用に生応答もコンソールへ）
+      const urlMeta = cand?.urlContextMetadata?.urlMetadata || cand?.url_context_metadata?.url_metadata || [];
+      const retrieval = urlMeta.map(m => m.urlRetrievalStatus || m.url_retrieval_status || '').join(',');
+      console.warn('iidx autofetch failed. finishReason:', cand?.finishReason, 'retrieval:', retrieval, 'text:', text.slice(0, 1000));
+      if (cand?.finishReason === 'MAX_TOKENS') {
+        throw new Error('AIの応答が長すぎて途切れました。もう一度試すと成功することがあります。');
+      }
+      if (retrieval && retrieval.indexOf('SUCCESS') < 0) {
+        throw new Error('wikiページの読み取りがブロックされました（wiki側のアクセス制限）。お手数ですがコピペでの取り込みをお使いください。');
+      }
+      throw new Error('地力表を抽出できませんでした。時間をおいて再試行するか、コピペでの取り込みをお試しください。'
+        + (text ? `（AI応答の冒頭: ${text.slice(0, 80)}…）` : '（AI応答が空でした）'));
+    }
     const done = await _iidxSaveTableWithConfirm(tiers, 'wiki自動取得', status);
     if (!done && status && status.className.indexOf('error') < 0) {
       status.textContent = 'キャンセルしました（表は変更されていません）';
@@ -613,13 +627,24 @@ async function iidxAutoFetchTable() {
   }
 }
 
-// 応答テキストからJSON配列を切り出して [{tier, songs}] に正規化
+// 応答テキストからJSON配列を切り出して [{tier, songs}] に正規化。
+// 出力が途中で切れた場合は、最後に完結したオブジェクトまでで修復を試みる
 function _iidxParseTiersJson(text) {
   const s = String(text || '');
-  const start = s.indexOf('['), end = s.lastIndexOf(']');
-  if (start < 0 || end <= start) return [];
-  let parsed;
-  try { parsed = JSON.parse(s.slice(start, end + 1)); } catch (e) { return []; }
+  const start = s.indexOf('[');
+  if (start < 0) return [];
+  let parsed = null;
+  const end = s.lastIndexOf(']');
+  if (end > start) {
+    try { parsed = JSON.parse(s.slice(start, end + 1)); } catch (e) {}
+  }
+  if (!parsed) {
+    // 途切れ対策: 最後の完全な "}" までを採用して閉じ括弧を補う
+    const lastObj = s.lastIndexOf('}');
+    if (lastObj > start) {
+      try { parsed = JSON.parse(s.slice(start, lastObj + 1).replace(/\]\s*$/, '') + ']'); } catch (e) {}
+    }
+  }
   if (!Array.isArray(parsed)) return [];
   return parsed
     .filter(t => t && typeof t.tier === 'string' && Array.isArray(t.songs))
