@@ -555,6 +555,58 @@ async function iidxRunImport() {
 // グラウンディングツール併用時は responseMimeType が使えないため、応答テキストから
 // JSON部分を切り出してパースする。
 const IIDX_WIKI_URL = 'https://w.atwiki.jp/bemani2sp11/pages/19.html';
+// Functionsの中継URL（gen2はcloudfunctions.netの形式でも到達できる）
+const IIDX_WIKI_PROXY = 'https://asia-northeast1-syariodate.cloudfunctions.net/fetchIidxWiki';
+
+// 中継Function経由でwikiのHTMLを取得し、表示テキストからティア表を組み立てる
+async function _iidxFetchWikiViaProxy() {
+  const ac = new AbortController();
+  const tm = setTimeout(() => ac.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(IIDX_WIKI_PROXY, { signal: ac.signal });
+  } finally { clearTimeout(tm); }
+  if (!res.ok) throw new Error('中継の取得に失敗: ' + res.status);
+  const html = await res.text();
+  return _iidxParseWikiHtml(html);
+}
+
+// HTMLから表示テキストを行単位で取り出す（<br>は改行として扱い、リーフの
+// セル/見出し/リスト要素のみ対象にして重複抽出を避ける）
+function _iidxParseWikiHtml(html) {
+  const withBreaks = String(html || '').replace(/<br\s*\/?>/gi, '\n');
+  const doc = new DOMParser().parseFromString(withBreaks, 'text/html');
+  const root = doc.querySelector('#wikibody') || doc.body;
+  if (!root) return [];
+  const lines = [];
+  root.querySelectorAll('td,th,li,h1,h2,h3,h4,h5,p,dt,dd,div').forEach(function (el) {
+    if (el.querySelector('td,th,li,h1,h2,h3,h4,h5,p,dt,dd,div')) return; // リーフのみ
+    String(el.textContent || '').split('\n').forEach(function (s) {
+      const t = s.replace(/ /g, ' ').trim();
+      if (t) lines.push(t);
+    });
+  });
+  return _iidxParseWikiLines(lines);
+}
+
+// 行配列 → [{tier, songs}]。ティア見出し行を区切りに曲を集める。
+// 表の後のコメント欄などに入ったら打ち切り、数値のみ等の非曲行は除外
+function _iidxParseWikiLines(lines) {
+  const TIER_RE = /^(未定|(?:地力|個人差)(?:S\+|S|A\+|A|B\+|B|C|D|E|F))$/;
+  const STOP_RE = /^(コメント|名前\s*:|最終更新|メニュー|トップページ|今日\s*:|昨日\s*:|合計\s*:|編集|アットウィキ|atwiki|ページ一覧|新規作成|タグ|Tweet)/i;
+  const JUNK_RE = /^([0-9０-９~～\-–—:：.\/\s]+|[↑↓→←○●◎△×☆★]+|BPM.*|曲名|備考|難易度|Ver\.?.*)$/i;
+  const tiers = [];
+  let cur = null;
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (TIER_RE.test(t)) { cur = { tier: t, songs: [] }; tiers.push(cur); continue; }
+    if (!cur) continue;
+    if (STOP_RE.test(t)) { cur = null; continue; }
+    if (t.length > 100 || JUNK_RE.test(t)) continue;
+    if (cur.songs.indexOf(t) < 0) cur.songs.push(t);
+  }
+  return tiers.filter(function (x) { return x.songs.length || x.tier === '未定'; });
+}
 
 async function iidxAutoFetchTable() {
   const status = document.getElementById('iidx-import-status');
@@ -570,13 +622,32 @@ async function iidxAutoFetchTable() {
     status.className = 'admin-status';
   };
   try {
+    showProgress('wikiから地力表を取得中');
+    timer = setInterval(() => showProgress('wikiから地力表を取得中'), 1000);
+    if (status && status.scrollIntoView) status.scrollIntoView({ block: 'nearest' });
+    // まずFunctionsの中継でページの表示テキストを直接読む（Gemini不要・混雑と無縁）。
+    // 取得や解析が不十分な場合のみ従来のGemini方式にフォールバックする
+    try {
+      const direct = await _iidxFetchWikiViaProxy();
+      const total = direct.reduce(function (s, x) { return s + x.songs.length; }, 0);
+      if (direct.length >= 10 && total >= 300) {
+        clearInterval(timer); timer = null;
+        const done = await _iidxSaveTableWithConfirm(direct, 'wiki自動取得（直接読込）', status);
+        if (!done && status && status.className.indexOf('error') < 0) {
+          status.textContent = 'キャンセルしました（表は変更されていません）';
+          status.className = 'admin-status';
+        }
+        return;
+      }
+      console.warn('iidx wiki direct fetch insufficient:', direct.length, 'tiers /', total, 'songs — falling back to Gemini');
+    } catch (e) {
+      console.warn('iidx wiki direct fetch failed, falling back to Gemini:', e);
+    }
+    showProgress('直接読込に失敗したためAIで取得中');
     if (!await _iidxEnsureGeminiKey()) {
       if (status) { status.textContent = 'Gemini APIキーが未設定です（管理者ページ「AI議論」で設定）'; status.className = 'admin-status error'; }
       return;
     }
-    showProgress('wikiから地力表を取得中');
-    timer = setInterval(() => showProgress('wikiから地力表を取得中'), 1000);
-    if (status && status.scrollIntoView) status.scrollIntoView({ block: 'nearest' });
     const prompt = `次のURLのページを読んでください: ${IIDX_WIKI_URL}\n`
       + 'これは beatmania IIDX SP☆12 の地力表です。ページに掲載されている表の全ティア・全曲を、'
       + '次の形式のJSON配列だけで出力してください（説明文・コードフェンスは不要）。\n'
