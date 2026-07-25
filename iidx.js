@@ -731,6 +731,10 @@ async function iidxAutoFetchTable() {
       if (cand?.finishReason === 'MAX_TOKENS') {
         throw new Error('AIの応答が長すぎて途切れました。もう一度試すと成功することがあります。');
       }
+      if (cand?.finishReason === 'RECITATION') {
+        // ページ本文の複製を著作権フィルタが打ち切ったケース。リトライしても通りにくい
+        throw new Error('AIが引用制限（RECITATION）で出力を打ち切りました。この状態ではAI経由の取得は通りにくいため、時間をおいて直接読込を再試行するか、コピペでの取り込みをお使いください。');
+      }
       if (retrieval && retrieval.indexOf('SUCCESS') < 0) {
         throw new Error('wikiページの読み取りがブロックされました（wiki側のアクセス制限）。お手数ですがコピペでの取り込みをお使いください。');
       }
