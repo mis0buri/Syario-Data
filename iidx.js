@@ -508,11 +508,16 @@ async function _iidxSaveTableWithConfirm(tiers, sourceLabel, status) {
     msg += `\n⚠ ランプ登録済みで新しい表に無い曲が${orphans.length}件あります: ${orphans.slice(0, 5).join('、')}${orphans.length > 5 ? ' など' : ''}\n（ランプの記録自体は消えず、曲名が再び一致すれば戻ります）`;
   }
   if (!confirm(msg)) return false;
-  // 置き換え前の表との差分（追加/削除曲数）を成功メッセージに出す
+  // 置き換え前の表との差分（追加/削除の曲名つき）を成功メッセージに出す
   const oldSet = new Set();
   (_iidxTable || []).forEach(t => (t.songs || []).forEach(s => oldSet.add(s)));
-  const added = [...newSet].filter(s => !oldSet.has(s)).length;
-  const removed = [...oldSet].filter(s => !newSet.has(s)).length;
+  const addedList = [...newSet].filter(s => !oldSet.has(s));
+  const removedList = [...oldSet].filter(s => !newSet.has(s));
+  const added = addedList.length;
+  const removed = removedList.length;
+  const diffDetail =
+    (added ? `／追加: ${addedList.slice(0, 5).join('、')}${added > 5 ? ' など' : ''}` : '') +
+    (removed ? `／削除: ${removedList.slice(0, 5).join('、')}${removed > 5 ? ' など' : ''}` : '');
   try {
     const by = (_registeredName || (_currentUser.displayName || '')) + (sourceLabel ? `（${sourceLabel}）` : '');
     await _db.collection('iidx_config').doc('table').set({
@@ -523,7 +528,7 @@ async function _iidxSaveTableWithConfirm(tiers, sourceLabel, status) {
     _iidxTable = tiers;
     _iidxTableMeta = { updatedAt: null, updatedBy: by };
     if (status) {
-      status.textContent = `取り込みました（${tiers.length}ティア・${total}曲 / 前の表から追加${added}曲・削除${removed}曲）`;
+      status.textContent = `取り込みました（${tiers.length}ティア・${total}曲 / 前の表から追加${added}曲・削除${removed}曲）${diffDetail}`;
       status.className = 'admin-status ok';
     }
     _iidxRender();
