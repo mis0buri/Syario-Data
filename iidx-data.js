@@ -6,6 +6,8 @@
 // 曲名がランプ保存のキーになるため、表記ゆれ（†・全角半角など）を変えると
 // 既存ランプと紐付かなくなる点に注意。
 const IIDX_SEED_TABLE = [
+  // 新曲などランク未定の曲を入れる欄（wikiの表更新やページ内の取込で随時追加される）
+  { tier: '未定', songs: [] },
   { tier: '地力S+', songs: [
     '冥', 'X-DEN', 'Mare Nectaris', '灼熱Beach Side Bunny', '灼熱Pt.2 Long Train Running',
     'Verflucht†', '疾風迅雷†', 'KAMAITACHI†', 'Chrono Diver -PENDULUMs-†', 'ピアノ協奏曲第1番"蠍火"†',

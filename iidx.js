@@ -170,12 +170,15 @@ function _iidxRenderList() {
   if (!wrap || !_iidxTable) return;
   const opts = IIDX_LAMP_LEVELS.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
   let html = '';
+  const noFilter = !_iidxSearch && _iidxLampFilter === 'all';
   _iidxTable.forEach((t, ti) => {
     const songs = (t.songs || []).filter(_iidxSongVisible);
-    if (!songs.length) return;
+    // 曲が1曲も無いティア（未定など）は、絞り込みしていない時だけ枠を表示する
+    if (!songs.length && !(noFilter && !(t.songs || []).length)) return;
     html += `<div class="iidx-tier" data-tier-idx="${ti}">
       <div class="iidx-tier-head">${_esc(t.tier)} <span class="iidx-tier-count" data-tier-count="${ti}"></span></div>
       <div class="iidx-tier-songs">`;
+    if (!songs.length) html += '<div class="empty" style="padding:6px 4px;">曲なし</div>';
     songs.forEach(title => {
       const code = _iidxLamps[title] || 'noplay';
       html += `<div class="iidx-song">
@@ -475,7 +478,7 @@ function _iidxParseImport(text) {
   (text || '').split(/\r?\n/).forEach(line => {
     let s = line.trim();
     if (!s) return;
-    const tierMatch = s.match(/^(地力|個人差)[SABCDEF][+＋]?$/) || s.match(/^(.{1,20})[：:]$/);
+    const tierMatch = s.match(/^(地力|個人差)[SABCDEF][+＋]?$/) || s.match(/^(未定|難易度未定|ランク未定|保留)$/) || s.match(/^(.{1,20})[：:]$/);
     if (tierMatch) {
       const name = s.replace(/[：:]$/, '').replace(/＋/g, '+');
       cur = { tier: name, songs: [] };
@@ -505,6 +508,11 @@ async function _iidxSaveTableWithConfirm(tiers, sourceLabel, status) {
     msg += `\n⚠ ランプ登録済みで新しい表に無い曲が${orphans.length}件あります: ${orphans.slice(0, 5).join('、')}${orphans.length > 5 ? ' など' : ''}\n（ランプの記録自体は消えず、曲名が再び一致すれば戻ります）`;
   }
   if (!confirm(msg)) return false;
+  // 置き換え前の表との差分（追加/削除曲数）を成功メッセージに出す
+  const oldSet = new Set();
+  (_iidxTable || []).forEach(t => (t.songs || []).forEach(s => oldSet.add(s)));
+  const added = [...newSet].filter(s => !oldSet.has(s)).length;
+  const removed = [...oldSet].filter(s => !newSet.has(s)).length;
   try {
     const by = (_registeredName || (_currentUser.displayName || '')) + (sourceLabel ? `（${sourceLabel}）` : '');
     await _db.collection('iidx_config').doc('table').set({
@@ -514,7 +522,10 @@ async function _iidxSaveTableWithConfirm(tiers, sourceLabel, status) {
     });
     _iidxTable = tiers;
     _iidxTableMeta = { updatedAt: null, updatedBy: by };
-    if (status) { status.textContent = `取り込みました（${tiers.length}ティア・${total}曲）`; status.className = 'admin-status ok'; }
+    if (status) {
+      status.textContent = `取り込みました（${tiers.length}ティア・${total}曲 / 前の表から追加${added}曲・削除${removed}曲）`;
+      status.className = 'admin-status ok';
+    }
     _iidxRender();
     return true;
   } catch (e) {
@@ -549,19 +560,30 @@ async function iidxAutoFetchTable() {
   const status = document.getElementById('iidx-import-status');
   const btn = document.getElementById('iidx-autofetch-btn');
   if (!_db || !_currentUser || !(_isAdmin || _isManager)) return;
-  if (btn) btn.disabled = true;
+  if (btn) { btn.disabled = true; btn.textContent = '取得中…'; }
+  // 応答まで1分近くかかることがあるため、経過秒数を出して動作中であることを示す
+  const t0 = Date.now();
+  let timer = null;
+  const showProgress = (phase) => {
+    if (!status) return;
+    status.textContent = `${phase}… ${Math.round((Date.now() - t0) / 1000)}秒経過（1分ほどかかることがあります。このまま待ってください）`;
+    status.className = 'admin-status';
+  };
   try {
     if (!await _iidxEnsureGeminiKey()) {
       if (status) { status.textContent = 'Gemini APIキーが未設定です（管理者ページ「AI議論」で設定）'; status.className = 'admin-status error'; }
       return;
     }
-    if (status) { status.textContent = 'wikiから地力表を取得中…（1分ほどかかることがあります）'; status.className = 'admin-status'; }
+    showProgress('wikiから地力表を取得中');
+    timer = setInterval(() => showProgress('wikiから地力表を取得中'), 1000);
+    if (status && status.scrollIntoView) status.scrollIntoView({ block: 'nearest' });
     const key = _nextGeminiKey();
     const prompt = `次のURLのページを読んでください: ${IIDX_WIKI_URL}\n`
       + 'これは beatmania IIDX SP☆12 の地力表です。ページに掲載されている表の全ティア・全曲を、'
       + '次の形式のJSON配列だけで出力してください（説明文・コードフェンスは不要）。\n'
       + '[{"tier":"地力S+","songs":["曲名1","曲名2"]},{"tier":"個人差S+","songs":["..."]}]\n'
-      + 'ティア名と曲名はページの表記のまま（†や記号も含めて）省略せずすべて出力してください。';
+      + 'ティア名と曲名はページの表記のまま（†や記号も含めて）省略せずすべて出力してください。'
+      + '「未定」「難易度未定」などランクが決まっていない曲のグループも、あればティアとして含めてください。';
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -574,13 +596,20 @@ async function iidxAutoFetchTable() {
     if (!res.ok) await _throwApiError(res, 'Gemini');
     const data = await res.json();
     const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+    // 確認ダイアログや結果表示を経過表示で上書きしないよう、抽出前にタイマーを止める
+    clearInterval(timer); timer = null;
     const tiers = _iidxParseTiersJson(text);
     if (!tiers.length) throw new Error('地力表を抽出できませんでした。時間をおいて再試行するか、コピペでの取り込みをお試しください。');
-    await _iidxSaveTableWithConfirm(tiers, 'wiki自動取得', status);
+    const done = await _iidxSaveTableWithConfirm(tiers, 'wiki自動取得', status);
+    if (!done && status && status.className.indexOf('error') < 0) {
+      status.textContent = 'キャンセルしました（表は変更されていません）';
+      status.className = 'admin-status';
+    }
   } catch (e) {
     if (status) { status.textContent = '自動取得に失敗しました: ' + ((e && e.message) || e); status.className = 'admin-status error'; }
   } finally {
-    if (btn) btn.disabled = false;
+    if (timer) clearInterval(timer);
+    if (btn) { btn.disabled = false; btn.textContent = 'wikiから自動取得'; }
   }
 }
 
