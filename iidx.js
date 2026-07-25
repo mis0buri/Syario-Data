@@ -566,14 +566,15 @@ const IIDX_WIKI_PROXY = 'https://asia-northeast1-syariodate.cloudfunctions.net/f
 // 中継Function経由でwikiのHTMLを取得し、表示テキストからティア表を組み立てる
 async function _iidxFetchWikiViaProxy() {
   const ac = new AbortController();
-  const tm = setTimeout(() => ac.abort(), 30000);
+  const tm = setTimeout(() => ac.abort(), 45000); // キャッシュ読込ぶん余裕を持たせる
   let res;
   try {
     res = await fetch(IIDX_WIKI_PROXY, { signal: ac.signal });
   } finally { clearTimeout(tm); }
   if (!res.ok) throw new Error('中継の取得に失敗: ' + res.status);
+  const cached = res.headers.get('X-Iidx-Source') === 'cache';
   const html = await res.text();
-  return _iidxParseWikiHtml(html);
+  return { tiers: _iidxParseWikiHtml(html), cached };
 }
 
 // HTMLから表示テキストを行単位で取り出す（<br>は改行として扱い、リーフの
@@ -634,11 +635,13 @@ async function iidxAutoFetchTable() {
     // まずFunctionsの中継でページの表示テキストを直接読む（Gemini不要・混雑と無縁）。
     // 取得や解析が不十分な場合のみ従来のGemini方式にフォールバックする
     try {
-      const direct = await _iidxFetchWikiViaProxy();
+      const dr = await _iidxFetchWikiViaProxy();
+      const direct = dr.tiers;
       const total = direct.reduce(function (s, x) { return s + x.songs.length; }, 0);
       if (direct.length >= 10 && total >= 300) {
         clearInterval(timer); timer = null;
-        const done = await _iidxSaveTableWithConfirm(direct, 'wiki自動取得（直接読込）', status);
+        const label = dr.cached ? 'wiki自動取得（直接読込・wiki一時不通のため前回取得分）' : 'wiki自動取得（直接読込）';
+        const done = await _iidxSaveTableWithConfirm(direct, label, status);
         if (!done && status && status.className.indexOf('error') < 0) {
           status.textContent = 'キャンセルしました（表は変更されていません）';
           status.className = 'admin-status';
