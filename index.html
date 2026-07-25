@@ -1575,11 +1575,13 @@
         </div>
         <div id="iidx-import-wrap" style="display:none;">
           <div class="admin-note" style="margin-top:8px">
+            「wikiから自動取得」を押すと
             <a href="https://w.atwiki.jp/bemani2sp11/pages/19.html" target="_blank" rel="noopener">☆12地力表のwiki</a>
-            から表をコピーして貼り付けると曲表を最新化できます。「地力S+」などのティア見出し行のあとに曲名（1行1曲、またはタブ・／区切り）を並べた形式で取り込まれます。登録済みのランプは曲名が一致すれば引き継がれます。
+            の最新の表をAIが読み取って取り込みます。うまくいかない場合は、wikiの表をコピーして下の欄に貼り付けてください（「地力S+」などのティア見出し行のあとに曲名を1行1曲、またはタブ・／区切り）。どちらの方法でも、登録済みのランプは曲名が一致すれば引き継がれます。
           </div>
-          <textarea id="iidx-import-text" class="admin-input" rows="8" placeholder="地力S+&#10;冥&#10;X-DEN&#10;地力S&#10;卑弥呼&#10;..." style="width:100%;box-sizing:border-box;margin-top:6px;"></textarea>
-          <button type="button" class="admin-btn primary" style="margin-top:6px" onclick="iidxRunImport()">取り込んで置き換え</button>
+          <button type="button" id="iidx-autofetch-btn" class="admin-btn primary" style="margin-top:6px" onclick="iidxAutoFetchTable()">wikiから自動取得</button>
+          <textarea id="iidx-import-text" class="admin-input" rows="8" placeholder="（手動の場合はここに貼り付け）&#10;地力S+&#10;冥&#10;X-DEN&#10;地力S&#10;卑弥呼&#10;..." style="width:100%;box-sizing:border-box;margin-top:6px;"></textarea>
+          <button type="button" class="admin-btn" onclick="iidxRunImport()">貼り付け内容を取り込む</button>
           <div id="iidx-import-status" class="admin-status"></div>
         </div>
         <div id="iidx-list"></div>

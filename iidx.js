@@ -286,6 +286,23 @@ async function _iidxCallGeminiVision(b64) {
   return Array.isArray(parsed) ? parsed : [];
 }
 
+// Geminiが返すランプ表記のゆれ（"HARD CLEAR"・"FULL COMBO"等）をコードに正規化
+function _iidxNormLamp(v) {
+  if (!v) return null;
+  const s = String(v).toLowerCase().replace(/[\s\-_]/g, '');
+  const map = {
+    noplay: 'noplay',
+    failed: 'failed', fail: 'failed',
+    assist: 'assist', assistclear: 'assist', assistedclear: 'assist', aclear: 'assist', aeasy: 'assist', assisteasy: 'assist',
+    easy: 'easy', easyclear: 'easy',
+    clear: 'clear', normalclear: 'clear', groovegauge: 'clear',
+    hard: 'hard', hardclear: 'hard',
+    exhard: 'exhard', exhardclear: 'exhard', exh: 'exhard',
+    fc: 'fc', fullcombo: 'fc', fullcomboclear: 'fc',
+  };
+  return map[s] || null;
+}
+
 // 曲名照合用の正規化（全角半角・大文字小文字・記号ゆれを吸収）
 function _iidxNorm(s) {
   return String(s || '').normalize('NFKC').toLowerCase()
@@ -347,11 +364,12 @@ async function iidxRunOcr() {
         results.forEach(r => {
           if (!r || !r.title) return;
           const m = _iidxMatchSong(r.title);
+          const lv = (r.level === null || r.level === undefined || r.level === '') ? NaN : Number(r.level);
           _iidxOcrItems.push({
             fileName: files[i].name,
             title: String(r.title),
-            level: (typeof r.level === 'number') ? r.level : null,
-            lamp: IIDX_LAMP_ORDER.indexOf(r.lamp) >= 0 ? r.lamp : null,
+            level: Number.isFinite(lv) ? lv : null,
+            lamp: _iidxNormLamp(r.lamp),
             match: m.score >= 0.5 ? m.song : null,
             matchScore: m.score,
           });
@@ -364,8 +382,9 @@ async function iidxRunOcr() {
       }
     }
     _iidxRenderOcrResults();
-    const ok = _iidxOcrItems.filter(it => it.match && it.lamp).length;
-    _iidxOcrStatus(`読み取り完了: ${ok}件照合できました。内容を確認して「反映」を押してください。`, ok ? 'ok' : 'error');
+    const matched = _iidxOcrItems.filter(it => it.match).length;
+    const withLamp = _iidxOcrItems.filter(it => it.match && it.lamp).length;
+    _iidxOcrStatus(`読み取り完了: ${matched}件照合（うちランプ検出 ${withLamp}件）。内容を確認して「反映」を押してください。`, matched ? 'ok' : 'error');
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -475,6 +494,35 @@ function _iidxParseImport(text) {
   return tiers.filter(t => t.songs.length);
 }
 
+// 確認ダイアログ（ランプ登録済みで新表に無くなる曲を警告）→ Firestore保存 → 再描画
+async function _iidxSaveTableWithConfirm(tiers, sourceLabel, status) {
+  const total = tiers.reduce((n, t) => n + t.songs.length, 0);
+  const newSet = new Set();
+  tiers.forEach(t => t.songs.forEach(s => newSet.add(s)));
+  const orphans = Object.keys(_iidxLamps).filter(s => !newSet.has(s));
+  let msg = `${tiers.length}ティア・${total}曲で曲表を置き換えます。よろしいですか？\n（登録済みランプは曲名が一致すればそのまま引き継がれます）`;
+  if (orphans.length) {
+    msg += `\n⚠ ランプ登録済みで新しい表に無い曲が${orphans.length}件あります: ${orphans.slice(0, 5).join('、')}${orphans.length > 5 ? ' など' : ''}\n（ランプの記録自体は消えず、曲名が再び一致すれば戻ります）`;
+  }
+  if (!confirm(msg)) return false;
+  try {
+    const by = (_registeredName || (_currentUser.displayName || '')) + (sourceLabel ? `（${sourceLabel}）` : '');
+    await _db.collection('iidx_config').doc('table').set({
+      tiers: tiers,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: by,
+    });
+    _iidxTable = tiers;
+    _iidxTableMeta = { updatedAt: null, updatedBy: by };
+    if (status) { status.textContent = `取り込みました（${tiers.length}ティア・${total}曲）`; status.className = 'admin-status ok'; }
+    _iidxRender();
+    return true;
+  } catch (e) {
+    if (status) { status.textContent = '保存に失敗しました: ' + (e.message || e); status.className = 'admin-status error'; }
+    return false;
+  }
+}
+
 async function iidxRunImport() {
   const ta = document.getElementById('iidx-import-text');
   const status = document.getElementById('iidx-import-status');
@@ -484,21 +532,68 @@ async function iidxRunImport() {
     if (status) { status.textContent = '取り込める曲がありません。ティア見出し行＋曲名行の形式で貼り付けてください。'; status.className = 'admin-status error'; }
     return;
   }
-  const total = tiers.reduce((n, t) => n + t.songs.length, 0);
-  if (!confirm(`${tiers.length}ティア・${total}曲で曲表を置き換えます。よろしいですか？\n（登録済みランプは曲名が一致すればそのまま引き継がれます）`)) return;
-  try {
-    await _db.collection('iidx_config').doc('table').set({
-      tiers: tiers,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy: _registeredName || (_currentUser.displayName || ''),
-    });
-    _iidxTable = tiers;
-    _iidxTableMeta = { updatedAt: null, updatedBy: _registeredName || '' };
-    if (status) { status.textContent = `取り込みました（${tiers.length}ティア・${total}曲）`; status.className = 'admin-status ok'; }
+  if (await _iidxSaveTableWithConfirm(tiers, '手動貼り付け', status)) {
     ta.value = '';
     iidxToggleImport();
-    _iidxRender();
-  } catch (e) {
-    if (status) { status.textContent = '保存に失敗しました: ' + (e.message || e); status.className = 'admin-status error'; }
   }
+}
+
+// ── 表のwiki自動取得 ──
+// Geminiの url_context ツールに地力表ページを直接読ませ、ティア構造をJSONで抽出する。
+// atwikiはCORSでブラウザから直接fetchできないため、Gemini経由が唯一のサーバーレス手段。
+// グラウンディングツール併用時は responseMimeType が使えないため、応答テキストから
+// JSON部分を切り出してパースする。
+const IIDX_WIKI_URL = 'https://w.atwiki.jp/bemani2sp11/pages/19.html';
+
+async function iidxAutoFetchTable() {
+  const status = document.getElementById('iidx-import-status');
+  const btn = document.getElementById('iidx-autofetch-btn');
+  if (!_db || !_currentUser || !(_isAdmin || _isManager)) return;
+  if (btn) btn.disabled = true;
+  try {
+    if (!await _iidxEnsureGeminiKey()) {
+      if (status) { status.textContent = 'Gemini APIキーが未設定です（管理者ページ「AI議論」で設定）'; status.className = 'admin-status error'; }
+      return;
+    }
+    if (status) { status.textContent = 'wikiから地力表を取得中…（1分ほどかかることがあります）'; status.className = 'admin-status'; }
+    const key = _nextGeminiKey();
+    const prompt = `次のURLのページを読んでください: ${IIDX_WIKI_URL}\n`
+      + 'これは beatmania IIDX SP☆12 の地力表です。ページに掲載されている表の全ティア・全曲を、'
+      + '次の形式のJSON配列だけで出力してください（説明文・コードフェンスは不要）。\n'
+      + '[{"tier":"地力S+","songs":["曲名1","曲名2"]},{"tier":"個人差S+","songs":["..."]}]\n'
+      + 'ティア名と曲名はページの表記のまま（†や記号も含めて）省略せずすべて出力してください。';
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ url_context: {} }],
+        generationConfig: { maxOutputTokens: 65536 },
+      })
+    });
+    if (!res.ok) await _throwApiError(res, 'Gemini');
+    const data = await res.json();
+    const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+    const tiers = _iidxParseTiersJson(text);
+    if (!tiers.length) throw new Error('地力表を抽出できませんでした。時間をおいて再試行するか、コピペでの取り込みをお試しください。');
+    await _iidxSaveTableWithConfirm(tiers, 'wiki自動取得', status);
+  } catch (e) {
+    if (status) { status.textContent = '自動取得に失敗しました: ' + ((e && e.message) || e); status.className = 'admin-status error'; }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// 応答テキストからJSON配列を切り出して [{tier, songs}] に正規化
+function _iidxParseTiersJson(text) {
+  const s = String(text || '');
+  const start = s.indexOf('['), end = s.lastIndexOf(']');
+  if (start < 0 || end <= start) return [];
+  let parsed;
+  try { parsed = JSON.parse(s.slice(start, end + 1)); } catch (e) { return []; }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter(t => t && typeof t.tier === 'string' && Array.isArray(t.songs))
+    .map(t => ({ tier: t.tier.trim(), songs: t.songs.map(x => String(x).trim()).filter(Boolean) }))
+    .filter(t => t.tier && t.songs.length);
 }
