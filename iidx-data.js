@@ -166,7 +166,7 @@ const IIDX_SEED_TABLE = [
     "SOLID STATE SQUAD", "SpaceLand☆TOYBOX", "Stereo Beasts", "The Least 100sec",
     "The Sampling Paradise", "Thunderbolt", "TIEFSEE", "Trill auf G",
     "True Blue", "Umbral(L)", "V", "紫陽花 -AZISAI-",
-    "天邪鬼", "ATHER(L)", "カゴノトリ～弐式～", "華蝶風雪(L)",
+    "天邪鬼", "ÆTHER(L)", "カゴノトリ～弐式～", "華蝶風雪(L)",
     "神のシナリオ", "#CMFLG", "九尾狐夜行", "狂イ咲ケ焔ノ華",
     "恋する☆宇宙戦争っ！！", "最小三倍完全数", "〆", "聖人の塔",
     "即席！脳直★ミュージックシステム", "電人、暁に斃れる。", "刃図羅", "表裏一体！？怪盗いいんちょの悩み",
