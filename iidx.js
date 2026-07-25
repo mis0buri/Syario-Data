@@ -585,15 +585,26 @@ async function iidxAutoFetchTable() {
       + '「未定」「難易度未定」などランクが決まっていない曲のグループも、あればティアとして含めてください。';
     const attempt = async (model) => {
       const key = _nextGeminiKey();
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          tools: [{ url_context: {} }],
-          generationConfig: { maxOutputTokens: 65536 },
-        })
-      });
+      // 応答が返らないままハングしないよう、1回の試行は90秒で打ち切る
+      const ac = new AbortController();
+      const tm = setTimeout(() => ac.abort(), 90000);
+      let res;
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            tools: [{ url_context: {} }],
+            generationConfig: { maxOutputTokens: 65536 },
+          }),
+          signal: ac.signal,
+        });
+      } catch (e) {
+        return { overloaded: true, status: 'タイムアウト' };
+      } finally {
+        clearTimeout(tm);
+      }
       if (res.status === 503 || res.status === 429) return { overloaded: true, status: res.status };
       if (!res.ok) await _throwApiError(res, 'Gemini');
       const data = await res.json();
@@ -601,12 +612,13 @@ async function iidxAutoFetchTable() {
       const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
       return { cand, text, tiers: _iidxParseTiersJson(text) };
     };
-    // 混雑(503/429)や一時的な抽出失敗に備え、モデルを切り替えながら最大4回試す
+    // 混雑(503/429)・タイムアウト・一時的な抽出失敗に備え、モデルを切り替えながら最大4回試す
     // （url_context対応モデル: 2.5-flash → 2.5-flash-lite の順にフォールバック）
     const plan = ['gemini-2.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash-lite'];
     let last = null, lastOverload = null;
     for (let i = 0; i < plan.length; i++) {
       if (i > 0) {
+        if (Date.now() - t0 > 240000) break; // 合計4分を超えたら新しい試行はしない
         showProgress(`${i === 1 ? '再試行中' : '別モデルで再試行中'}（${i + 1}回目・${plan[i]}）`);
         await new Promise(r => setTimeout(r, 2500));
       }
@@ -618,7 +630,9 @@ async function iidxAutoFetchTable() {
     // 確認ダイアログや結果表示を経過表示で上書きしないよう、抽出前にタイマーを止める
     clearInterval(timer); timer = null;
     if (!last && lastOverload) {
-      throw new Error(`Geminiが混雑しています（${lastOverload}）。数分おいて再試行してください。`);
+      throw new Error(lastOverload === 'タイムアウト'
+        ? 'Geminiの応答がタイムアウトしました。時間をおいて再試行してください。'
+        : `Geminiが混雑しています（${lastOverload}）。数分おいて再試行してください。`);
     }
     if (!last) {
       throw new Error('Gemini応答を取得できませんでした。時間をおいて再試行してください。');
