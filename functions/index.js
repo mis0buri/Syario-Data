@@ -1,4 +1,5 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -92,3 +93,22 @@ exports.notifyReservation = onDocumentCreated(
     }
   }
 );
+
+// 弐寺地力表wikiの中継。atwikiはCORSを返さずブラウザから直接読めないため、
+// サーバー側でfetchしてHTMLを返す（対象URLは固定・認証情報は扱わない）
+exports.fetchIidxWiki = onRequest({
+  region: 'asia-northeast1',
+  cors: ['https://mis0buri.github.io', 'http://localhost:8000', 'http://127.0.0.1:8000'],
+}, async (req, res) => {
+  try {
+    const r = await fetch('https://w.atwiki.jp/bemani2sp11/pages/19.html', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SyarioIIDX/1.0)' },
+    });
+    if (!r.ok) { res.status(502).json({ error: 'wiki fetch failed: ' + r.status }); return; }
+    const html = await r.text();
+    res.set('Cache-Control', 'public, max-age=300');
+    res.status(200).type('text/html').send(html);
+  } catch (e) {
+    res.status(502).json({ error: String((e && e.message) || e) });
+  }
+});
