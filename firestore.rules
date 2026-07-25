@@ -138,9 +138,11 @@ service cloud.firestore {
         (isAdmin() || isManager());
     }
 
-    // APIキーなどの管理者専用シークレット（管理者のみ読み書き可）
+    // APIキーなどのシークレット（書き込みは管理者のみ。読み取りはマネージャーも可
+    // ──弐寺ランプ表のリザルト読み取りでGeminiキーを使うため）
     match /admin_secrets/{docId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || isManager();
+      allow write: if isAdmin();
     }
 
     match /fcm_tokens/{token} {

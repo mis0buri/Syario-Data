@@ -1555,9 +1555,24 @@
             <option value="exhard">EX HARD CLEAR</option>
             <option value="fc">FULL COMBO</option>
           </select>
+          <button type="button" class="admin-btn" onclick="iidxToggleOcr()">リザルト読取</button>
           <button type="button" class="admin-btn" onclick="iidxToggleImport()">表を更新</button>
         </div>
         <div id="iidx-table-meta" class="iidx-meta"></div>
+        <div id="iidx-ocr-wrap" style="display:none;">
+          <div class="admin-note" style="margin-top:8px">
+            リザルト画面のスクショや筐体の写真を選ぶと、AIが曲名とランプを読み取ります。読み取り結果を確認してから「反映」してください（自動保存はされません）。
+          </div>
+          <label class="fb-file-label" style="margin-top:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            画像を選択
+            <input type="file" id="iidx-ocr-files" class="fb-file-input" multiple accept="image/*">
+          </label>
+          <button type="button" id="iidx-ocr-run-btn" class="admin-btn primary" style="margin-left:6px" onclick="iidxRunOcr()">読み取る</button>
+          <div id="iidx-ocr-status" class="admin-status"></div>
+          <div id="iidx-ocr-results"></div>
+          <button type="button" id="iidx-ocr-apply-btn" class="admin-btn primary" style="display:none;margin-top:6px" onclick="iidxApplyOcr()">チェックした結果を反映</button>
+        </div>
         <div id="iidx-import-wrap" style="display:none;">
           <div class="admin-note" style="margin-top:8px">
             <a href="https://w.atwiki.jp/bemani2sp11/pages/19.html" target="_blank" rel="noopener">☆12地力表のwiki</a>

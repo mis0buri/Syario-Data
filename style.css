@@ -1902,3 +1902,18 @@ body.public-mode main { padding-top: 20px; }
   #iidx-search { font-size: 16px; }
   #iidx-lamp-filter { font-size: 16px; }
 }
+
+/* 弐寺 リザルト読取（OCR）結果 */
+.iidx-ocr-item {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px; margin-top: 8px; background: var(--surface2);
+}
+.iidx-ocr-item-head {
+  display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px;
+}
+.iidx-ocr-item-head label { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.iidx-ocr-src { color: var(--dim); min-width: 0; overflow-wrap: anywhere; }
+.iidx-ocr-item-body { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.iidx-ocr-song { flex: 1 1 200px; min-width: 0; }
+.iidx-ocr-cur { font-size: 11px; color: var(--dim); white-space: nowrap; }
+.iidx-ocr-note { font-size: 11px; color: #d8b030; margin-top: 5px; }
