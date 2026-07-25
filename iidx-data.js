@@ -1,157 +1,203 @@
 // ── 弐寺(beatmania IIDX) SP☆12 地力表 シードデータ ──
-// 出典: https://w.atwiki.jp/bemani2sp11/pages/19.html （SP☆12 地力表）を参考にした初期データ。
+// 出典: https://w.atwiki.jp/bemani2sp11/pages/19.html （SP☆12 地力表）。
+// 2026-07 にwikiの表をコピペで転記した全ティアのスナップショット（(L)=LEGGENDARIA、(H)=HYPER）。
 // wiki は随時更新されるため、このファイルはあくまで初期表示用のシード。
-// 最新の表はページ内の「表を更新」から wiki のコピペで取り込み、Firestore
-// (iidx_config/table) に保存されたものが優先される。
-// 曲名がランプ保存のキーになるため、表記ゆれ（†・全角半角など）を変えると
-// 既存ランプと紐付かなくなる点に注意。
+// 最新の表はページ内の「表を更新」から取り込み、Firestore (iidx_config/table) に
+// 保存されたものが優先される。曲名がランプ保存のキーになるため、表記ゆれ
+// （(L)・全角半角など）を変えると既存ランプと紐付かなくなる点に注意。
 const IIDX_SEED_TABLE = [
-  // 新曲などランク未定の曲を入れる欄（wikiの表更新やページ内の取込で随時追加される）
-  { tier: '未定', songs: [] },
-  { tier: '地力S+', songs: [
-    '冥', 'X-DEN', 'Mare Nectaris', '灼熱Beach Side Bunny', '灼熱Pt.2 Long Train Running',
-    'Verflucht†', '疾風迅雷†', 'KAMAITACHI†', 'Chrono Diver -PENDULUMs-†', 'ピアノ協奏曲第1番"蠍火"†',
-    'Sinus Iridum', 'GuNGNiR†', 'Everlasting Message†', 'EXUSIA†', 'IX†',
-    'The Chase†', 'Ancient Scapes†', 'invoker', 'Timepiece phase II (CN Ver.)', 'お米の美味しい炊き方、そしてお米を食べることによるその効果。†'
+  { tier: "未定", songs: [
+    "CUE CUE RESCUE(L)", "HYENA(L)", "Mid-Corner (Magic Maker)", "Nothing but Theory(L)",
+    "蛇神(L)", "新宝島(L)", "天使のカンタータ -Cantata of Angels-", "フォニイ(L)",
+    "烽火連天の刃(L)",
   ]},
-  { tier: '個人差S+', songs: [
-    'DEATH†ZIGOQ ～怒りの高速爆走野郎～', 'quell～the seventh slave～', 'Almagest', '嘹亮', 'rage against usual'
+  { tier: "地力S+", songs: [
+    "Beyond Evolution", "DEATH†ZIGOQ ～怒りの高速爆走野郎～(L)", "GuNGNiR(L)", "Illegal Function Call(L)",
+    "KAMAITACHI(L)", "Mare Nectaris", "n/a", "Sigmund(L)",
+    "Somnidiscotheque", "The Limbo(L)", "Verflucht(L)", "疾風迅雷(L)",
+    "卑弥呼", "惑星鉄道",
   ]},
-  { tier: '地力S', songs: [
-    'perditus†paradisus', '卑弥呼', 'AA†', 'Go Beyond!!', 'Elemental Creation',
-    '天空の夜明け', 'Sigmund†', 'ICARUS†', 'Broken Sword†', 'NEO GENERATOR SEVEN',
-    'Feel The Beat†', 'Plan 8', 'JOMANDA', 'Sound Of Giallarhorn', 'ruin of opals',
-    'Rave Cannon†', 'CHRONO DIVER -NORNIR-', 'Initiation†', 'BLACK.by X-Cross Fade', 'reunion'
+  { tier: "個人差S+", songs: [
+    "DIAVOLO", "Plan 8", "RAGE feat.H14 of LEONAIR", "SAMURAI-Scramble(L)",
+    "灼熱 Pt.2 Long Train Running", "灼熱Beach Side Bunny",
   ]},
-  { tier: '個人差S', songs: [
-    'Innocent Walls†', 'mosaic†', 'POSSESSION', 'Little Little Princess†', '3y3s',
-    'Level One', 'MENDES', 'Antigravity', 'The Limbo', 'ZZ'
+  { tier: "地力S", songs: [
+    "Binary Black Hole", "Carmina", "Chrono Diver -PENDULUMs-", "Confiserie",
+    "Dances with Snow Fairies(L)", "Elemental Creation", "EMERALDAS", "Everlasting Message",
+    "Go Ahead!!", "GO OVER WITH GLARE -ROOTAGE 26-", "hard-wired", "ICARUS(L)",
+    "KAISER PHOENIX(L)", "Lost Souls(L)", "MEGAERA", "Override(L)",
+    "perditus†paradisus", "Phoenix(L)", "Sigmund", "Sinus Iridum",
+    "TRANOID(L)", "Xerulean", "栄冠のカンパネラ", "駅猫のワルツ",
+    "焔極OVERKILL", "お米の美味しい炊き方、そしてお米を食べることによるその効果。(L)", "X-DEN", "共鳴遊戯の華",
+    "千年ノ理(L)", "IX", "嘆きの樹", "表裏一体！？怪盗いいんちょの悩み(L)",
   ]},
-  { tier: '地力A+', songs: [
-    'Confiserie', 'Sigmund', 'AA', 'Verflucht', 'Xperanza',
-    'Valanga', 'Sense 2007', 'GENE', 'DIAVOLO', '疾風迅雷',
-    'S!ck', 'The Sampling Paradise', '仮想空間の旅人たち', 'Symmetry', 'EXUSIA',
-    'Ancient Scapes', 'IX', 'STULTI', 'Snakey Kung-fu', '† (Dagger)'
+  { tier: "個人差S", songs: [
+    "BroGamer(L)", "EROICA", "Level 5", "Lords Of The Roundtable",
+    "Time to Air(L)", "Timepiece phase II (CN Ver.)", "WHA", "ディスコルディア",
   ]},
-  { tier: '個人差A+', songs: [
-    'ワルツ第17番 ト短調"大犬のワルツ"', 'Blue Rain†', 'DIAMOND CROSSING', 'PARANOiA ～HADES～', 'TOGAKUSHI',
-    'ANCHOR', 'Painful Fate', 'Sound Of Giallarhorn (A)', 'HAERETICUS', 'm1dy Deluxe'
+  { tier: "地力A+", songs: [
+    "Almagest", "Ambivalent Vermilia", "Ancient Scapes(L)", "Anisakis -somatic mutation type\"Forza\"-(L)",
+    "B4U(BEMANI FOR YOU MIX)(L)", "Bad Encryption", "Blue Spring Express", "CADENZA",
+    "CHRONO DIVER -NORNIR-(L)", "CODE:0(L)", "CONTRACT(L)", "Dans la nuit de l'eternite",
+    "EBONY & IVORY(L)", "Glitch N Ride", "Ignis†Irae", "Initiation",
+    "LIGHTNING STRIKES(L)", "LOUDER ROLLING THUNDER", "NZM", "PARADISE LOST",
+    "Quakes", "REVOLVER(L)", "Satellite Burst", "Saturn(L)",
+    "Smashing Wedge", "SOLAR ECLIPSE", "SOLID WYVERN(L)", "The Clown of 24stairs",
+    "THE F∀UST", "Tiempo Loco", "VANESSA(L)", "VØID",
+    "voltississimo", "Vulnerability", "［ ］DENTITY", "がっつり陰キャ!? 怪盗いいんちょの億劫^^;",
+    "恋する☆宇宙戦争っ！！(L)", "シムルグの目醒め", "∀", "超青少年ノ為ノ超多幸ナ超古典的超舞曲(L)",
+    "-65℃", "煉獄のエルフェリア",
   ]},
-  { tier: '地力A', songs: [
-    'quasar', 'Almace', 'Colorful Cookie', 'Life Is A Game†', 'AO-1',
-    'Broken', 'ECHIDNA', 'Fascination MAXX', 'GAIA', 'MENDES (A)',
-    'One More Lovely', 'Quakes', 'Thor\'s Hammer', 'Trill auf G', 'VANESSA',
-    'ZETA ～素数の世界と超越者～', 'perditus†paradisus (A)', '華麗なる大犬円舞曲', 'Session 9 -Chronicles-', 'The Black Knight',
-    'Dynamite', 'Sky High', 'Devilz Sacrifice -謀略の反乱-', 'KAISER PHOENIX', 'CODE:1'
+  { tier: "個人差A+", songs: [
+    "BLACK.by X-Cross Fade", "ECHIDNA", "invoker(L)", "Level 3",
+    "Level 4", "Red. by Jack Trance", "Reflux", "SCREW // owo // SCREW",
+    "The Chase", "THE PEERLESS UNDER HEAVEN", "Thor's Hammer", "TITANS RETURN(L)",
+    "TOMAHAWK", "Zirkfied", "真 地獄超特急 -HELL or HELL-", "ピアノ独奏無言歌 \"灰燼\"",
   ]},
-  { tier: '個人差A', songs: [
-    'Scripted Connection⇒ A mix', 'DAY DREAM', '嘆きの樹', 'rumrum triplets', 'Todestrieb',
-    'Watch Out Pt.2', 'BRAINSTORM', 'STEEL NEEDLE', 'ラクエン', 'refractive index'
+  { tier: "地力A", songs: [
+    "ABSOLUTE EVIL", "ALTERNATOR", "Artist", "Bad Maniacs",
+    "BEAT PRISONER", "BLACK or WHITE?", "Blue Rain(L)", "Close the World feat.a☆ru(L)",
+    "COSMIC RAY", "DEATH†ZIGOQ ～怒りの高速爆走野郎～", "Demon March", "Despair of ELFERIA",
+    "Devil's Gear", "DORNWALD ～Junge～", "Dynamite", "Elektrick U-Phoria(L)",
+    "EXUSIA", "Feel The Beat(L)", "four pieces of heaven(L)", "G59",
+    "Ganymede(L)", "GuNGNiR", "HADES", "HAERETICUS",
+    "KAISER PHOENIX", "Life Is A Game ft.DD\"ナカタ\"Metal", "LOCUS OF THE TRAVEL", "MENDES",
+    "NOIXIA", "Painful Fate", "quell～the seventh slave～", "Secrets(L)",
+    "SOLID STATE SQUAD(L)", "suspicions", "THE BRAVE MUST DIE", "The Rebellion of Sequencer",
+    "Triple Counter", "TRIUMPH", "Verflucht", "Violet Pulse(L)",
+    "VOLAQUAS", "waxing and wanding(L)", "ZEPHYRANTHES(L)", "255",
+    "紫陽花 -AZISAI-(L)", "お菓子の王国", "俺ら東京さ行ぐだ(L)", "仮想空間の旅人たち(L)",
+    "華麗なる大犬円舞曲", "君のハートにロックオン(L)", "閠槞彁の願い", "金野火織の金色提言",
+    "世界の果てに約束の凱歌を -ReUnion-", "天空の夜明け", "伐折羅-vajra-", "ピアノ協奏曲第1番”蠍火” (BlackY Remix)",
+    "二人ノ廃城幽踊宴", "烽火連天の刃", "冥",
   ]},
-  { tier: '地力B+', songs: [
-    'ABSOLUTE (A)', 'Arca', 'Beat Radiance', 'Blue Spring Express', 'Caldwell 99',
-    'CONTRACT', 'Dances with Snow Fairies', 'EBONY & IVORY', 'gigadelic', 'GRID KNIGHT',
-    'Idola', 'in the Sky', 'KAMIKAZE', 'Level 5', 'MA',
-    'NNRT', 'Papilio ulysses', 'Prey', 'Red. by Full Metal Jacket', 'Sinus Iridum (A)',
-    'The Least 100sec', 'TITANS RETURN', 'Uh-Oh', 'w/o defense', 'ヒソテンソク'
+  { tier: "個人差A", songs: [
+    "AIR RAID FROM THA UNDAGROUND(L)", "Cult Invitation", "Don't believe the hype", "Level One",
+    "Miracle 5ympho X(L)", "Purple Perplex", "Scripted Connection⇒ A mix(L)", "STEEL NEEDLE(L)",
+    "TECHNOPHOBIA", "2 Beasts Unchained", "3y3s", "音楽",
+    "カジノファイヤーことみちゃん(L)", "バッド・スイーツ、バッド・ドリーム", "ピアノ協奏曲第１番”蠍火”",
   ]},
-  { tier: '個人差B+', songs: [
-    'BITTER CHOCOLATE STRIKER', 'CHECKING YOU OUT', 'Chrono Diver -PENDULUMs-', 'DUE TOMORROW', 'EMERALDAS',
-    'GAMBOL (dub mix)', 'naptime', 'quell (A)', 'spiral galaxy', 'ピアノ協奏曲第1番"蠍火"'
+  { tier: "地力B+", songs: [
+    "ALBA-黎明-(L)", "ANCHOR", "Antigravity", "DEADHEAT",
+    "Drop Syndicate", "Empire of Fury", "fallen leaves -IIDX edition-", "Grand Chariot",
+    "GRAVITON", "JOMANDA", "kors k's How to make OTOGE CORE 「LONG」", "Macho Monky",
+    "NEW GENERATION -もう、お前しか見えない-(L)", "O/D*20(L)", "One More Lovely", "ORCA",
+    "PLASMA SOUL NIGHT feat. Nana Takahashi / 709sec.", "Resonant", "Shooting Fireball", "Snakey Kung-fu",
+    "STARLIGHT DANCEHALL(L)", "StrayedCatz", "SYNC-ANTHEM", "The Limbo",
+    "TOXIC VIBRATION", "Twelfth Style(L)", "Unbelief", "Visterhv",
+    "Xb10r", "YAKSHA", "キャトられ恋はモ～モク", "今宵、ロマンス横丁。",
+    "ぞうしょく！？マイデンティティ", "抱きしめてモナムール", "津軽雪", "東京神話",
+    "†渚の小悪魔ラヴリィ～レイディオ†(IIDX EDIT)", "海神(L)",
   ]},
-  { tier: '地力B', songs: [
-    'Acid Pumper', 'AsiaN distractive', 'Bad Maniacs', 'BLUST OF WIND', 'Boomy and The Boost',
-    'CHRONO DIVER -NORNIR- (A)', 'Cosmic Cat', 'DRAGONLADY', 'DropZ-Line-', 'EMPTY OF THE SKY',
-    'Feel The Beat', 'FUZIN RIZIN', 'G59', 'HADES', 'ICARUS',
-    'Illegal Function Call', 'KAMAITACHI', 'Kailua', 'KILL EACH OTHER', 'Line 4 Ruin',
-    'MAX 300', 'Monopole.', 'NEBULA GRASPER', 'ObZOKe', 'oratio',
-    'Preserved Valkyria', 'Programmed Sun', 'Raison d\'être～交差する宿命～', 'Rave*it!! Rave*it!!', 'Recollect Lines',
-    'rurple crayon', 'SCREAM SQUAD', 'shady breeze', 'Sol Cosine Job 2', 'STARLIGHT DANCEHALL',
-    'THANK YOU FOR PLAYING', 'The Dirty of Loudness', 'THE SAFARI', 'Titania', 'TRANOID',
-    'True Blue', 'Turii ～Panta rhei～', 'Valgus', 'Watch Out Pt.2 (A)', 'X-rated'
+  { tier: "個人差B+", songs: [
+    "Be quiet(L)", "Boomy and The Boost", "DIAMOND CROSSING", "GiGaGaHell",
+    "Hollywood Galaxy", "Inferno of Fomalhaut", "Marie Antoinette(L)", "Peaktime Booster",
+    "Snake Stick", "STULTI", "199024club -Re:BounceKiller-", "灼熱Beach Side Bunny (かめりあ's \"Summertime D'n'B\" Remix)",
+    "水鏡の異界",
   ]},
-  { tier: '個人差B', songs: [
-    'ALBIDA', 'Anisakis -somatic mutation type "Forza"-', 'CROSSROAD', 'Digitank System', 'DOMINION',
-    'EDEN', 'era (nostalmix)', 'GENOCIDE', 'JACKAL', 'Karva Chauth',
-    'moon_child', 'One of A Kind', 'quell～the seventh slave～ (A)', 'Sounds Of Summer', 'tiefsee',
-    'ULTIMATE POWER', 'カジノファイヤーことみちゃん', '共鳴遊戯の華', '龍と少女とデコヒーレンス', '桜'
+  { tier: "地力B", songs: [
+    "A MINSTREL～ver.short-scape～(L)", "AA -rebuild-", "Angel's Ladder", "Arkadia",
+    "ASIAN VIRTUAL REALITIES (MELTING TOGETHER IN DAZZLING DARKNESS)", "BIGWAVERS", "BITTER CHOCOLATE STRIKER", "BLUE DRAGON(雷龍RemixIIDX)",
+    "Broken Sword", "Burning Flame(L)", "Candy Galy", "cinder",
+    "Close the World feat.a☆ru", "CODE:1 ［revision1.0.1］", "Colorful Cookie", "Dances with Snow Fairies",
+    "destination", "Devilz Staircase", "DropZ-Line-", "DUAL STRIKER",
+    "entelecheia", "Flying Castle", "GENE", "GUILTY(L)",
+    "HARD BRAIN", "I", "Illusionary Waterlily", "INSOMNIA",
+    "KILL EACH OTHER", "LASER CRUSTER (IGNITE REMIX)", "Lightspeed", "Little Little Princess(L)",
+    "M4K3 1T B0UNC3", "MAX 300", "MAX 360", "MAXIMUM CHEAT GIRL",
+    "Monopole.", "neu", "NITROUS CANNON", "One for All",
+    "OTENAMI Hurricane", "Proof of the existence", "QUANTUM TELEPORTATION(L)", "quaver♪",
+    "ra'am", "refrain", "reunion", "ruin of opals",
+    "Session 9 -Chronicles-", "Sky High", "Slipstream", "Smalt #28598F",
+    "Super Rush", "T-REX vs Velociraptor (In the Far east euphoria)", "THE DEEP STRIKER(L)", "The Last Apocalypse",
+    "Timepiece phase II", "Triple Cross", "u gotta beat", "Ubertreffen(L)",
+    "Valanga", "Vermilion Carol", "Vitrum", "Welcome(L)",
+    "X", "Xlo", "Xperanza", "24h Endurance Race",
+    "ΕΛΠΙΣ(L)", "少年は空を辿る", "神謳 -RESONANCE-", "たまゆら",
+    "電腦都市", "童話回廊", "轟け！恋のビーンボール！！", "廿(L)",
+    "儚キ戀ノ幻想譚", "不沈艦CANDY", "#MAGiCVLGiRL_TRVP_B3VTZ", "未完成ノ蒸氣驅動乙女",
+    "魅惑のYUMMYスイーツ", "龍と少女とデコヒーレンス(L)", "リリーゼと炎龍レーヴァテイン", "恋愛＝精度×認識力",
   ]},
-  { tier: '地力C', songs: [
-    '100% minimoo-G', 'Aegis', 'AGEHA', 'Ancient Scapes (N)', 'B4U(BEMANI FOR YOU MIX)',
-    'Beyond The Earth', 'bit mania', 'Blaze it UP!', 'burst!', 'Candy Galy',
-    'Close the World feat.a☆ru', 'Cookie Bouquets', 'crew', 'D', 'DEADHEAT',
-    'Despair of ELFERIA', 'DIAMOND CROSSING (N)', 'diagram', 'Double Dribble', 'Dr. Chemical & Killing Machine',
-    'entelecheia', 'EXTREME MACH COLLIDER', 'FIRE FIRE', 'four pieces of heaven', 'Fly Above',
-    'fog', 'GO OVER WITH GLARE', 'GRADIUSIC CYBER ～AMD G5 MIX～', 'HYPERION', 'IMPLANTATION',
-    'Ignis†', 'Juggernaut', 'Just a Little Smile', 'LASER CRUSTER', 'Lethal Weapon',
-    'lower world', 'MACHINE GUN MACHINE', 'MAX LOVE', 'mind the gap', 'NEMESIS',
-    'NEW SENSATION', 'noname', 'On the FM', 'ODIN', 'PARADISE LOST',
-    'PLEASE DON\'T GO', 'Present My Heart', 'Programmed World', 'Punch Love 仮面', 'Rampage',
-    'Reflux', 'ridiculous speed', 'Rise\'n Beauty', 'SAMURAI-Scramble', 'Say YEEEAHH',
-    'Secrets', 'Sky Is The Limit', 'snow storm', 'SOLID STATE SQUAD', 'STEEL HUNTER',
-    'Sweet Sweet Magic', 'TA・DA☆YO・SHI', 'THE BRAVE MUST DIE', 'The Rebellion of Sequencer', 'Time to Air',
-    'toran2000', 'Triple Counter', 'waxing and wanding', 'You\'ll say "Now!"', 'ZED',
-    '喧嘩ップル', '疾走あんさんぶる', '重装甲戦闘機兵ドーラ', '晴天Bon Voyage', '轟け！恋のビーンボール！！'
+  { tier: "個人差B", songs: [
+    "AO-1", "FAKE TIME", "Flashes", "IMPLANTATION",
+    "Papilio ulysses", "PARANOiA ～HADES～", "Red. by Full Metal Jacket", "VOX UP",
+    "Watch Out Pt.2", "Y&Co. is dead or alive", "アストライアの双皿", "逆月",
+    "雪上断火", "火影", "摩天楼", "ミラージュ・レジデンス(L)",
   ]},
-  { tier: '個人差C', songs: [
-    'AinoueVibration', 'ANDROMEDA II', 'Beastie Starter', 'Bounce Bounce Bounce', 'CaptivAte～誓い～',
-    'Chain of pain', 'chrono diver -fragment-', 'DENJIN AKATSUKINI TAORERU -SF PureAnalogSynth Mix-', 'Devil\'s Gear', 'Dopamine',
-    'ExecutioN', 'e-motion 2003 -romantic extra-', 'Fire Beat', 'fffff', 'GENERATE',
-    'HARD BRAIN', 'Hormiga obrera', 'INSOMNIA', 'Innocent Walls', 'LethaL',
-    'mosaic', 'NEO IMPRESSIONISM', 'PENDUAL TALISMAN', 'rainbow rainbow', 'RED ZONE',
-    'Session 12 -Esther-', 'stoic (EXTREME MIX)', 'TIEFSEE (N)', 'wild and drunk', '津軽雪'
+  { tier: "地力C", songs: [
+    "Aftermath", "AKASHIC BREAK", "Always We Trust In You", "Amazing Mirage(L)",
+    "Ancient Scapes", "anthracene", "Arabian Rave Night(L)", "Chaotoxin",
+    "Cosmic Cat(L)", "COSMIC V3LOCITY", "DARK LEGACY", "dAuntl3ss",
+    "DAY DREAM", "DIVINE JUDGEMENT", "DOMINION", "Dr. Chemical & Killing Machine",
+    "EBONY & IVORY", "Evans", "EX-MASSIVE FIGHTER", "FANTASTIC THREE",
+    "Friction［!］Function", "FUZIN RIZIN", "Ghost Pulse", "Godspeed",
+    "GOLDEN CROSS", "Gravigazer", "Here We Go Now", "Idola",
+    "innocent revolver", "Invitation from Mr.C", "Konzert V", "L.F.O",
+    "Last Dance", "Lethal Weapon", "LIVE DRIVING!! feat. 花たん", "LOST TECHNOLOGIE",
+    "Million Dollar", "NEO GENERATOR SEVEN", "Nightmare before oversleep", "NNRT",
+    "Push on Beats!～音ゲの国のeX-ストリーマー～", "rage against usual", "RAIN", "Rave Patroller",
+    "Roar of Chronos", "RINNE", "rommmo", "SAY BAY",
+    "Seven Times Four", "Sol Cosine Job 2", "SOLID STATE SQUAD -RISEN RELIC REMIX-", "Sounds Of Summer",
+    "spiral galaxy(L)", "Super Freak", "Sword of Vengeance", "TECHNO Style Essentials",
+    "THANK YOU FOR PLAYING(L)", "THE DAY OF JUBILATIONS", "thunder HOUSE NATION Remix(L)", "Vinculum stellarum",
+    "Viridian", "We're so Happy (P*Light Remix) IIDX ver.", "WONDER WALKER", "yellow head joe(L)",
+    "Ypsilon(L)", "イザナミノナゲキ", "Ou Legends", "子供の落書き帳",
+    "疾風迅雷", "シュレーディンガーの猫", "深淵に捧ぐレクイエム", "旋律のドグマ～Miserables～",
+    "それは花火のような恋", "電光", "トリカゴノ鳳凰", "夏色DIARY - L.E.D.-G STYLE MIX -",
+    "華爛漫 -Flowers-(L)", "禊", "めいさいアイドル☆あいむちゃん♪", "龍王の霊廟(Mausoleum Of The Primal Dragon)(L)",
   ]},
-  { tier: '地力D', songs: [
-    '1st Samurai', 'AA -rebuild-', 'ALL RIGHT', 'Amazing Mirage', 'ATOMIC AGE',
-    'Attack the music', 'BLACK JACKAL', 'Blue Rain', 'CALL', 'CaptivAte2～覚醒～',
-    'CBTM', 'Chrono Seeker', 'Cyber Force', 'DEEP ROAR', 'Digital MinD',
-    'DoLL', 'donburi Fields Forever', 'Drastic Dramatic', 'DXY!', 'evergreen',
-    'Evans', 'EXTREME', 'Fegrix', 'Feel The Beat (N)', 'FUZIN RIZIN (N)',
-    'GET READY!!', 'Go Ahead!!', 'GRID KNIGHT (N)', 'Halfway of promise', 'Hypersonik',
-    'ILLUSION', 'in motion', 'INFERNO', 'Innocent Azure', 'KAISER PHOENIX (N)',
-    'Last Dance', 'LOVE B.B.B', 'M4K3 1T B34T', 'MedaLLic', 'MIRACLE MEETS',
-    'NINJA IS DEAD IIDX ver.', 'NZM', 'ostinato', 'Painful Fate (N)', 'PARANOIA ～HADES～ (N)',
-    'peace of mind', 'Persephone', 'PLASMA SOUL NIGHT', 'protoflicker', 'Quick Silver',
-    'RAGE feat.優介', 'Reprologue', 'ristaccia', 'Routing', 'satellite020712 from "CODED ARMS"',
-    'Scarlet Moon', 'SEQUENCE CAT', 'Shooting Fireball', 'smooooch・∀・', 'SpaceLand☆TOYBOX',
-    'spectrum', 'StrayedCatz', 'Sun Field', 'Super Rush', 'Take My Life',
-    'The Story Begins', 'Thunderbolt', 'Timepiece phase II', 'together 4ever', 'TOXIC VIBRATION',
-    'traces', 'TWO-TORIAL', 'VOX RUSH', 'V2', 'ünion',
-    'ワルツ第17番 ト短調"大犬のワルツ" (N)', '少年A', '打打打打打打打打打打', '表裏一体！？怪盗いいんちょの悩み♥', '革命'
+  { tier: "個人差C", songs: [
+    "Adularia", "B.O.D.Y.", "BLUE MIRAGE", "GAME ON",
+    "Level 2", "MAD ATTACK(L)", "New Castle Legions", "ONIGOROSHI",
+    "PLEASE DON'T GO", "Rave*it!! Rave*it!!", "Sense 2007", "TOGAKUSHI",
+    "ZZ", "スーパー戦湯ババンバーン", "ハイテックトキオ(L)", "海神",
   ]},
-  { tier: '個人差D', songs: [
-    'ABSOLUTE', 'Blind Justice ～Torn souls, Hurt Faiths～', 'CaptivAte～裁き～', 'Colors (radio edit)', 'DAWN -THE NEXT ENDEAVOUR-',
-    'gigadelic (N)', 'HIGH', 'I\'m Screaming LOVE', 'JOURNEY TO THE NEW WORLD', 'KEY',
-    'Marie Antoinette', 'quell', 'rainbow flyer', 'SOLITON BEAM', 'sync (EXTREME MIX)',
-    'THE DEEP STRIKER', 'ay carumba!!!!', 'キャトられ♥恋はモ～モク', '仮想空間の旅人たち (N)', '灼熱 (N)'
+  { tier: "地力D", songs: [
+    "AA", "ACT0", "ALBIDA", "Beat Radiance(L)",
+    "BIGソムタム", "BLAZING_LAZER", "Bring The Fire", "Broken",
+    "Catch Our Fire!", "Dahlia", "Double Dribble", "Drastic Dramatic",
+    "DRUNK MONKY", "EVANESCENT", "Feel The Beat", "Fegrix",
+    "fffff", "FIRE FIRE", "frequent", "GAIA",
+    "Go Beyond!!", "Highcharge Divolt", "Kung-fu Empire(L)", "Matt Silver",
+    "Megalara Garuda", "Meissa", "No Border", "ONE AND ONLY",
+    "oratio", "Out of Control", "Parvati", "Persephone",
+    "POSSESSION", "PUNISHER", "Rampage", "Rave Cannon",
+    "Say YEEEAHH", "Scripted Connection⇒ A mix", "Scripted Connection⇒ H mix(L)", "Silver Bullet",
+    "SOLID STATE SQUAD", "SpaceLand☆TOYBOX", "Stereo Beasts", "The Least 100sec",
+    "The Sampling Paradise", "Thunderbolt", "TIEFSEE", "Trill auf G",
+    "True Blue", "Umbral(L)", "V", "紫陽花 -AZISAI-",
+    "天邪鬼", "ATHER(L)", "カゴノトリ～弐式～", "華蝶風雪(L)",
+    "神のシナリオ", "#CMFLG", "九尾狐夜行", "狂イ咲ケ焔ノ華",
+    "恋する☆宇宙戦争っ！！", "最小三倍完全数", "〆", "聖人の塔",
+    "即席！脳直★ミュージックシステム", "電人、暁に斃れる。", "刃図羅", "表裏一体！？怪盗いいんちょの悩み",
   ]},
-  { tier: '地力E', songs: [
-    '2hot2eat', 'Abraxas', 'ADVANCE', 'AFTER BURNER', 'Answer',
-    'armond', 'Ascalon', 'AVE DE RAPINA', 'BLOCKS', 'Bounce Trippy',
-    'Breaking the ground', 'CHECKING YOU OUT (N)', 'CONCEPTUAL', 'Critical Crystal', 'crossover',
-    'diving money', 'EXE', 'FAKE TIME', 'fallen leaves -IIDX edition-', 'Flashes',
-    'Frozen Ray', 'Get On Beat (Wild Style)', 'GiGaGaHell', 'Golden Palms', 'Hydrogen Blueback',
-    'ICARUS (N)', 'IMAGE -MATERIAL-', 'in the Sky (N)', 'Kung-fu Empire', 'MAX 360',
-    'MINT', 'NoN-Fiction Story!', 'oratio (N)', 'Outbreak', 'over there',
-    'PENTA', 'Phoenix', 'quick and easy', 'Raise your head', 'Red. by Jack Trance',
-    'Regulus', 'rumrum triplets (N)', 'sakura storm', 'Session 1 -Genesis-', 'SHADE',
-    'Sounds Of Summer (N)', 'STEP INTO THE NEW WORLD', 'Sunrise', 'THANK YOU FOR PLAYING (N)', 'The Hope of Tomorrow',
-    'Vermillion', 'virtual crime', 'Wanna Party?', 'Xenon', 'ZENDEGI DANCE',
-    '¡Viva!', 'お空、みューじあむ。', 'この子の七つのお祝いに', 'シムルグの目醒め', 'ピアノ独奏無言歌"灰燼"'
+  { tier: "個人差D", songs: [
+    "Caterpillar", "dica dica", "eRAseRmOToRpHAntOM", "Fascination MAXX",
+    "Fire Beat", "mosaic", "桜", "魔法のかくれんぼ",
+    "ワルツ第17番 ト短調”大犬のワルツ”",
   ]},
-  { tier: '個人差E', songs: [
-    'Aurora', 'BLO$$OM', 'CS Special Medley', 'Dazzlin\' Darlin', 'EMPIRE STATE GLORY',
-    'FIRE FIRE (N)', 'Innocent Walls (H)', 'LOVE SHINE', 'No.13', 'one or eight',
-    'Present My Heart (N)', 'ra\'am', 'THE FANG', 'ZERO-G', '蛇神'
+  { tier: "地力E", songs: [
+    "Apocalypse", "Arca", "Carry Me Away", "Colors (radio edit)",
+    "Concertino in Blue", "encounter", "F", "gigadelic(H)",
+    "gigadelic", "glacia", "Hat Surprise (Season 2)", "invoker",
+    "JUSTICE/GUILTY feat. Nana Takahashi & 709sec.", "KING(L)", "LASER CRUSTER", "Liberation",
+    "LIGHTNING STRIKES", "Little Star", "moon_child", "NINJA IS DEAD IIDX ver.",
+    "Please Welcome Mr.C", "Raspberry Railgun", "RED ZONE(L)", "Sirius",
+    "Summerlights(IIDX Edition)", "Sweet Clapper(L)", "Symmetry", "The Onlyonez",
+    "Todestrieb", "VANESSA", "Venom", "ΕΛΠΙΣ",
+    "黒髪乱れし修羅となりて", "灼熱 Lost Summer Dayz", "終焔のClaudia", "少年A",
+    "千年ノ理", "《PL|RAYER》", "紅牡丹",
   ]},
-  { tier: '地力F', songs: [
-    '5.1.1. (A)', 'Agnus Dei', 'ALFARSHEAR ～双神威に廻る夢～', 'aurora borealis', 'Blame',
-    'Blue Comet', 'Catch Our Fire!', 'CROSSROAD (N)', 'Dance to Blue (A)', 'DEATH†ZIGOQ (N)',
-    'dissolve', 'earth-like planet', 'EXTREME (N)', 'Fantasy', 'Feel the Earth',
-    'Go Berzerk', 'Holic', 'I know You know', 'Innocent Walls (N)', 'LAB',
-    'LOVE IS ORANGE', 'Mermaid girl -秋葉工房mix-', 'NEBULA GRASPER (N)', 'No Border', 'PP',
-    'RESONATE 1794', 'Sense 2007 (N)', 'spring rain', 'State Of The Art', 'sync',
-    'The Sealer ～ア・ミリアとミリアの民～', 'tripping contact', 'VJ ARMY', 'Water Frontier', 'Xepher',
-    'YAKSHA', '19,November', '路男', '陽炎', '4.949'
+  { tier: "個人差E", songs: [
+    "DUE TOMORROW", "GRID KNIGHT(L)", "ICARUS", "Innocent Walls(H)",
+    "Innocent Walls", "one or eight", "SCREAM SQUAD", "Steel Edge",
+    "TROOPERS", "雪月花",
+  ]},
+  { tier: "地力F", songs: [
+    "A", "Primitive Vibes", "Ristaccia", "snow storm(L)",
+    "SPECIAL SUMMER CAMPAIGN!", "残像ニ繋ガレタ追憶ノHIDEAWAY", "スパークリング☆彡ハイパーチューン！！",
+  ]},
+  { tier: "個人差F", songs: [
+    "sakura storm",
   ]},
 ];
