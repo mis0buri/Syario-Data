@@ -577,41 +577,50 @@ async function iidxAutoFetchTable() {
     showProgress('wikiから地力表を取得中');
     timer = setInterval(() => showProgress('wikiから地力表を取得中'), 1000);
     if (status && status.scrollIntoView) status.scrollIntoView({ block: 'nearest' });
-    const key = _nextGeminiKey();
     const prompt = `次のURLのページを読んでください: ${IIDX_WIKI_URL}\n`
       + 'これは beatmania IIDX SP☆12 の地力表です。ページに掲載されている表の全ティア・全曲を、'
       + '次の形式のJSON配列だけで出力してください（説明文・コードフェンスは不要）。\n'
       + '[{"tier":"地力S+","songs":["曲名1","曲名2"]},{"tier":"個人差S+","songs":["..."]}]\n'
       + 'ティア名と曲名はページの表記のまま（†や記号も含めて）省略せずすべて出力してください。'
       + '「未定」「難易度未定」などランクが決まっていない曲のグループも、あればティアとして含めてください。';
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ url_context: {} }],
-        generationConfig: { maxOutputTokens: 65536 },
-      })
-    });
-    if (!res.ok) await _throwApiError(res, 'Gemini');
-    const data = await res.json();
-    const cand = data?.candidates?.[0];
-    const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
+    const attempt = async () => {
+      const key = _nextGeminiKey();
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          tools: [{ url_context: {} }],
+          generationConfig: { maxOutputTokens: 65536 },
+        })
+      });
+      if (!res.ok) await _throwApiError(res, 'Gemini');
+      const data = await res.json();
+      const cand = data?.candidates?.[0];
+      const text = (cand?.content?.parts || []).map(p => p.text || '').join('');
+      return { cand, text, tiers: _iidxParseTiersJson(text) };
+    };
+    let { cand, text, tiers } = await attempt();
+    if (!tiers.length) {
+      // wikiの読み取りは一時的に失敗することがあるため、1回だけ自動で再試行する
+      showProgress('抽出に失敗したため再試行中');
+      ({ cand, text, tiers } = await attempt());
+    }
     // 確認ダイアログや結果表示を経過表示で上書きしないよう、抽出前にタイマーを止める
     clearInterval(timer); timer = null;
-    const tiers = _iidxParseTiersJson(text);
     if (!tiers.length) {
       // 失敗原因を切り分けてメッセージに反映（デバッグ用に生応答もコンソールへ）
       const urlMeta = cand?.urlContextMetadata?.urlMetadata || cand?.url_context_metadata?.url_metadata || [];
       const retrieval = urlMeta.map(m => m.urlRetrievalStatus || m.url_retrieval_status || '').join(',');
       console.warn('iidx autofetch failed. finishReason:', cand?.finishReason, 'retrieval:', retrieval, 'text:', text.slice(0, 1000));
+      const diag = `finish=${cand?.finishReason || '不明'}／wiki取得=${retrieval || '情報なし'}`;
       if (cand?.finishReason === 'MAX_TOKENS') {
         throw new Error('AIの応答が長すぎて途切れました。もう一度試すと成功することがあります。');
       }
       if (retrieval && retrieval.indexOf('SUCCESS') < 0) {
         throw new Error('wikiページの読み取りがブロックされました（wiki側のアクセス制限）。お手数ですがコピペでの取り込みをお使いください。');
       }
-      throw new Error('地力表を抽出できませんでした。時間をおいて再試行するか、コピペでの取り込みをお試しください。'
+      throw new Error('地力表を抽出できませんでした（' + diag + '）。時間をおいて再試行するか、コピペでの取り込みをお試しください。'
         + (text ? `（AI応答の冒頭: ${text.slice(0, 80)}…）` : '（AI応答が空でした）'));
     }
     const done = await _iidxSaveTableWithConfirm(tiers, 'wiki自動取得', status);
@@ -630,8 +639,11 @@ async function iidxAutoFetchTable() {
 // 応答テキストからJSON配列を切り出して [{tier, songs}] に正規化。
 // 出力が途中で切れた場合は、最後に完結したオブジェクトまでで修復を試みる
 function _iidxParseTiersJson(text) {
-  const s = String(text || '');
-  const start = s.indexOf('[');
+  // コードフェンスを除去し、配列の開始は「[ の直後に { が続く」位置を優先して探す
+  // （前置きの説明文に [ が混ざると先頭の [ からのパースが失敗するため）
+  const s = String(text || '').replace(/```(?:json)?/gi, '');
+  const m = s.match(/\[\s*\{/);
+  const start = m ? m.index : s.indexOf('[');
   if (start < 0) return [];
   let parsed = null;
   const end = s.lastIndexOf(']');
