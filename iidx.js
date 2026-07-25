@@ -616,6 +616,7 @@ async function iidxAutoFetchTable() {
   // 応答まで1分近くかかることがあるため、経過秒数を出して動作中であることを示す
   const t0 = Date.now();
   let timer = null;
+  let _iidxDirectNote = ''; // 直接読込がフォールバックした理由（最終エラーに併記して切り分け可能にする）
   const showProgress = (phase) => {
     if (!status) return;
     status.textContent = `${phase}… ${Math.round((Date.now() - t0) / 1000)}秒経過（1分ほどかかることがあります。このまま待ってください）`;
@@ -640,8 +641,10 @@ async function iidxAutoFetchTable() {
         return;
       }
       console.warn('iidx wiki direct fetch insufficient:', direct.length, 'tiers /', total, 'songs — falling back to Gemini');
+      _iidxDirectNote = `直接読込が不十分（${direct.length}ティア/${total}曲）`;
     } catch (e) {
       console.warn('iidx wiki direct fetch failed, falling back to Gemini:', e);
+      _iidxDirectNote = '直接読込に失敗: ' + ((e && e.message) || e);
     }
     showProgress('直接読込に失敗したためAIで取得中');
     if (!await _iidxEnsureGeminiKey()) {
@@ -676,7 +679,8 @@ async function iidxAutoFetchTable() {
       } finally {
         clearTimeout(tm);
       }
-      if (res.status === 503 || res.status === 429) return { overloaded: true, status: res.status };
+      // 503/429=混雑、404=モデル提供終了。いずれも中断せず次の試行（別モデル）へ回す
+      if (res.status === 503 || res.status === 429 || res.status === 404) return { overloaded: true, status: res.status };
       if (!res.ok) await _throwApiError(res, 'Gemini');
       const data = await res.json();
       const cand = data?.candidates?.[0];
@@ -684,8 +688,9 @@ async function iidxAutoFetchTable() {
       return { cand, text, tiers: _iidxParseTiersJson(text) };
     };
     // 混雑(503/429)・タイムアウト・一時的な抽出失敗に備え、モデルを切り替えながら最大4回試す
-    // （url_context対応モデル: 2.5-flash → 2.5-flash-lite の順にフォールバック）
-    const plan = ['gemini-2.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash-lite'];
+    // （url_context対応モデル: 2.5-flash → 2.5-pro の順にフォールバック。
+    //   2.5-flash-liteは新規ユーザー向け提供終了(404)のため使わない）
+    const plan = ['gemini-2.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'];
     let last = null, lastOverload = null;
     for (let i = 0; i < plan.length; i++) {
       if (i > 0) {
@@ -730,7 +735,7 @@ async function iidxAutoFetchTable() {
       status.className = 'admin-status';
     }
   } catch (e) {
-    if (status) { status.textContent = '自動取得に失敗しました: ' + ((e && e.message) || e); status.className = 'admin-status error'; }
+    if (status) { status.textContent = '自動取得に失敗しました: ' + ((e && e.message) || e) + (_iidxDirectNote ? '／' + _iidxDirectNote : ''); status.className = 'admin-status error'; }
   } finally {
     if (timer) clearInterval(timer);
     if (btn) { btn.disabled = false; btn.textContent = 'wikiから自動取得'; }
