@@ -143,6 +143,7 @@ const _HASH_TO_SECTION = {
   swarm: 'swarm',
   transit: 'transit',
   xarchive: 'xarchive',
+  iidx: 'iidx',
 };
 
 function showSection(id) {
@@ -185,7 +186,7 @@ function showSection(id) {
   }
 
   // 期間バーの表示
-  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||id==='swarm'||id==='transit'||isGallery||isAdmin) ? 'none' : '';
+  document.querySelector('.period-bar').style.display = (id==='top'||id==='feedback'||id==='schedule'||id==='board'||id==='vote'||id==='renban'||id==='boshu'||id==='stamp'||id==='column'||id==='swarm'||id==='transit'||id==='iidx'||isGallery||isAdmin) ? 'none' : '';
 
   if (id==='graph') renderChart(filteredGathers());
   if (id==='member' && activeMemberName) renderMemberCharts(activeMemberName);
@@ -212,6 +213,7 @@ function showSection(id) {
   if (id==='xarchive') initXArchive();
   if (id==='swarm') initSwarm('main');
   if (id==='transit') initTransit();
+  if (id==='iidx') initIidx();
   if (id==='column') initColumn();
 
   // URL ハッシュを更新（管理者セクションは #admin/{name} 形式で反映）
@@ -881,6 +883,8 @@ function updateAuthUI(user) {
         if (currentSection === 'swarm') initSwarm('main');
         // Twitterアーカイブ閲覧を直リンクで開いていた場合、ログイン確定後にガードを再評価
         if (currentSection === 'xarchive') initXArchive();
+        // 弐寺ランプ表を直リンクで開いていた場合、権限確定後にガードを再評価
+        if (currentSection === 'iidx') initIidx();
       }
     });
   } else {
@@ -893,9 +897,12 @@ function updateAuthUI(user) {
     if (_navAdminBtn) _navAdminBtn.style.display = 'none';
     const _navTransitBtn = document.getElementById('nav-transit-btn');
     if (_navTransitBtn) _navTransitBtn.style.display = 'none';
+    const _navIidxBtn = document.getElementById('nav-iidx-btn');
+    if (_navIidxBtn) _navIidxBtn.style.display = 'none';
     _refreshBoardIfActive();
     _refreshJareIfActive();
     if (currentSection === 'xarchive') initXArchive();
+    if (currentSection === 'iidx') initIidx();
   }
   const rbHint = document.getElementById('rb-login-hint');
   if (rbHint) rbHint.style.display = user ? 'none' : 'inline';
@@ -1122,6 +1129,9 @@ async function _loadUserData(user) {
   // 乗換案内ナビボタン（管理者のみ）
   const navTransitBtn = document.getElementById('nav-transit-btn');
   if (navTransitBtn) navTransitBtn.style.display = _isAdmin ? '' : 'none';
+  // 弐寺ランプ表ナビボタン（管理者・マネージャーのみ）
+  const navIidxBtn = document.getElementById('nav-iidx-btn');
+  if (navIidxBtn) navIidxBtn.style.display = (_isAdmin || _isManager) ? '' : 'none';
   // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
   const fbName = document.getElementById('fb-name');
   if (fbName && !fbName.value) fbName.value = _registeredName;

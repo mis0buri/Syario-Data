@@ -49,6 +49,7 @@
     <button data-nav="renban" onclick="showSection('renban')">連番募集</button>
     <button data-nav="swarm" id="nav-swarm-btn" onclick="showSection('swarm')">Swarm連携</button>
     <button data-nav="transit" id="nav-transit-btn" style="display:none;" onclick="showSection('transit')">乗換案内</button>
+    <button data-nav="iidx" id="nav-iidx-btn" style="display:none;" onclick="showSection('iidx')">弐寺ランプ</button>
     <button data-nav="feedback" onclick="showSection('feedback')">ご意見</button>
     <button data-nav="admin" id="nav-admin-btn" style="display:none;color:#e63946;" onclick="showSection('admin-members')">管理者</button>
   </nav>
@@ -1530,6 +1531,47 @@
     </div>
   </div>
 
+  <!-- 弐寺☆12ランプ表（管理者・マネージャー限定） -->
+  <div id="sec-iidx" class="section">
+    <div class="card">
+      <div class="card-title">弐寺 ☆12 ランプ表</div>
+      <div id="iidx-guard" class="admin-status"></div>
+      <div id="iidx-body" style="display:none;">
+        <div id="iidx-summary" class="iidx-summary"></div>
+        <div class="iidx-controls">
+          <input type="text" id="iidx-search" class="admin-input" placeholder="曲名で検索" oninput="iidxOnSearch(this.value)">
+          <select id="iidx-lamp-filter" class="admin-select" onchange="iidxOnFilter(this.value)">
+            <option value="all">すべて表示</option>
+            <option value="below-easy">未クリアのみ（EASY未満）</option>
+            <option value="below-hard">ハード未満のみ</option>
+            <option value="below-exhard">EXハード未満のみ</option>
+            <option value="below-fc">FC未満のみ</option>
+            <option value="noplay">NO PLAY</option>
+            <option value="failed">FAILED</option>
+            <option value="assist">ASSIST CLEAR</option>
+            <option value="easy">EASY CLEAR</option>
+            <option value="clear">CLEAR</option>
+            <option value="hard">HARD CLEAR</option>
+            <option value="exhard">EX HARD CLEAR</option>
+            <option value="fc">FULL COMBO</option>
+          </select>
+          <button type="button" class="admin-btn" onclick="iidxToggleImport()">表を更新</button>
+        </div>
+        <div id="iidx-table-meta" class="iidx-meta"></div>
+        <div id="iidx-import-wrap" style="display:none;">
+          <div class="admin-note" style="margin-top:8px">
+            <a href="https://w.atwiki.jp/bemani2sp11/pages/19.html" target="_blank" rel="noopener">☆12地力表のwiki</a>
+            から表をコピーして貼り付けると曲表を最新化できます。「地力S+」などのティア見出し行のあとに曲名（1行1曲、またはタブ・／区切り）を並べた形式で取り込まれます。登録済みのランプは曲名が一致すれば引き継がれます。
+          </div>
+          <textarea id="iidx-import-text" class="admin-input" rows="8" placeholder="地力S+&#10;冥&#10;X-DEN&#10;地力S&#10;卑弥呼&#10;..." style="width:100%;box-sizing:border-box;margin-top:6px;"></textarea>
+          <button type="button" class="admin-btn primary" style="margin-top:6px" onclick="iidxRunImport()">取り込んで置き換え</button>
+          <div id="iidx-import-status" class="admin-status"></div>
+        </div>
+        <div id="iidx-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 乗換案内 -->
   <div id="sec-transit" class="section">
 
@@ -1675,6 +1717,8 @@
 <script src="./xarchive.js?v=20260713-2"></script>
 <script src="./swarm.js"></script>
 <script src="./transit.js?v=20260710-5"></script>
+<script src="./iidx-data.js"></script>
+<script src="./iidx.js"></script>
 
 <!-- ── 予約モーダル ── -->
 <div id="rsv-overlay" class="rsv-overlay" onclick="rsvOverlayClick(event)">
