@@ -508,16 +508,24 @@ async function _iidxSaveTableWithConfirm(tiers, sourceLabel, status) {
     msg += `\n⚠ ランプ登録済みで新しい表に無い曲が${orphans.length}件あります: ${orphans.slice(0, 5).join('、')}${orphans.length > 5 ? ' など' : ''}\n（ランプの記録自体は消えず、曲名が再び一致すれば戻ります）`;
   }
   if (!confirm(msg)) return false;
-  // 置き換え前の表との差分（追加/削除の曲名つき）を成功メッセージに出す
-  const oldSet = new Set();
-  (_iidxTable || []).forEach(t => (t.songs || []).forEach(s => oldSet.add(s)));
+  // 置き換え前の表との差分（追加/削除/ティア移動の曲名つき）を成功メッセージに出す
+  const oldTierOf = {};
+  (_iidxTable || []).forEach(t => (t.songs || []).forEach(s => { oldTierOf[s] = t.tier; }));
+  const newTierOf = {};
+  tiers.forEach(t => t.songs.forEach(s => { newTierOf[s] = t.tier; }));
+  const oldSet = new Set(Object.keys(oldTierOf));
   const addedList = [...newSet].filter(s => !oldSet.has(s));
   const removedList = [...oldSet].filter(s => !newSet.has(s));
+  // 両方の表に存在し、所属ティアが変わった曲（地力の昇降格）
+  const movedList = [...newSet].filter(s => oldSet.has(s) && oldTierOf[s] !== newTierOf[s])
+    .map(s => `${s}（${oldTierOf[s]}→${newTierOf[s]}）`);
   const added = addedList.length;
   const removed = removedList.length;
+  const moved = movedList.length;
   const diffDetail =
     (added ? `／追加: ${addedList.slice(0, 5).join('、')}${added > 5 ? ' など' : ''}` : '') +
-    (removed ? `／削除: ${removedList.slice(0, 5).join('、')}${removed > 5 ? ' など' : ''}` : '');
+    (removed ? `／削除: ${removedList.slice(0, 5).join('、')}${removed > 5 ? ' など' : ''}` : '') +
+    (moved ? `／移動${moved}曲: ${movedList.slice(0, 5).join('、')}${moved > 5 ? ' など' : ''}` : '');
   try {
     const by = (_registeredName || (_currentUser.displayName || '')) + (sourceLabel ? `（${sourceLabel}）` : '');
     await _db.collection('iidx_config').doc('table').set({
