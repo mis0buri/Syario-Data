@@ -142,6 +142,7 @@ MSM方式: initial 1500, rank points `[+30, +10, -10, -30]` for 4-player non-chi
 - Marks: `◎`=終日, `〇`=半日以上(note必須), `△`=短時間(note必須), `×`=休み
 - Firestore `admin_config/schedule.dates` stores admin overrides; merged via `Object.assign(SCHEDULE_DATA, overrides)`
 - `_SCHEDULE_ORIG` is snapshotted at parse time to support rollback when admin deletes an override
+- Admin スケジュール管理 has a まとめて編集 panel (flatpickr `mode:'multiple'`, `saveAdminScheduleBulk` in admin.js): applies one mark/note to many dates in a single Firestore write, confirming before overwriting dates that already have entries
 
 ## Seasonal Theme System
 

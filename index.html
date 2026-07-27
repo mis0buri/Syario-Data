@@ -1221,6 +1221,28 @@
       <div id="admin-status-schedule" class="admin-status"></div>
       <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleEntry()">保存する</button>
       <hr class="admin-divider">
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px;">まとめて編集</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">複数の日付を選択して、同じ記号・備考を一括で設定できます</div>
+      <div class="admin-form-group">
+        <label>日付（複数選択可） <span style="color:var(--red)">*</span></label>
+        <input type="text" id="admin-sch-bulk-dates" class="admin-input" placeholder="タップして日付を選択" readonly>
+      </div>
+      <div class="admin-form-group">
+        <label>記号 <span style="color:var(--red)">*</span></label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-bulk-mark" value="◎"> <span style="color:#4caf82;font-size:16px;">◎</span> 終日</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-bulk-mark" value="〇"> <span style="color:#c8a96e;font-size:16px;">〇</span> 半日以上</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-bulk-mark" value="△"> <span style="color:#e69a30;font-size:16px;">△</span> 短時間</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;"><input type="radio" name="admin-sch-bulk-mark" value="×" checked> <span style="color:#7a7060;font-size:16px;">×</span> 休み</label>
+        </div>
+      </div>
+      <div class="admin-form-group">
+        <label>備考（〇/△ の場合は必須・全日付に同じ内容が入ります）</label>
+        <input type="text" id="admin-sch-bulk-note" class="admin-input" placeholder="例：15時以降">
+      </div>
+      <div id="admin-status-schedule-bulk" class="admin-status"></div>
+      <button class="admin-btn primary" style="width:100%;margin-bottom:16px;" onclick="saveAdminScheduleBulk()">まとめて保存する</button>
+      <hr class="admin-divider">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div>
           <div style="font-size:13px;font-weight:700;">外部公開用URL</div>

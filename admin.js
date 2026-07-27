@@ -441,7 +441,20 @@ async function saveAdminScore() {
 // ─ スケジュール管理 ─
 async function initAdminSchedule() {
   if (!_isAdmin) return;
+  _initAdminSchBulkPicker();
   _renderAdminScheduleList();
+}
+
+let _adminSchBulkPicker = null;
+
+function _initAdminSchBulkPicker() {
+  const el = document.getElementById('admin-sch-bulk-dates');
+  if (!el || typeof flatpickr === 'undefined') return;
+  if (_adminSchBulkPicker) _adminSchBulkPicker.destroy();
+  _adminSchBulkPicker = flatpickr(el, {
+    locale: 'ja', dateFormat: 'Y-m-d', disableMobile: true,
+    mode: 'multiple', conjunction: ', ', defaultDate: null,
+  });
 }
 
 let _adminSchSortAsc = true;
@@ -535,6 +548,57 @@ async function saveAdminScheduleEntry() {
     // ロールバック
     delete _firestoreSchedule[date];
     if (_SCHEDULE_ORIG[date]) { SCHEDULE_DATA[date] = _SCHEDULE_ORIG[date]; } else { delete SCHEDULE_DATA[date]; }
+  }
+}
+
+async function saveAdminScheduleBulk() {
+  if (!_isAdmin || !_db) return;
+  const statusEl = document.getElementById('admin-status-schedule-bulk');
+  const dates = _adminSchBulkPicker
+    ? _adminSchBulkPicker.selectedDates.map(d => flatpickr.formatDate(d, 'Y-m-d'))
+    : [];
+  const mark = document.querySelector('input[name="admin-sch-bulk-mark"]:checked')?.value;
+  const note = document.getElementById('admin-sch-bulk-note').value.trim();
+
+  if (!dates.length) { statusEl.textContent = '日付を選択してください'; statusEl.className = 'admin-status error'; return; }
+  if (!mark) { statusEl.textContent = '記号を選択してください'; statusEl.className = 'admin-status error'; return; }
+  if ((mark === '〇' || mark === '△') && !note) {
+    statusEl.textContent = '〇/△ の場合は備考が必要です'; statusEl.className = 'admin-status error'; return;
+  }
+  const existing = dates.filter(d => Object.prototype.hasOwnProperty.call(_firestoreSchedule, d) || Object.prototype.hasOwnProperty.call(SCHEDULE_DATA, d));
+  if (existing.length && !confirm(`以下の${existing.length}件は既に設定があり、上書きされます：\n${existing.join('\n')}\n\n続行しますか？`)) return;
+
+  statusEl.textContent = '保存中...'; statusEl.className = 'admin-status';
+  const entry = { mark, ...(note ? { note } : {}) };
+  // ロールバック用に変更前の状態を保存
+  const prev = dates.map(d => ({
+    date: d,
+    hadOverride: Object.prototype.hasOwnProperty.call(_firestoreSchedule, d),
+    override: _firestoreSchedule[d],
+  }));
+  dates.forEach(d => {
+    _firestoreSchedule[d] = { ...entry };
+    SCHEDULE_DATA[d] = { ...entry }; // ライブ反映
+  });
+
+  try {
+    await _db.collection('admin_config').doc('schedule').set({ dates: _firestoreSchedule });
+    statusEl.textContent = `${dates.length}件保存しました ✓`; statusEl.className = 'admin-status ok';
+    if (_adminSchBulkPicker) _adminSchBulkPicker.clear();
+    document.getElementById('admin-sch-bulk-note').value = '';
+    _renderAdminScheduleList();
+    if (currentSection === 'schedule') renderCalendar();
+    if (currentSection === 'top') renderTopSchedule();
+  } catch(e) {
+    statusEl.textContent = 'エラー: ' + e.message; statusEl.className = 'admin-status error';
+    // ロールバック
+    prev.forEach(p => {
+      if (p.hadOverride) { _firestoreSchedule[p.date] = p.override; }
+      else { delete _firestoreSchedule[p.date]; }
+      if (_firestoreSchedule[p.date]) { SCHEDULE_DATA[p.date] = _firestoreSchedule[p.date]; }
+      else if (_SCHEDULE_ORIG[p.date]) { SCHEDULE_DATA[p.date] = _SCHEDULE_ORIG[p.date]; }
+      else { delete SCHEDULE_DATA[p.date]; }
+    });
   }
 }
 
