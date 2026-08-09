@@ -1577,9 +1577,12 @@
             <option value="exhard">EX HARD CLEAR</option>
             <option value="fc">FULL COMBO</option>
           </select>
+          <button type="button" id="iidx-others-btn" class="admin-btn" onclick="iidxToggleOthers()">他ユーザーの記録を閲覧</button>
           <button type="button" id="iidx-ocr-toggle-btn" class="admin-btn" onclick="iidxToggleOcr()">リザルト読取</button>
           <button type="button" id="iidx-import-toggle-btn" class="admin-btn" onclick="iidxToggleImport()">表を更新</button>
         </div>
+        <div id="iidx-view-banner" class="iidx-view-banner" style="display:none;"></div>
+        <div id="iidx-others-wrap" class="iidx-others" style="display:none;"></div>
         <div id="iidx-table-meta" class="iidx-meta"></div>
         <div id="iidx-ocr-wrap" style="display:none;">
           <div class="admin-note" style="margin-top:8px">
