@@ -1856,6 +1856,15 @@ body.public-mode main { padding-top: 20px; }
 .iidx-controls .admin-input { flex: 1 1 160px; min-width: 0; }
 .iidx-controls .admin-select { flex: 0 1 auto; }
 .iidx-meta { font-size: 11px; color: var(--dim); margin-bottom: 10px; }
+.iidx-others {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px;
+  padding: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+}
+.iidx-view-banner {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  font-size: 13px; margin: 4px 0 10px; padding: 8px 10px;
+  background: var(--surface2); border: 1px solid var(--accent); border-radius: 8px;
+}
 .iidx-tier { margin-bottom: 14px; }
 .iidx-tier-head {
   font-weight: 700; font-size: 14px; padding: 6px 10px;

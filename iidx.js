@@ -24,6 +24,13 @@ let _iidxLoaded = false;     // 自分のランプ読み込み済みか
 let _iidxSearch = '';
 let _iidxLampFilter = 'all';
 let _iidxSaveTimer = null;
+let _iidxViewUid = null;     // 閲覧中の他ユーザーuid（null=自分）
+let _iidxViewName = '';      // 閲覧中の他ユーザー表示名
+let _iidxViewLamps = {};     // 閲覧中の他ユーザーのランプ
+let _iidxOthers = [];        // 他ユーザー一覧キャッシュ [{uid, name, lamps, count}]
+
+// 描画に使うランプ（他ユーザー閲覧中はそのユーザーの分）
+function _iidxCurLamps() { return _iidxViewUid ? _iidxViewLamps : _iidxLamps; }
 
 function _iidxSetGuard(msg, cls) {
   const el = document.getElementById('iidx-guard');
@@ -35,6 +42,7 @@ function _iidxSetGuard(msg, cls) {
 async function initIidx() {
   const body = document.getElementById('iidx-body');
   if (!_currentUser) {
+    _iidxViewUid = null; _iidxViewName = ''; _iidxViewLamps = {}; _iidxOthers = [];
     if (body) body.style.display = 'none';
     // ログイン確定前は空表示、確定後に案内を出す（xarchive と同じ方式）
     if (typeof _authResolved !== 'undefined' && _authResolved) {
@@ -45,18 +53,8 @@ async function initIidx() {
     return;
   }
   if (body) body.style.display = '';
-  // リザルト読取（admin_secrets のAPIキーが必要）と表更新は管理者・マネージャー専用
-  const canManage = _isAdmin || _isManager;
-  const ocrBtn = document.getElementById('iidx-ocr-toggle-btn');
-  const importBtn = document.getElementById('iidx-import-toggle-btn');
-  if (ocrBtn) ocrBtn.style.display = canManage ? '' : 'none';
-  if (importBtn) importBtn.style.display = canManage ? '' : 'none';
-  if (!canManage) {
-    const ocrWrap = document.getElementById('iidx-ocr-wrap');
-    const importWrap = document.getElementById('iidx-import-wrap');
-    if (ocrWrap) ocrWrap.style.display = 'none';
-    if (importWrap) importWrap.style.display = 'none';
-  }
+  _iidxUpdateManageBtns();
+  _iidxRenderViewBanner();
   _iidxSetGuard('', '');
   if (!_iidxLoaded) {
     _iidxSetGuard('読み込み中…', '');
@@ -112,7 +110,24 @@ function _iidxScheduleSave() {
   }, 500);
 }
 
+// リザルト読取（admin_secrets のAPIキーが必要）と表更新は管理者・マネージャー専用。
+// 他ユーザーの記録を閲覧中は自分のランプを触る機能なので両方隠す。
+function _iidxUpdateManageBtns() {
+  const canManage = (_isAdmin || _isManager) && !_iidxViewUid;
+  const ocrBtn = document.getElementById('iidx-ocr-toggle-btn');
+  const importBtn = document.getElementById('iidx-import-toggle-btn');
+  if (ocrBtn) ocrBtn.style.display = canManage ? '' : 'none';
+  if (importBtn) importBtn.style.display = canManage ? '' : 'none';
+  if (!canManage) {
+    const ocrWrap = document.getElementById('iidx-ocr-wrap');
+    const importWrap = document.getElementById('iidx-import-wrap');
+    if (ocrWrap) ocrWrap.style.display = 'none';
+    if (importWrap) importWrap.style.display = 'none';
+  }
+}
+
 function iidxSetLamp(title, code) {
+  if (_iidxViewUid) return; // 他ユーザー閲覧中は変更不可
   if (code === 'noplay') delete _iidxLamps[title];
   else _iidxLamps[title] = code;
   _iidxScheduleSave();
@@ -126,8 +141,81 @@ function iidxSetLamp(title, code) {
 function iidxOnSearch(v) { _iidxSearch = (v || '').trim().toLowerCase(); _iidxRenderList(); }
 function iidxOnFilter(v) { _iidxLampFilter = v; _iidxRenderList(); }
 
+// ── 他ユーザーの記録閲覧 ──
+// iidx_lamps は全ログインユーザーが読めるため一覧取得できる。
+// ランプ未登録（=全曲NO PLAY。noplayはキー削除なので lamps が空）のユーザーは出さない。
+async function iidxToggleOthers() {
+  const wrap = document.getElementById('iidx-others-wrap');
+  if (!wrap || !_db || !_currentUser) return;
+  if (wrap.style.display !== 'none') { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  wrap.innerHTML = '<div class="empty">読み込み中…</div>';
+  try {
+    const snap = await _db.collection('iidx_lamps').get();
+    const rows = [];
+    snap.forEach(d => {
+      if (d.id === _currentUser.uid) return;
+      const lamps = d.data().lamps || {};
+      const count = Object.keys(lamps).length;
+      if (!count) return;
+      rows.push({ uid: d.id, lamps, count, name: '' });
+    });
+    await Promise.all(rows.map(async r => {
+      try {
+        const u = await _db.collection('users').doc(r.uid).get();
+        if (u.exists && u.data().displayName) r.name = u.data().displayName;
+      } catch (e) {}
+    }));
+    rows.sort((a, b) => b.count - a.count);
+    _iidxOthers = rows;
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="empty">記録のある他ユーザーがまだいません</div>';
+      return;
+    }
+    wrap.innerHTML = rows.map((r, i) =>
+      `<button type="button" class="admin-btn iidx-user-btn" onclick="iidxViewUser(${i})">${_esc(r.name || '名前未登録')}（${r.count}曲）</button>`
+    ).join('');
+  } catch (e) {
+    wrap.innerHTML = '<div class="empty">読み込みに失敗しました: ' + _esc(e.message || String(e)) + '</div>';
+  }
+}
+
+function iidxViewUser(i) {
+  const r = _iidxOthers[i];
+  if (!r) return;
+  _iidxViewUid = r.uid;
+  _iidxViewName = r.name || '名前未登録';
+  _iidxViewLamps = r.lamps;
+  const wrap = document.getElementById('iidx-others-wrap');
+  if (wrap) wrap.style.display = 'none';
+  _iidxRenderViewBanner();
+  _iidxUpdateManageBtns();
+  _iidxRender();
+}
+
+function iidxViewSelf() {
+  _iidxViewUid = null;
+  _iidxViewName = '';
+  _iidxViewLamps = {};
+  _iidxRenderViewBanner();
+  _iidxUpdateManageBtns();
+  _iidxRender();
+}
+
+function _iidxRenderViewBanner() {
+  const el = document.getElementById('iidx-view-banner');
+  if (!el) return;
+  if (_iidxViewUid) {
+    el.style.display = '';
+    el.innerHTML = `<b>${_esc(_iidxViewName)}</b> さんの記録を閲覧中（閲覧のみ・変更はできません） <button type="button" class="admin-btn" onclick="iidxViewSelf()">自分の記録に戻る</button>`;
+  } else {
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
+}
+
 function _iidxLampIdx(title) {
-  const code = _iidxLamps[title] || 'noplay';
+  const code = _iidxCurLamps()[title] || 'noplay';
   const i = IIDX_LAMP_ORDER.indexOf(code);
   return i < 0 ? 0 : i;
 }
@@ -144,7 +232,8 @@ function _iidxRenderSummary() {
   const counts = {};
   IIDX_LAMP_ORDER.forEach(c => counts[c] = 0);
   let total = 0;
-  _iidxTable.forEach(t => (t.songs || []).forEach(s => { total++; counts[_iidxLamps[s] || 'noplay']++; }));
+  const lamps = _iidxCurLamps();
+  _iidxTable.forEach(t => (t.songs || []).forEach(s => { total++; counts[lamps[s] || 'noplay']++; }));
   el.innerHTML = IIDX_LAMP_LEVELS.map(l =>
     `<span class="iidx-sum-chip lamp-${l.code}">${l.label} <b>${counts[l.code]}</b></span>`
   ).join('') + `<span class="iidx-sum-chip iidx-sum-total">全 <b>${total}</b> 曲</span>`;
@@ -174,7 +263,7 @@ function _iidxSongVisible(title) {
   if (_iidxLampFilter.indexOf('below-') === 0) {
     return _iidxLampIdx(title) < IIDX_LAMP_ORDER.indexOf(_iidxLampFilter.slice(6));
   }
-  return (_iidxLamps[title] || 'noplay') === _iidxLampFilter;
+  return (_iidxCurLamps()[title] || 'noplay') === _iidxLampFilter;
 }
 
 function _iidxRenderList() {
@@ -192,10 +281,10 @@ function _iidxRenderList() {
       <div class="iidx-tier-songs">`;
     if (!songs.length) html += '<div class="empty" style="padding:6px 4px;">曲なし</div>';
     songs.forEach(title => {
-      const code = _iidxLamps[title] || 'noplay';
+      const code = _iidxCurLamps()[title] || 'noplay';
       html += `<div class="iidx-song">
         <div class="iidx-song-title">${_esc(title)}</div>
-        <select class="iidx-lamp-select lamp-${code}" data-title="${_escHtml(title)}"
+        <select class="iidx-lamp-select lamp-${code}" data-title="${_escHtml(title)}"${_iidxViewUid ? ' disabled' : ''}
           onchange="iidxSetLamp(this.dataset.title, this.value)">${opts}</select>
       </div>`;
     });
@@ -204,7 +293,7 @@ function _iidxRenderList() {
   wrap.innerHTML = html || '<div class="empty">該当する曲がありません</div>';
   // select の選択状態は innerHTML では設定できないため後から反映
   wrap.querySelectorAll('.iidx-lamp-select').forEach(sel => {
-    sel.value = _iidxLamps[sel.dataset.title] || 'noplay';
+    sel.value = _iidxCurLamps()[sel.dataset.title] || 'noplay';
   });
   _iidxUpdateTierCounts();
 }
