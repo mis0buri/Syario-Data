@@ -131,11 +131,10 @@ service cloud.firestore {
       allow write: if isAdmin() || isManager();
     }
 
-    // 弐寺☆12ランプ（本人のみ書き込み可。ページ自体が管理者・マネージャー用）
+    // 弐寺☆12ランプ（ログインユーザー全員が自分の分のみ書き込み可）
     match /iidx_lamps/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId &&
-        (isAdmin() || isManager());
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // APIキーなどのシークレット（書き込みは管理者のみ。読み取りはマネージャーも可

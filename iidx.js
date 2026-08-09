@@ -34,17 +34,29 @@ function _iidxSetGuard(msg, cls) {
 
 async function initIidx() {
   const body = document.getElementById('iidx-body');
-  if (!_currentUser || !(_isAdmin || _isManager)) {
+  if (!_currentUser) {
     if (body) body.style.display = 'none';
     // ログイン確定前は空表示、確定後に案内を出す（xarchive と同じ方式）
     if (typeof _authResolved !== 'undefined' && _authResolved) {
-      _iidxSetGuard(_currentUser ? 'このページは管理者・マネージャー専用です。' : 'このページの利用にはログインが必要です。', '');
+      _iidxSetGuard('このページの利用にはログインが必要です。', '');
     } else {
       _iidxSetGuard('', '');
     }
     return;
   }
   if (body) body.style.display = '';
+  // リザルト読取（admin_secrets のAPIキーが必要）と表更新は管理者・マネージャー専用
+  const canManage = _isAdmin || _isManager;
+  const ocrBtn = document.getElementById('iidx-ocr-toggle-btn');
+  const importBtn = document.getElementById('iidx-import-toggle-btn');
+  if (ocrBtn) ocrBtn.style.display = canManage ? '' : 'none';
+  if (importBtn) importBtn.style.display = canManage ? '' : 'none';
+  if (!canManage) {
+    const ocrWrap = document.getElementById('iidx-ocr-wrap');
+    const importWrap = document.getElementById('iidx-import-wrap');
+    if (ocrWrap) ocrWrap.style.display = 'none';
+    if (importWrap) importWrap.style.display = 'none';
+  }
   _iidxSetGuard('', '');
   if (!_iidxLoaded) {
     _iidxSetGuard('読み込み中…', '');
