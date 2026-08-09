@@ -1118,6 +1118,14 @@ async function _loadUserData(user) {
       : (user.displayName || '');
     _isAdmin   = adminDoc.exists;
     _isManager = managerDoc.exists;
+    // /users に表示名が未登録なら Auth プロフィール名（X/Googleの名前）を自動登録する。
+    // 他ユーザーからは Auth プロフィールを読めないため、Firestore に書かないと
+    // 弐寺ランプの他ユーザー一覧などで「名前未登録」になってしまう。
+    // マイページで自分で設定した名前がある場合は上書きしない。
+    if (!(userDoc.exists && userDoc.data().displayName) && user.displayName) {
+      _db.collection('users').doc(user.uid).set({ displayName: user.displayName }, { merge: true })
+        .catch(e => console.warn('表示名の自動登録に失敗:', e));
+    }
   } catch(e) {
     _registeredName = user.displayName || '';
     _isAdmin   = false;

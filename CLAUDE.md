@@ -124,7 +124,7 @@ Firestore `admin_gathers` documents share this same structure and are appended t
 | `jare_stories` | Admin only |
 | `ai_discussions` | Admin only (read: anyone) |
 | `admin_secrets` (`/api_keys`) | Write: Admin only; read: Admin or Manager (弐寺リザルト読取で使用) — Gemini/Groq API keys + per-persona model config |
-| `users` | Own UID only |
+| `users` | Own UID only (read: anyone). `displayName` is auto-filled from the Auth profile name on login when missing (`_loadUserData` in app.js) — other users can't read Auth profiles, so features listing users by name (e.g. IIDX 他ユーザー閲覧) rely on this doc; a マイページ-saved name is never overwritten |
 | `stamp_cards` | Own UID only |
 | `swarm_accounts`, `swarm_accounts_admin` | Own UID only — Foursquare OAuth access tokens for the main-tab and admin-only Swarm integrations respectively |
 | `admins`, `managers` | Server only (client read-only) |
