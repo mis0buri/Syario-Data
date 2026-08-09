@@ -1129,9 +1129,9 @@ async function _loadUserData(user) {
   // 乗換案内ナビボタン（管理者のみ）
   const navTransitBtn = document.getElementById('nav-transit-btn');
   if (navTransitBtn) navTransitBtn.style.display = _isAdmin ? '' : 'none';
-  // 弐寺ランプ表ナビボタン（管理者・マネージャーのみ）
+  // 弐寺ランプ表ナビボタン（ログインユーザー全員）
   const navIidxBtn = document.getElementById('nav-iidx-btn');
-  if (navIidxBtn) navIidxBtn.style.display = (_isAdmin || _isManager) ? '' : 'none';
+  if (navIidxBtn) navIidxBtn.style.display = _currentUser ? '' : 'none';
   // ご意見フォームに名前を反映（既に入力済みの場合は上書きしない）
   const fbName = document.getElementById('fb-name');
   if (fbName && !fbName.value) fbName.value = _registeredName;
