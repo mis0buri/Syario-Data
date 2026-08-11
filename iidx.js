@@ -93,21 +93,31 @@ async function _iidxLoadLamps() {
 
 // ランプ保存はドキュメント丸ごと上書き。曲名に . を含むタイトルがあるため
 // フィールドパス指定の部分更新（update('lamps.曲名')）は使えない。
+// 保存先uidとランプをスケジュール時点で確定させておく（デバウンス中に
+// 閲覧ユーザーを切り替えても、編集した本人のドキュメントに保存されるように）
+let _iidxSavePending = null; // {uid, lamps}
+
 function _iidxScheduleSave() {
+  if (!_currentUser) return;
+  _iidxSavePending = { uid: _iidxViewUid || _currentUser.uid, lamps: _iidxCurLamps() };
   if (_iidxSaveTimer) clearTimeout(_iidxSaveTimer);
-  _iidxSaveTimer = setTimeout(async () => {
-    _iidxSaveTimer = null;
-    if (!_db || !_currentUser) return;
-    try {
-      await _db.collection('iidx_lamps').doc(_currentUser.uid).set({
-        lamps: _iidxLamps,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      _iidxSetGuard('', '');
-    } catch (e) {
-      _iidxSetGuard('保存に失敗しました: ' + (e.message || e), 'error');
-    }
-  }, 500);
+  _iidxSaveTimer = setTimeout(_iidxFlushSave, 500);
+}
+
+async function _iidxFlushSave() {
+  if (_iidxSaveTimer) { clearTimeout(_iidxSaveTimer); _iidxSaveTimer = null; }
+  const p = _iidxSavePending;
+  _iidxSavePending = null;
+  if (!p || !_db || !_currentUser) return;
+  try {
+    await _db.collection('iidx_lamps').doc(p.uid).set({
+      lamps: p.lamps,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    _iidxSetGuard('', '');
+  } catch (e) {
+    _iidxSetGuard('保存に失敗しました: ' + (e.message || e), 'error');
+  }
 }
 
 // リザルト読取（admin_secrets のAPIキーが必要）と表更新は管理者・マネージャー専用。
@@ -127,9 +137,9 @@ function _iidxUpdateManageBtns() {
 }
 
 function iidxSetLamp(title, code) {
-  if (_iidxViewUid) return; // 他ユーザー閲覧中は変更不可
-  if (code === 'noplay') delete _iidxLamps[title];
-  else _iidxLamps[title] = code;
+  const lamps = _iidxCurLamps(); // 他ユーザー閲覧中はそのユーザーの記録を直接編集
+  if (code === 'noplay') delete lamps[title];
+  else lamps[title] = code;
   _iidxScheduleSave();
   // 行の色だけ差し替え（全再描画はフォーカスが飛ぶため避ける）
   const sel = document.querySelector(`.iidx-lamp-select[data-title="${CSS.escape(title)}"]`);
@@ -183,6 +193,7 @@ async function iidxToggleOthers() {
 function iidxViewUser(i) {
   const r = _iidxOthers[i];
   if (!r) return;
+  _iidxFlushSave(); // 切替前の編集を元のユーザーへ保存してから表示を切り替える
   _iidxViewUid = r.uid;
   _iidxViewName = r.name || '名前未登録';
   _iidxViewLamps = r.lamps;
@@ -194,6 +205,7 @@ function iidxViewUser(i) {
 }
 
 function iidxViewSelf() {
+  _iidxFlushSave(); // 閲覧中ユーザーへの編集を保存してから自分の表示に戻す
   _iidxViewUid = null;
   _iidxViewName = '';
   _iidxViewLamps = {};
@@ -207,7 +219,7 @@ function _iidxRenderViewBanner() {
   if (!el) return;
   if (_iidxViewUid) {
     el.style.display = '';
-    el.innerHTML = `<b>${_esc(_iidxViewName)}</b> さんの記録を閲覧中（閲覧のみ・変更はできません） <button type="button" class="admin-btn" onclick="iidxViewSelf()">自分の記録に戻る</button>`;
+    el.innerHTML = `<b>${_esc(_iidxViewName)}</b> さんの記録を表示中（ランプを変更すると${_esc(_iidxViewName)}さんの記録として保存されます） <button type="button" class="admin-btn" onclick="iidxViewSelf()">自分の記録に戻る</button>`;
   } else {
     el.style.display = 'none';
     el.innerHTML = '';
@@ -284,7 +296,7 @@ function _iidxRenderList() {
       const code = _iidxCurLamps()[title] || 'noplay';
       html += `<div class="iidx-song">
         <div class="iidx-song-title">${_esc(title)}</div>
-        <select class="iidx-lamp-select lamp-${code}" data-title="${_escHtml(title)}"${_iidxViewUid ? ' disabled' : ''}
+        <select class="iidx-lamp-select lamp-${code}" data-title="${_escHtml(title)}"
           onchange="iidxSetLamp(this.dataset.title, this.value)">${opts}</select>
       </div>`;
     });
