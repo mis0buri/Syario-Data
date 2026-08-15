@@ -424,6 +424,25 @@ async function saveAdminScore() {
     return { mNo:0, isChip, scores, ranks };
   });
 
+  // 各半荘の合計が0（ゼロサム）になっているか確認。チップ戦も収支の付け合いなので同様。
+  // 小数入力（0.1刻み等）の浮動小数点誤差を丸めてから判定する。
+  const unbalanced = matches
+    .map((m, i) => {
+      const entered = m.scores.filter(s => s !== null && !isNaN(s));
+      if (!entered.length) return null;
+      const sum = Math.round(entered.reduce((a, b) => a + b, 0) * 100) / 100;
+      return sum !== 0 ? { no: i + 1, sum } : null;
+    })
+    .filter(Boolean);
+  if (unbalanced.length) {
+    const lines = unbalanced.map(u => `第${u.no}局: 合計 ${u.sum > 0 ? '+' : ''}${u.sum}`).join('\n');
+    if (!confirm(`合計が0になっていない半荘があります。\n\n${lines}\n\nこのまま保存しますか？`)) {
+      statusEl.textContent = '保存をキャンセルしました（合計が0か確認してください）';
+      statusEl.className = 'admin-status error';
+      return;
+    }
+  }
+
   statusEl.textContent = '保存中...';
   statusEl.className = 'admin-status';
   try {
