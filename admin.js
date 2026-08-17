@@ -457,6 +457,195 @@ async function saveAdminScore() {
   }
 }
 
+// ─ スコア入力: 画像読み取り（Gemini Vision） ─
+// 手書きスコア表（記録帳）の写真から各半荘のスコアを抽出し、列とメンバーの
+// 対応を確認・入れ替えてから半荘行として追加する。追加後は既存の編集UIで
+// 手修正でき、「スコアを保存」を押すまでFirestoreには書き込まれない。
+// APIキーはAI議論と共用（admin_secrets/api_keys、_nextGeminiKey等を再利用）。
+let _admScoreOcr = null; // { names: [列ヘッダー名], rows: [[符号付き数値|null,...]] }
+
+function adminScoreOcrToggle() {
+  const wrap = document.getElementById('admin-score-ocr-wrap');
+  if (wrap) wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+}
+
+function _admScoreOcrStatus(msg, cls) {
+  const el = document.getElementById('admin-score-ocr-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'admin-status' + (cls ? ' ' + cls : '');
+}
+
+// AI議論のキーが未ロードなら admin_secrets から読み込む（iidx.jsと同方式）
+async function _admScoreEnsureGeminiKey() {
+  if (_hasGeminiKey()) return true;
+  if (!_db) return false;
+  try {
+    const doc = await _db.collection('admin_secrets').doc('api_keys').get();
+    if (doc.exists) _aiDiscApiKeys = { gemini: '', groq: '', geminiKeys: [], ...doc.data() };
+  } catch(e) {
+    console.warn('score ocr api key load failed', e);
+  }
+  return _hasGeminiKey();
+}
+
+// 画像を縮小JPEGのbase64に変換（通信量・トークン節約。縦横比は維持）
+function _admScoreFileToJpegBase64(file, maxDim) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, (maxDim || 1600) / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像を読み込めません: ' + file.name)); };
+    img.src = url;
+  });
+}
+
+async function _admScoreCallGeminiVision(b64) {
+  const key = _nextGeminiKey();
+  const prompt = 'これは麻雀サークルの手書きスコア表（記録帳）の写真です。\n'
+    + '表の構造: 左端は回数（行番号）の列。その右に人ごとの列が並び、各人の列は「+」と「−」の2つのサブ列に分かれています。ヘッダー行に手書きの名前があります。\n'
+    + '次の形式のJSONオブジェクトだけを返してください。説明文は不要です。\n'
+    + '{"names":["ヘッダーの名前を左から順に"],"rows":[[1行ごとに各人の値を names と同じ順で]]}\n'
+    + 'ルール:\n'
+    + '- 各行の各人について、+列に数値があれば正の数、−列に数値があれば負の数として、1人につき1つの符号付き整数にまとめる。両列とも空欄なら null。\n'
+    + '- 「△」「▲」が付いた数値は負の数として扱う。\n'
+    + '- ぐしゃぐしゃに塗りつぶして消された数値は無視する。書き直された数値は最終的に読める値を採用する。横線だけが引かれたセルは null。\n'
+    + '- ヘッダーに名前が書かれていない列は names にも rows にも含めない。\n'
+    + '- 回数（行番号）は出力しない。全員が null の行は出力しない。\n'
+    + '- スコア表でない・読み取れない場合は {"names":[],"rows":[]} を返す。';
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { text: prompt },
+        { inline_data: { mime_type: 'image/jpeg', data: b64 } },
+      ] }],
+      generationConfig: { responseMimeType: 'application/json' },
+    })
+  });
+  if (!res.ok) await _throwApiError(res, 'Gemini');
+  const data = await res.json();
+  const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+  const parsed = JSON.parse(text);
+  return {
+    names: Array.isArray(parsed?.names) ? parsed.names.map(n => String(n || '')) : [],
+    rows: Array.isArray(parsed?.rows) ? parsed.rows : [],
+  };
+}
+
+async function adminScoreOcrRun() {
+  if (!_isAdmin || !_db || !_adminCurrentGatherId) return;
+  const input = document.getElementById('admin-score-ocr-files');
+  const btn = document.getElementById('admin-score-ocr-run-btn');
+  if (!input || !input.files.length) { _admScoreOcrStatus('画像を選択してください', 'error'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    if (!await _admScoreEnsureGeminiKey()) {
+      _admScoreOcrStatus('Gemini APIキーが未設定です（管理者ページ「AI議論」で設定）', 'error');
+      return;
+    }
+    const files = Array.from(input.files);
+    let names = [], rows = [];
+    for (let i = 0; i < files.length; i++) {
+      _admScoreOcrStatus(`読み取り中… (${i + 1}/${files.length})`, '');
+      const b64 = await _admScoreFileToJpegBase64(files[i]);
+      const r = await _admScoreCallGeminiVision(b64);
+      // 複数ページは同じ列構成の続きとみなして行を連結（名前は列数が最多のページを採用）
+      if (r.names.length > names.length) names = r.names;
+      rows = rows.concat(r.rows);
+    }
+    // 数値へ正規化し、列数を names に揃える。値のない行は捨てる
+    const cols = names.length;
+    rows = rows.map(row => Array.from({ length: cols }, (_, i) => {
+      const v = Array.isArray(row) ? row[i] : null;
+      const n = (v === null || v === undefined || v === '') ? null : Number(v);
+      return Number.isFinite(n) ? n : null;
+    })).filter(row => row.some(v => v !== null));
+    if (!cols || !rows.length) {
+      _admScoreOcr = null;
+      document.getElementById('admin-score-ocr-preview').innerHTML = '';
+      _admScoreOcrStatus('スコアを読み取れませんでした', 'error');
+      return;
+    }
+    _admScoreOcr = { names, rows };
+    _admScoreRenderOcrPreview();
+    _admScoreOcrStatus(`${rows.length}行を読み取りました。列とメンバーの対応を確認してください`, 'ok');
+  } catch(e) {
+    _admScoreOcrStatus('エラー: ' + ((e && e.message) || e), 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function _admScoreRenderOcrPreview() {
+  const wrap = document.getElementById('admin-score-ocr-preview');
+  const gather = _adminGathersCache.find(g => g.id === _adminCurrentGatherId);
+  if (!wrap || !gather || !_admScoreOcr) return;
+  const members = gather.members || [];
+  const { names, rows } = _admScoreOcr;
+  // デフォルトは左の列から順にメンバーへ割り当て（名前は一致しない前提。selectで入れ替える）
+  const memOpts = (defIdx) => ['<option value="">（割り当てない）</option>']
+    .concat(members.map((m, i) => `<option value="${i}"${i === defIdx ? ' selected' : ''}>${_escHtml(m)}</option>`)).join('');
+  const header = names.map((n, ci) => `<th>
+      <div class="adm-ocr-colname">読取: ${_esc(n || '(名前なし)')}</div>
+      <select class="admin-select adm-ocr-colsel" data-ocr-col="${ci}">${memOpts(ci < members.length ? ci : -1)}</select>
+    </th>`).join('');
+  const body = rows.map((row, ri) => `<tr>
+      <td><input type="checkbox" data-ocr-row="${ri}" checked></td>
+      <td>${ri + 1}</td>
+      ${row.map(v => `<td>${v === null ? '<span class="adm-ocr-null">—</span>' : (v > 0 ? '+' + v : v)}</td>`).join('')}
+    </tr>`).join('');
+  wrap.innerHTML = `<div class="adm-ocr-scroll">
+      <table class="adm-ocr-table">
+        <thead><tr><th></th><th>行</th>${header}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+    <div class="adm-ocr-note">△付きの精算行など、半荘でない行はチェックを外してください。チップ扱いは追加後に各行のチェックボックスで指定できます。</div>
+    <button class="admin-btn primary" style="width:100%;margin-top:4px;" onclick="adminScoreOcrApply()">チェックした行を半荘として追加</button>`;
+}
+
+function adminScoreOcrApply() {
+  const gather = _adminGathersCache.find(g => g.id === _adminCurrentGatherId);
+  const wrap = document.getElementById('admin-score-ocr-preview');
+  if (!gather || !wrap || !_admScoreOcr) return;
+  const members = gather.members || [];
+  // 列→メンバーindex の対応（重複割り当ては保存事故のもとなので弾く）
+  const mapping = [...wrap.querySelectorAll('[data-ocr-col]')]
+    .map(sel => sel.value === '' ? null : parseInt(sel.value, 10));
+  const used = mapping.filter(v => v !== null);
+  if (new Set(used).size !== used.length) { alert('同じメンバーが複数の列に割り当てられています'); return; }
+  if (!used.length) { alert('メンバーが1人も割り当てられていません'); return; }
+  const newMatches = [];
+  [...wrap.querySelectorAll('[data-ocr-row]')].forEach(chk => {
+    if (!chk.checked) return;
+    const row = _admScoreOcr.rows[parseInt(chk.dataset.ocrRow, 10)];
+    if (!row) return;
+    const scores = members.map(() => null);
+    row.forEach((v, ci) => {
+      if (v === null || mapping[ci] === null || mapping[ci] === undefined) return;
+      scores[mapping[ci]] = v;
+    });
+    if (!scores.some(s => s !== null)) return;
+    newMatches.push({ mNo: 0, isChip: false, scores, ranks: _calcRanks(scores) });
+  });
+  if (!newMatches.length) { _admScoreOcrStatus('追加できる行がありません', 'error'); return; }
+  gather.matches = [...(gather.matches || []), ...newMatches];
+  _renderAdminMatchList(gather);
+  wrap.innerHTML = '';
+  _admScoreOcr = null;
+  _admScoreOcrStatus(`${newMatches.length}局を追加しました。内容を確認して「スコアを保存」を押してください`, 'ok');
+}
+
 // ─ スケジュール管理 ─
 async function initAdminSchedule() {
   if (!_isAdmin) return;

@@ -1190,6 +1190,16 @@
         <div id="admin-score-gather-info" style="font-size:13px;color:var(--dim);margin-bottom:12px;"></div>
         <div id="admin-match-list"></div>
         <button class="admin-btn" style="width:100%;margin-bottom:8px;" onclick="addAdminMatch()">+ 半荘を追加</button>
+        <button class="admin-btn" style="width:100%;margin-bottom:8px;" onclick="adminScoreOcrToggle()">📷 画像から読み取り</button>
+        <div id="admin-score-ocr-wrap" style="display:none;margin-bottom:12px;padding:10px;border:1px dashed var(--border);border-radius:8px;">
+          <div class="admin-form-group">
+            <label>スコア表の写真（複数可）</label>
+            <input type="file" id="admin-score-ocr-files" accept="image/*" multiple class="admin-input">
+          </div>
+          <button class="admin-btn" id="admin-score-ocr-run-btn" style="width:100%;" onclick="adminScoreOcrRun()">読み取り開始</button>
+          <div id="admin-score-ocr-status" class="admin-status"></div>
+          <div id="admin-score-ocr-preview"></div>
+        </div>
         <div id="admin-status-score" class="admin-status"></div>
         <button class="admin-btn primary" style="width:100%;" onclick="saveAdminScore()">スコアを保存</button>
       </div>
