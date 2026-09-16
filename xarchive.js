@@ -633,6 +633,7 @@ function _xaPostCardHtml(post) {
         '<div class="xa-post-foot">' +
           '<span class="xa-post-time">' + _esc(dtLabel) + '</span>' +
           '<button type="button" class="admin-btn sm" onclick="xaCopyPostUrl(\'' + safeUsernameAttr + '\',\'' + safeIdAttr + '\')">リンクをコピー</button>' +
+          (_isAdmin ? '<button type="button" class="admin-btn sm" onclick="xaCopyPostUrl(\'' + safeUsernameAttr + '\',\'' + safeIdAttr + '\', true)">脱法</button>' : '') +
         '</div>' +
       '</div>' +
     '</div>'
@@ -720,8 +721,10 @@ async function xaClearCache() {
   _xaSetStatus('キャッシュを削除しました。', 'ok');
 }
 
-function xaCopyPostUrl(username, id) {
-  const url = 'https://x.com/' + username + '/status/' + id;
+function xaCopyPostUrl(username, id, datsuho) {
+  // 脱法モード: URLの1文字目(httpsのh)を落としてリンク自動展開を回避する
+  let url = 'https://x.com/' + username + '/status/' + id;
+  if (datsuho) url = url.slice(1);
   const done = function () { _xaSetStatus('URLをコピーしました。', 'ok'); };
   const fail = function () { _xaSetStatus('コピーに失敗しました: ' + url, 'error'); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
