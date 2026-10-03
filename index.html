@@ -28,7 +28,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<link rel="stylesheet" href="./style.css?v=20260715">
+<link rel="stylesheet" href="./style.css?v=20261003">
 </head>
 <body>
 
@@ -709,11 +709,8 @@
             <input type="text" id="swarm-client-id" class="admin-input" placeholder="Foursquare Developer Consoleで取得したClient ID">
           </div>
           <div class="admin-form-group">
-            <label>リダイレクトURI（Foursquare側にも登録してください）</label>
-            <div style="display:flex;gap:6px;">
-              <input type="text" id="swarm-redirect-uri" class="admin-input" readonly style="flex:1">
-              <button type="button" class="admin-btn sm" onclick="copySwarmRedirectUri('main')">コピー</button>
-            </div>
+            <label>リダイレクトURI（Foursquare側に全て登録してください）</label>
+            <div id="swarm-redirect-uri"></div>
           </div>
           <div class="admin-form-group">
             <label>CORSプロキシ（任意）</label>
@@ -1408,10 +1405,7 @@
         </div>
         <div class="admin-form-group">
           <label>リダイレクトURI（Foursquare側にも登録してください）</label>
-          <div style="display:flex;gap:6px;">
-            <input type="text" id="aswarm-redirect-uri" class="admin-input" readonly style="flex:1">
-            <button type="button" class="admin-btn sm" onclick="copySwarmRedirectUri('admin')">コピー</button>
-          </div>
+          <div id="aswarm-redirect-uri"></div>
         </div>
         <div class="admin-form-group">
           <label>CORSプロキシ（任意）</label>
@@ -1754,7 +1748,7 @@
 </main>
 
 <script src="./schedule.js"></script>
-<script src="./app.js"></script>
+<script src="./app.js?v=20261003-1"></script>
 <script src="./push.js?v=20260714-1"></script>
 <script src="./stats.js"></script>
 <script src="./schedule-ui.js"></script>
@@ -1767,7 +1761,7 @@
 <script src="./stamp.js"></script>
 <script src="./admin.js"></script>
 <script src="./xarchive.js?v=20260916-1"></script>
-<script src="./swarm.js"></script>
+<script src="./swarm.js?v=20261003-1"></script>
 <script src="./transit.js?v=20260710-5"></script>
 <script src="./iidx-data.js?v=20260715-2"></script>
 <script src="./iidx.js?v=20260716-3"></script>

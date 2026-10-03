@@ -123,6 +123,12 @@ function toggleCheckinSection() {
 }
 
 // ── 連携（OAuth） ──
+// GitHub Pagesでは同じページが複数のURLで開ける（/index・/index.html → ディレクトリ、拡張子なし → .html）ため、
+// redirect_uriを登録済みの正規形に揃える。swarm.jsにも同じ関数があるので変更時は両方を揃えること。
+function _swarmCanonicalPath(path) {
+  return path.replace(/\/index(\.html)?$/, '/').replace(/\/([^\/.]+)$/, '/$1.html');
+}
+
 function connectAccount() {
   const statusEl = document.getElementById('status-connect');
   if (!_config || !_config.clientId) {
@@ -130,7 +136,7 @@ function connectAccount() {
     statusEl.className = 'sw-status error';
     return;
   }
-  const redirectUri = encodeURIComponent(location.origin + location.pathname);
+  const redirectUri = encodeURIComponent(location.origin + _swarmCanonicalPath(location.pathname));
   location.href = `https://foursquare.com/oauth2/authenticate?client_id=${encodeURIComponent(_config.clientId)}&response_type=token&redirect_uri=${redirectUri}`;
 }
 

@@ -5,9 +5,12 @@ const SWARM_FOURSQUARE_API_VERSION = '20231010';
 // ns（名前空間）ごとに別々のFoursquareアプリ／連携状態を持てるようにする
 // main  = メインタブ「Swarm連携」（サイト全体で共有するClient ID。誰でも連携可能）
 // admin = 管理者メニュー「Swarm連携」（管理者専用の別アプリ・別Client ID）
+// redirectPages = そのClient IDでOAuthを開始する全ページ（サイトのベースパスからの相対・正規形）。
+//   未登録のURIからは連携できないため、ここから作ったURIは全てFoursquare側に登録する。
+//   main は swarm-app.html / swarm/（swarm-app.js）も同じClient IDを使う。
 const SWARM_NS = {
-  main:  { idPrefix: 'swarm',  configDoc: 'swarm',       accountCollection: 'swarm_accounts' },
-  admin: { idPrefix: 'aswarm', configDoc: 'swarm_admin',  accountCollection: 'swarm_accounts_admin' }
+  main:  { idPrefix: 'swarm',  configDoc: 'swarm',       accountCollection: 'swarm_accounts',       redirectPages: ['', 'swarm-app.html', 'swarm/'] },
+  admin: { idPrefix: 'aswarm', configDoc: 'swarm_admin',  accountCollection: 'swarm_accounts_admin', redirectPages: [''] }
 };
 
 const _swarmState = {
@@ -31,7 +34,7 @@ async function initSwarm(ns) {
 
   await _loadSwarmConfig(ns);
   if (ns !== 'main' || _isAdmin) {
-    document.getElementById(pfx+'-redirect-uri').value = location.origin + location.pathname;
+    _renderSwarmRedirectUris(ns);
     if (st.config) {
       document.getElementById(pfx+'-client-id').value = st.config.clientId || '';
       document.getElementById(pfx+'-proxy-prefix').value = st.config.proxyPrefix || '';
@@ -78,15 +81,20 @@ async function _loadSwarmAccount(ns) {
     }
     if (st.account) return;
   }
-  // 未ログイン、またはFirestoreに連携情報がない場合はローカル保存分を使う
-  const local = localStorage.getItem(_swarmLocalAccountKey(ns));
-  if (local) {
-    try { st.account = JSON.parse(local); } catch(e) {}
-  }
+  // 未ログイン、またはFirestoreに連携情報がない場合はローカル保存分を使う（引き継ぎ済みの分は単独ページ専用なので除く）
+  const local = _readSwarmLocalAccount(ns);
+  if (local && local.accessToken && !local.migratedTo) st.account = local;
 }
 
 function _swarmLocalAccountKey(ns) {
   return 'swarm_local_account_' + ns;
+}
+
+// main のキーは Swarm連携単独ページ（swarm-app.js）も自分の連携情報として読み書きする。
+// そのため、ログイン時にFirestoreへ引き継いでも消さずに migratedTo（引き継ぎ先uid）を付けて残し、
+// 以後このSPAでは（ログイン状態に関わらず）読みも消しもしない（単独ページの連携が消えないようにするため）
+function _readSwarmLocalAccount(ns) {
+  try { return JSON.parse(localStorage.getItem(_swarmLocalAccountKey(ns))); } catch(e) { return null; }
 }
 
 function _renderSwarmAccountStatus(ns) {
@@ -145,6 +153,26 @@ async function saveSwarmConfig(ns) {
 }
 
 // ── 連携（OAuth） ──
+// GitHub Pagesでは同じページが複数のURLで開ける（/index・/index.html → ディレクトリ、拡張子なし → .html）ため、
+// redirect_uriを登録済みの正規形に揃える。swarm-app.jsにも同じ関数があるので変更時は両方を揃えること。
+function _swarmCanonicalPath(path) {
+  return path.replace(/\/index(\.html)?$/, '/').replace(/\/([^\/.]+)$/, '/$1.html');
+}
+
+// Foursquareに登録すべきリダイレクトURIの一覧（このSPAのディレクトリを基準に redirectPages から組み立てる）
+function _swarmRedirectUris(ns) {
+  const base = location.origin + _swarmCanonicalPath(location.pathname);
+  return SWARM_NS[ns].redirectPages.map(p => base + p);
+}
+
+// 1URI=1行で全件を見せる（スマホ幅で一部が隠れて登録漏れにならないよう、固定高さの入力欄は使わない）
+function _renderSwarmRedirectUris(ns) {
+  document.getElementById(SWARM_NS[ns].idPrefix + '-redirect-uri').innerHTML = _swarmRedirectUris(ns).map(uri =>
+    `<div class="swarm-redirect-uri-row"><div class="swarm-redirect-uri-text">${_escHtml(uri)}</div>` +
+    `<button type="button" class="admin-btn sm" onclick="copySwarmRedirectUri(this)">コピー</button></div>`
+  ).join('');
+}
+
 function connectSwarmAccount(ns) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
@@ -155,11 +183,11 @@ function connectSwarmAccount(ns) {
     return;
   }
   localStorage.setItem('swarm_pending_ns', ns);
-  const redirectUri = encodeURIComponent(location.origin + location.pathname);
+  const redirectUri = encodeURIComponent(location.origin + _swarmCanonicalPath(location.pathname));
   location.href = `https://foursquare.com/oauth2/authenticate?client_id=${encodeURIComponent(st.config.clientId)}&response_type=token&redirect_uri=${redirectUri}`;
 }
 
-// ns の連携情報を保存する（ログイン中はFirestore、未ログインならローカルに保存し、後でログインした際に引き継ぐ）
+// ns の連携情報を保存する（ログイン中はFirestore、未ログインならローカルに保存し、後でログインした際に引き継ぐ）。保存できたらtrue
 async function _saveSwarmAccount(ns, accessToken, user) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
@@ -171,7 +199,7 @@ async function _saveSwarmAccount(ns, accessToken, user) {
       }, { merge: true });
     } catch(e) {
       console.warn('Swarmアカウント保存エラー:', e);
-      return;
+      return false;
     }
   } else {
     localStorage.setItem(_swarmLocalAccountKey(ns), JSON.stringify({ accessToken }));
@@ -182,27 +210,30 @@ async function _saveSwarmAccount(ns, accessToken, user) {
     _renderSwarmAccountStatus(ns);
     fetchSwarmCheckins(ns);
   }
+  return true;
 }
 
 // app.jsのonAuthStateChangedから呼ばれる（OAuthコールバック後のトークン保存／ログイン時のローカル連携情報の引き継ぎ）
 async function _swarmHandleAuthReady(user) {
+  let linkedNs = null;
   if (window._swarmPendingToken) {
     const accessToken = window._swarmPendingToken;
     const ns = SWARM_NS[window._swarmPendingNs] ? window._swarmPendingNs : 'main';
     delete window._swarmPendingToken;
     delete window._swarmPendingNs;
-    await _saveSwarmAccount(ns, accessToken, user);
+    if (await _saveSwarmAccount(ns, accessToken, user)) linkedNs = ns;
   }
   if (user) {
-    // ログイン前（未ログイン状態）にローカル保存していた連携情報をFirestoreへ引き継ぐ
+    // ログイン前（未ログイン状態）にローカル保存していた連携情報をFirestoreへ引き継ぐ（保存に失敗したら次回に再試行）
     for (const ns of Object.keys(SWARM_NS)) {
-      const local = localStorage.getItem(_swarmLocalAccountKey(ns));
-      if (!local) continue;
-      try {
-        const data = JSON.parse(local);
-        if (data && data.accessToken) await _saveSwarmAccount(ns, data.accessToken, user);
-      } catch(e) {}
-      localStorage.removeItem(_swarmLocalAccountKey(ns));
+      const key = _swarmLocalAccountKey(ns);
+      const data = _readSwarmLocalAccount(ns);
+      if (!data || !data.accessToken) { localStorage.removeItem(key); continue; }
+      if (data.migratedTo) continue;
+      // たった今連携したnsは、古いローカル分でFirestoreを上書きしない
+      if (ns !== linkedNs && !(await _saveSwarmAccount(ns, data.accessToken, user))) continue;
+      if (ns === 'main') localStorage.setItem(key, JSON.stringify({ accessToken: data.accessToken, migratedTo: user.uid }));
+      else localStorage.removeItem(key);
     }
   }
 }
@@ -224,10 +255,12 @@ async function _unlinkSwarmAccountSilent(ns) {
   const cfg = SWARM_NS[ns];
   const st = _swarmState[ns];
   try {
+    const local = _readSwarmLocalAccount(ns);
     if (_currentUser && _db) {
       await _db.collection(cfg.accountCollection).doc(_currentUser.uid).delete();
     }
-    localStorage.removeItem(_swarmLocalAccountKey(ns));
+    // 引き継ぎ済みのローカル分（単独ページの連携）は残す
+    if (!(local && local.migratedTo)) localStorage.removeItem(_swarmLocalAccountKey(ns));
     st.account = null;
     st.checkins = [];
     _renderSwarmAccountStatus(ns);
@@ -237,10 +270,10 @@ async function _unlinkSwarmAccountSilent(ns) {
   }
 }
 
-function copySwarmRedirectUri(ns) {
-  const input = document.getElementById(SWARM_NS[ns].idPrefix + '-redirect-uri');
-  input.select();
-  navigator.clipboard.writeText(input.value).catch(() => {});
+function copySwarmRedirectUri(btn) {
+  const textEl = btn.previousElementSibling;
+  window.getSelection().selectAllChildren(textEl);
+  navigator.clipboard.writeText(textEl.textContent).catch(() => {});
 }
 
 // ── チェックイン作成 ──

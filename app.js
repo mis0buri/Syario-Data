@@ -797,7 +797,9 @@ function initFirebase() {
     window._swarmPendingToken = decodeURIComponent(swarmTokenMatch[1]);
     window._swarmPendingNs = localStorage.getItem('swarm_pending_ns') || 'main';
     localStorage.removeItem('swarm_pending_ns');
-    history.replaceState(null, '', location.pathname + location.search);
+    // 連携結果が見えるよう、連携を始めたSwarm画面に戻す（管理者用は認証確定後に _handleAdminHashRoute が開く）
+    const backHash = window._swarmPendingNs === 'admin' ? '#admin/swarm' : '#swarm';
+    history.replaceState(null, '', location.pathname + location.search + backHash);
   }
 
   // ハッシュルーティング
