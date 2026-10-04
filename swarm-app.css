@@ -188,6 +188,17 @@ textarea.sw-input { min-height: unset; resize: vertical; }
   margin: 10px 0 14px;
 }
 
+.sw-warn-note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--sw-text);
+  background: rgba(224,83,61,.08);
+  border: 1.5px solid rgba(224,83,61,.35);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+}
+
 .sw-divider {
   border: none;
   border-top: 1.5px dashed var(--sw-border);

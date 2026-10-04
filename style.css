@@ -1241,6 +1241,7 @@
   }
 
   /* ── Swarm連携 ── */
+  .swarm-warn-note { font-size: 12px; line-height: 1.7; color: var(--text); background: rgba(230,57,70,.08); border: 1px solid rgba(230,57,70,.4); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
   .swarm-redirect-uri-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 6px; }
   .swarm-redirect-uri-row:last-child { margin-bottom: 0; }
   .swarm-redirect-uri-text { flex: 1; min-width: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.5; word-break: break-all; -webkit-user-select: all; user-select: all; }

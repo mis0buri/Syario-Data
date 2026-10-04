@@ -16,6 +16,10 @@ const SWARM_APP_FIREBASE_CONFIG = {
 const SWARM_APP_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state} {url}";
 const SWARM_APP_API_VERSION = '20231010';
 const SWARM_APP_LOCAL_KEY = 'swarm_local_account_main';
+// Foursquareがこのアプリへの新規トークン発行を受け付けていない間は true（注意書きと確認メッセージの警告を出す）。
+// 復旧したら false に戻す。swarm.js にも同じ定数があるので両方を揃えること。
+const SWARM_NEW_LINK_BLOCKED = true;
+const SWARM_RELINK_WARNING = SWARM_NEW_LINK_BLOCKED ? '\n\n⚠️ 現在、Foursquare側の事情で新規の連携が失敗するため、再連携できない可能性があります。' : '';
 
 let _db = null;
 let _config = null;
@@ -34,6 +38,9 @@ async function init() {
   // PWA関連の案内(.pwa-note)はPWAとして起動中は表示しない（display-mode非対応環境向けのJSフォールバック）
   const _standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   if (_standalone) document.querySelectorAll('.pwa-note').forEach(function (el) { el.style.display = 'none'; });
+  // 要素が無くても止まらないようにする（デプロイ直後は、キャッシュされた古いHTMLと新しいJSが組み合わさることがある）
+  const blockedNote = document.getElementById('link-blocked-note');
+  if (blockedNote && SWARM_NEW_LINK_BLOCKED) blockedNote.style.display = '';
 
   firebase.initializeApp(SWARM_APP_FIREBASE_CONFIG);
   _db = firebase.firestore();
@@ -141,13 +148,13 @@ function connectAccount() {
 }
 
 function switchAccount() {
-  if (!confirm('別のSwarmアカウントに切り替えますか？\n新しいタブでFoursquareのログアウトページを開きます。ログアウト後、このタブで再度「Swarmと連携する」を押してください。')) return;
+  if (!confirm('別のSwarmアカウントに切り替えますか？\n新しいタブでFoursquareのログアウトページを開きます。ログアウト後、このタブで再度「Swarmと連携する」を押してください。' + SWARM_RELINK_WARNING)) return;
   window.open('https://foursquare.com/logout', '_blank');
   unlinkAccountSilent();
 }
 
 function unlinkAccount() {
-  if (!confirm('Swarmとの連携を解除しますか？')) return;
+  if (!confirm('Swarmとの連携を解除しますか？' + SWARM_RELINK_WARNING)) return;
   unlinkAccountSilent();
 }
 

@@ -1,6 +1,10 @@
 // ── Swarm連携機能 ──
 const SWARM_DEFAULT_TEMPLATE = "I'm at {venue} in {area}, {state} {url}";
 const SWARM_FOURSQUARE_API_VERSION = '20231010';
+// Foursquareがこのアプリへの新規トークン発行を受け付けていない間は true（注意書きと確認メッセージの警告を出す）。
+// 復旧したら false に戻す。swarm-app.js にも同じ定数があるので両方を揃えること。
+const SWARM_NEW_LINK_BLOCKED = true;
+const SWARM_RELINK_WARNING = SWARM_NEW_LINK_BLOCKED ? '\n\n⚠️ 現在、Foursquare側の事情で新規の連携が失敗するため、再連携できない可能性があります。' : '';
 
 // ns（名前空間）ごとに別々のFoursquareアプリ／連携状態を持てるようにする
 // main  = メインタブ「Swarm連携」（サイト全体で共有するClient ID。誰でも連携可能）
@@ -32,6 +36,9 @@ async function initSwarm(ns) {
   const st = _swarmState[ns];
   const pfx = cfg.idPrefix;
 
+  // 要素が無くても止まらないようにする（デプロイ直後は、キャッシュされた古いHTMLと新しいJSが組み合わさることがある）
+  const blockedNote = document.getElementById(pfx+'-link-blocked-note');
+  if (blockedNote) blockedNote.style.display = SWARM_NEW_LINK_BLOCKED ? '' : 'none';
   await _loadSwarmConfig(ns);
   if (ns !== 'main' || _isAdmin) {
     _renderSwarmRedirectUris(ns);
@@ -239,14 +246,14 @@ async function _swarmHandleAuthReady(user) {
 }
 
 async function unlinkSwarmAccount(ns) {
-  if (!confirm('Swarmとの連携を解除しますか？')) return;
+  if (!confirm('Swarmとの連携を解除しますか？' + SWARM_RELINK_WARNING)) return;
   await _unlinkSwarmAccountSilent(ns);
 }
 
 // 別アカウントへの切り替え: Foursquareは既存のログイン状態を使って再連携してしまうため、
 // ログアウト用ページを別タブで開いてから連携解除する
 function switchSwarmAccount(ns) {
-  if (!confirm('別のSwarmアカウントに切り替えますか？\n新しいタブでFoursquareのログアウトページを開きます。ログアウト後、このタブで再度「Swarmと連携する」を押してください。')) return;
+  if (!confirm('別のSwarmアカウントに切り替えますか？\n新しいタブでFoursquareのログアウトページを開きます。ログアウト後、このタブで再度「Swarmと連携する」を押してください。' + SWARM_RELINK_WARNING)) return;
   window.open('https://foursquare.com/logout', '_blank');
   _unlinkSwarmAccountSilent(ns);
 }

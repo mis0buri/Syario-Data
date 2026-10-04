@@ -28,7 +28,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
-<link rel="stylesheet" href="./style.css?v=20261003">
+<link rel="stylesheet" href="./style.css?v=20261004">
 </head>
 <body>
 
@@ -722,6 +722,7 @@
           <hr class="admin-divider">
         </div>
 
+        <div id="swarm-link-blocked-note" class="swarm-warn-note" style="display:none">⚠️ 現在、Foursquare側の事情により、このアプリと連携したことがないSwarmアカウントは新しく連携できません（「許可する」を押すとエラー画面になります）。連携済みの方はそのまま使えますが、別のアカウントへの切り替えや、Foursquareの設定でこのアプリの接続を外すと、再連携できなくなります。復旧時期は未定です。</div>
         <div id="swarm-account-status" class="admin-empty">読み込み中...</div>
         <div id="swarm-not-configured" class="admin-empty" style="display:none">サイト管理者がまだFoursquare連携の設定をしていません</div>
         <div id="swarm-connect-form" style="display:none">
@@ -1416,6 +1417,7 @@
         <button class="admin-btn" style="width:100%;margin-bottom:14px" onclick="saveSwarmConfig('admin')">設定を保存</button>
         <hr class="admin-divider">
 
+        <div id="aswarm-link-blocked-note" class="swarm-warn-note" style="display:none">⚠️ 現在、Foursquare側の事情により、このアプリと連携したことがないSwarmアカウントは新しく連携できません（「許可する」を押すとエラー画面になります）。連携済みの方はそのまま使えますが、別のアカウントへの切り替えや、Foursquareの設定でこのアプリの接続を外すと、再連携できなくなります。復旧時期は未定です。</div>
         <div id="aswarm-account-status" class="admin-empty">読み込み中...</div>
         <div id="aswarm-not-configured" class="admin-empty" style="display:none">Client IDを保存するとSwarmと連携できます</div>
         <div id="aswarm-connect-form" style="display:none">
@@ -1761,7 +1763,7 @@
 <script src="./stamp.js"></script>
 <script src="./admin.js"></script>
 <script src="./xarchive.js?v=20260916-1"></script>
-<script src="./swarm.js?v=20261003-1"></script>
+<script src="./swarm.js?v=20261004-1"></script>
 <script src="./transit.js?v=20260710-5"></script>
 <script src="./iidx-data.js?v=20260715-2"></script>
 <script src="./iidx.js?v=20260716-3"></script>

@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../swarm-app.css">
+<link rel="stylesheet" href="../swarm-app.css?v=20261004">
 </head>
 <body>
 
@@ -46,6 +46,7 @@
       <span id="account-toggle-icon" class="sw-toggle-icon" style="display:none">▾</span>
     </h2>
     <div id="account-section-body" class="sw-collapsible-body">
+      <div id="link-blocked-note" class="sw-warn-note" style="display:none">⚠️ 現在、Foursquare側の事情により、このアプリと連携したことがないSwarmアカウントは新しく連携できません（「許可する」を押すとエラー画面になります）。連携済みの方はそのまま使えますが、別のアカウントへの切り替えや、Foursquareの設定でこのアプリの接続を外すと、再連携できなくなります。復旧時期は未定です。</div>
       <div id="account-status" class="sw-empty">読み込み中...</div>
       <div id="not-configured" class="sw-empty" style="display:none">サイト管理者がまだFoursquare連携の設定をしていません</div>
       <div id="connect-form" style="display:none">
@@ -126,6 +127,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="../swarm-app.js?v=20261003-1"></script>
+<script src="../swarm-app.js?v=20261004-1"></script>
 </body>
 </html>
