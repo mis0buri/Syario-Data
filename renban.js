@@ -1,5 +1,7 @@
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const RENBAN_DISCORD_WEBHOOK_URL = '';
 // ── 連番募集 ──
-const MAKE_RENBAN_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
+const MAKE_RENBAN_WEBHOOK_URL = '';
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
@@ -337,7 +339,7 @@ async function submitRenbanEvent(e) {
           `⏰ **期限**: ${deadline || '期限なし'}`,
           note ? `📝 **備考**: ${note}` : null,
         ].filter(Boolean).join('\n');
-        await fetch('https://discord.com/api/webhooks/1486240216544051210/afDq63OkXXpy-E-JAh2XbGdanIfymsKHHbMX4IBi6baaV86YiXdHX9LaMo5fdtonNRn4', {
+        if (RENBAN_DISCORD_WEBHOOK_URL) await fetch(RENBAN_DISCORD_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: lines })
