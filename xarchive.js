@@ -412,7 +412,7 @@ async function xaUpload() {
     _setProgress('');
 
     // ご意見と同じDiscord webhookでアップロードを通知（通知失敗はアップロード成功に影響させない）
-    try {
+    if (WEBHOOK_URL) try {
       await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

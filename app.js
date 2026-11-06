@@ -564,7 +564,8 @@ async function _mergeFirestoreGathers() {
 loadData();
 
 // ── ご意見 送信 ──
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/1485897903431221330/HkGtTtH24xS2EmdxlGK_CkSoCp1rl8JnALHU_XhLpXHr3tggH0FioGsumKFYvBuOc3Mc';
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const WEBHOOK_URL = '';
 
 // 画像をブラウザ内で縮小・JPEG化してDiscordの添付上限に収まりやすくする。
 // 長辺2048px・品質0.85でも縮小効果が無い（元の方が小さい）場合は元ファイルを返す。
@@ -624,6 +625,7 @@ async function submitFeedback(e) {
   const status  = document.getElementById('fb-status');
   const btn     = e.target.querySelector('.feedback-submit');
   if (!message) { status.style.color='var(--red)'; status.textContent='内容を入力してください。'; return; }
+  if (!WEBHOOK_URL) { status.style.color='var(--red)'; status.textContent='ご意見フォームは現在一時停止中です。'; return; }
 
   btn.disabled = true;
   status.style.color = 'var(--dim)';
@@ -956,7 +958,11 @@ async function loginWithTwitter() {
   await _doLogin(new firebase.auth.TwitterAuthProvider(), 'X');
 }
 
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const LOGIN_WEBHOOK_URL = '';
+
 async function _notifyDiscordLogin(user, provider) {
+  if (!LOGIN_WEBHOOK_URL) return;
   const key = 'syario_loggedin_' + user.uid;
   if (localStorage.getItem(key)) return;
   localStorage.setItem(key, '1');
@@ -964,7 +970,7 @@ async function _notifyDiscordLogin(user, provider) {
   const email = user.email || '(メールなし)';
   const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   // keepalive: ページ遷移(reload)後もリクエストを継続させる
-  await fetch('https://discord.com/api/webhooks/1486620241294397483/moDgwuhBw70TSEbnEvLqQhgc7t8cjPFeqUDmWPVawx00_-O2CUJ3lN027EVUG_7g_nwW', {
+  await fetch(LOGIN_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: `🔑 初回ログイン\n👤 ${name}\n📧 ${email}\n🔗 ${provider}\n🕐 ${now}` }),

@@ -8,7 +8,8 @@
 
 // ご意見フォームと同じDiscord webhook（app.jsのWEBHOOK_URLと同一。このページはapp.jsを
 // 読み込まないためここにも定義する。変更時は両方を更新すること）
-const XAA_WEBHOOK_URL = 'https://discord.com/api/webhooks/1485897903431221330/HkGtTtH24xS2EmdxlGK_CkSoCp1rl8JnALHU_XhLpXHr3tggH0FioGsumKFYvBuOc3Mc';
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const XAA_WEBHOOK_URL = '';
 
 const XAA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDG2F8MDiSpNZWfcISJVCI5kAWaJYF0B7k",
@@ -246,7 +247,7 @@ async function xaUpload() {
     _setProgress('');
 
     // ご意見と同じDiscord webhookでアップロードを通知（通知失敗はアップロード成功に影響させない）
-    try {
+    if (XAA_WEBHOOK_URL) try {
       await fetch(XAA_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

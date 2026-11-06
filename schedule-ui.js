@@ -1,4 +1,6 @@
-const MAKE_RSV_WEBHOOK_URL = atob('aHR0cHM6Ly9ob29rLmV1MS5tYWtlLmNvbS94YXdjaGcyeTQ0bnk4dHdkZHVoaGh6amo5N3U0YThuaQ==');
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const RSV_DISCORD_WEBHOOK_URL = '';
+const MAKE_RSV_WEBHOOK_URL = '';
 
 // ── 営業予定カレンダー ──
 let calYear  = new Date().getFullYear();
@@ -519,7 +521,7 @@ async function submitReservation() {
       ];
       if (rsvPendingData.note) lines.push(`📝 **備考**: ${rsvPendingData.note}`);
       const header = _editMode ? '__**予約が変更されました**__' : '__**新しい予約が入りました**__';
-      await fetch('https://discord.com/api/webhooks/1486166648548495480/wy6ECJdXbBFWCEIobxfiV6V8T7ydzRSA52obbjvMqbo0o2rx-LBFqX9TZ6v5wk-ewxy-', {
+      if (RSV_DISCORD_WEBHOOK_URL) await fetch(RSV_DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: `${header}\n${lines.join('\n')}` })

@@ -1,3 +1,5 @@
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const BOARD_DISCORD_WEBHOOK_URL = '';
 // ── 掲示板 ──
 let _boardAnonName = null;
 let _boardInited = false;
@@ -67,7 +69,7 @@ async function submitBoardComment() {
     const commentData = { name, body, ts: firebase.firestore.FieldValue.serverTimestamp() };
     if (_currentUser) commentData.uid = _currentUser.uid;
     await _db.collection('board_comments').add(commentData);
-    fetch('https://discord.com/api/webhooks/1486189645833441443/KBOhyzxqwrKZBOeO3rendcplyj4cSsCPaitB_VTghmHIMXQWvK5iC8-ZcA33Ex5vgD4Q', {
+    if (BOARD_DISCORD_WEBHOOK_URL) fetch(BOARD_DISCORD_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: name, content: body })

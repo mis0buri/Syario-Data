@@ -1,3 +1,5 @@
+// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
+const STAMP_DISCORD_WEBHOOK_URL = '';
 // ── スタンプカード ──
 const _sd = (() => {
   const p = atob('MzUuNzA2NDY5Mjc1Mjk5MzMsMTM5LjY1MDU5MjIyNTY0NjE2').split(',').map(Number);
@@ -156,7 +158,7 @@ async function _doStamp(btn, msg) {
     _renderStampCard(document.getElementById('stamp-content'), cur + 1, todayStr, newRotations, usedCards);
     // Discord通知
     const displayName = _currentUser.displayName || _currentUser.email || _currentUser.uid;
-    fetch('https://discord.com/api/webhooks/1487706507079454844/QcYv1K8LuTzqUjXlXZrGSCFC_89OHozAxbjOwnntbtyV9KO8kq4XzBZsz30NRxoq4PXG', {
+    if (STAMP_DISCORD_WEBHOOK_URL) fetch(STAMP_DISCORD_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: `🎫 **${displayName}** さんがスタンプを押しました！（通算 ${cur + 1} 個目）` })
