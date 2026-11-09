@@ -1,7 +1,4 @@
-// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
-const RENBAN_DISCORD_WEBHOOK_URL = '';
 // ── 連番募集 ──
-const MAKE_RENBAN_WEBHOOK_URL = '';
 let _rbCurrentEventId = null;
 let _rbCurrentEvent = null; // { ev, joinCount, interestCount }
 let _rbJoinType = null; // 'join' | 'interest'
@@ -328,42 +325,11 @@ async function submitRenbanEvent(e) {
       };
       if (_currentUser) rbPayload.uid = _currentUser.uid;
       const rbRef = await _db.collection('renban_events').add(rbPayload);
-      try {
-        const dateDisplay = datesArr.join(', ');
-        const lines = [
-          `📢 **連番募集が登録されました**`,
-          `👤 **登録者**: ${owner}`,
-          `🎫 **イベント名**: ${title}`,
-          `📅 **日付**: ${dateDisplay}`,
-          `👥 **人数**: ${maxPeople ? maxPeople + '人まで' : '上限なし'}`,
-          `⏰ **期限**: ${deadline || '期限なし'}`,
-          note ? `📝 **備考**: ${note}` : null,
-        ].filter(Boolean).join('\n');
-        if (RENBAN_DISCORD_WEBHOOK_URL) await fetch(RENBAN_DISCORD_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: lines })
-        });
-      } catch(e) { console.warn('Discord通知失敗:', e); }
+      // Discord通知（＋Make経由でX）。文面は中継Functionがイベントドキュメントから組み立てる
       const xPostCheck = document.getElementById('rb-x-post-check');
-      if (MAKE_RENBAN_WEBHOOK_URL && (!_isAdmin || xPostCheck.checked)) {
-        try {
-          await fetch(MAKE_RENBAN_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'renban',
-              owner,
-              title,
-              dates: datesArr.join('、'),
-              maxPeople: maxPeople ? maxPeople + '人まで' : '上限なし',
-              deadline: deadline || '期限なし',
-              note: note || '',
-              url: location.origin + location.pathname + '#renban/' + rbRef.id,
-            })
-          });
-        } catch(e) { console.warn('Make通知失敗:', e); }
-      }
+      try {
+        await _relayNotify({ type: 'renban', id: rbRef.id, xpost: !_isAdmin || (xPostCheck && xPostCheck.checked) });
+      } catch(e) { console.warn('通知失敗:', e); }
       closeRbModal();
       initRenban();
     }

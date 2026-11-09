@@ -1,5 +1,3 @@
-// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
-const STAMP_DISCORD_WEBHOOK_URL = '';
 // ── スタンプカード ──
 const _sd = (() => {
   const p = atob('MzUuNzA2NDY5Mjc1Mjk5MzMsMTM5LjY1MDU5MjIyNTY0NjE2').split(',').map(Number);
@@ -156,13 +154,8 @@ async function _doStamp(btn, msg) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     _renderStampCard(document.getElementById('stamp-content'), cur + 1, todayStr, newRotations, usedCards);
-    // Discord通知
-    const displayName = _currentUser.displayName || _currentUser.email || _currentUser.uid;
-    if (STAMP_DISCORD_WEBHOOK_URL) fetch(STAMP_DISCORD_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: `🎫 **${displayName}** さんがスタンプを押しました！（通算 ${cur + 1} 個目）` })
-    }).catch(() => {});
+    // Discord通知（中継Functionがログイン情報とスタンプカードから組み立てる）
+    _relayNotify({ type: 'stamp' }, { auth: true }).catch(e => console.warn('通知失敗:', e));
   } catch(e) {
     if (msg) msg.textContent = '保存に失敗しました: ' + e.message;
     if (btn) btn.disabled = false;

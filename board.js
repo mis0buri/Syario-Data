@@ -1,5 +1,3 @@
-// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
-const BOARD_DISCORD_WEBHOOK_URL = '';
 // ── 掲示板 ──
 let _boardAnonName = null;
 let _boardInited = false;
@@ -68,12 +66,8 @@ async function submitBoardComment() {
     const name = await _getAnonName();
     const commentData = { name, body, ts: firebase.firestore.FieldValue.serverTimestamp() };
     if (_currentUser) commentData.uid = _currentUser.uid;
-    await _db.collection('board_comments').add(commentData);
-    if (BOARD_DISCORD_WEBHOOK_URL) fetch(BOARD_DISCORD_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: name, content: body })
-    });
+    const boardRef = await _db.collection('board_comments').add(commentData);
+    _relayNotify({ type: 'board', id: boardRef.id }).catch(e => console.warn('通知失敗:', e));
     input.value = '';
     _boardInited = false; // force re-listen on next init
     initBoard();

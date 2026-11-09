@@ -1,5 +1,4 @@
 // ── 投票箱 ──
-const MAKE_VOTE_WEBHOOK_URL = '';
 
 let _voteCurrentBoxId = null;
 let _voteDetailMode = 'option'; // 'option' | 'voter'
@@ -735,22 +734,11 @@ async function submitVoteBox(e) {
       if (_currentUser) payload.uid = _currentUser.uid;
 
       const ref = await _db.collection('vote_boxes').add(payload);
-      // X自動ポスト
+      // X自動ポスト（Make経由。中継Functionが投票箱ドキュメントから組み立てる）
       const xCheck = document.getElementById('vote-x-post-check');
-      if (MAKE_VOTE_WEBHOOK_URL && (!_isAdmin || (xCheck && xCheck.checked))) {
+      if (!_isAdmin || (xCheck && xCheck.checked)) {
         try {
-          await fetch(MAKE_VOTE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'vote',
-              authorName,
-              title,
-              options: options.join('、'),
-              deadline: deadline || '期限なし',
-              url: location.origin + location.pathname + '#vote/' + ref.id,
-            })
-          });
+          await _relayNotify({ type: 'vote', id: ref.id, xpost: true });
         } catch(e) { console.warn('Make通知失敗:', e); }
       }
       initVote();

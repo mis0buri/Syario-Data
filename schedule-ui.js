@@ -1,6 +1,3 @@
-// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
-const RSV_DISCORD_WEBHOOK_URL = '';
-const MAKE_RSV_WEBHOOK_URL = '';
 
 // ── 営業予定カレンダー ──
 let calYear  = new Date().getFullYear();
@@ -503,51 +500,20 @@ async function submitReservation() {
       note: rsvPendingData.note,
     };
     if (_currentUser) payload.uid = _currentUser.uid;
+    let rsvDocId;
     if (_editMode && _editDocId) {
       await _db.collection('reservations').doc(_editDocId).update(payload);
+      rsvDocId = _editDocId;
     } else {
       payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      await _db.collection('reservations').add(payload);
+      rsvDocId = (await _db.collection('reservations').add(payload)).id;
     }
-    // Discord通知
-    try {
-      const parts = rsvCurrentDate.split('-');
-      const dateLabel = `${parseInt(parts[0])}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
-      const displayCats = (rsvPendingData.categories || []).map(c => c === 'その他' && rsvPendingData.otherText ? `その他(${rsvPendingData.otherText})` : c);
-      const lines = [
-        `📅 **日付**: ${dateLabel}`,
-        `👤 **お名前**: ${rsvPendingData.name}`,
-        `🏷️ **種別**: ${displayCats.length ? displayCats.join('、') : 'なし'}`,
-      ];
-      if (rsvPendingData.note) lines.push(`📝 **備考**: ${rsvPendingData.note}`);
-      const header = _editMode ? '__**予約が変更されました**__' : '__**新しい予約が入りました**__';
-      if (RSV_DISCORD_WEBHOOK_URL) await fetch(RSV_DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `${header}\n${lines.join('\n')}` })
-      });
-    } catch(e) { console.warn('Discord通知失敗:', e); }
-    // Make → X 通知（新規予約のみ）
+    // Discord通知（＋新規予約はMake経由でXにも）。文面は中継Functionが予約ドキュメントから組み立てる
     const rsvXCheck = document.getElementById('rsv-x-post-check');
-    if (!_editMode && MAKE_RSV_WEBHOOK_URL && (!_isAdmin || rsvXCheck.checked)) {
-      try {
-        const parts2 = rsvCurrentDate.split('-');
-        const dateLabel2 = `${parseInt(parts2[0])}年${parseInt(parts2[1])}月${parseInt(parts2[2])}日`;
-        const displayCats2 = (rsvPendingData.categories || []).map(c => c === 'その他' && rsvPendingData.otherText ? `その他(${rsvPendingData.otherText})` : c);
-        await fetch(MAKE_RSV_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'reservation',
-            date: dateLabel2,
-            name: rsvPendingData.name,
-            categories: displayCats2.join('、') || 'なし',
-            note: rsvPendingData.note || '',
-            url: location.origin + location.pathname + '#schedule/' + rsvCurrentDate,
-          })
-        });
-      } catch(e) { console.warn('Make通知失敗:', e); }
-    }
+    const rsvXPost = !_editMode && (!_isAdmin || (rsvXCheck && rsvXCheck.checked));
+    try {
+      await _relayNotify({ type: 'reservation', id: rsvDocId, xpost: rsvXPost });
+    } catch(e) { console.warn('通知失敗:', e); }
     btn.disabled = false;
     const ds = _editMode ? rsvCurrentDate : null;
     const wasEdit = _editMode;

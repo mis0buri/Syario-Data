@@ -6,10 +6,9 @@
 // ログイン機能は持たない（storage.rulesが未ログインアップロードを許可している前提）。
 // アクセス制御が必要になった場合はstorage.rules側で行う。
 
-// ご意見フォームと同じDiscord webhook（app.jsのWEBHOOK_URLと同一。このページはapp.jsを
-// 読み込まないためここにも定義する。変更時は両方を更新すること）
-// Webhook URLは公開リポジトリから漏洩・悪用されたため一旦無効化（空なら送信しない）
-const XAA_WEBHOOK_URL = '';
+// アップロード完了通知はCloud Functionsの中継（relayNotify）経由で送る。
+// Webhook URLはクライアントに置かない（このページはapp.jsを読み込まないため送信処理を個別に持つ）
+const XAA_NOTIFY_RELAY_URL = 'https://asia-northeast1-syariodate.cloudfunctions.net/relayNotify';
 
 const XAA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDG2F8MDiSpNZWfcISJVCI5kAWaJYF0B7k",
@@ -246,16 +245,14 @@ async function xaUpload() {
     _setStatus(msg, true);
     _setProgress('');
 
-    // ご意見と同じDiscord webhookでアップロードを通知（通知失敗はアップロード成功に影響させない）
-    if (XAA_WEBHOOK_URL) try {
-      await fetch(XAA_WEBHOOK_URL, {
+    // ご意見と同じDiscordチャンネルにアップロードを通知（中継Function経由。失敗はアップロード成功に影響させない）
+    try {
+      const r = await fetch(XAA_NOTIFY_RELAY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content:
-          '📦 Xアーカイブがアップロードされました（単独アップロードページから）\n' +
-          'アカウント: @' + username + '（' + (displayName || username) + '）\n' +
-          '内容: ' + allTweets.length + '件・' + months.length + 'チャンク（' + from.slice(0, 10) + '〜' + to.slice(0, 10) + '）' })
+        body: JSON.stringify({ type: 'xarchive', username: username, source: 'standalone' })
       });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
     } catch (e) { console.warn('Discord通知失敗:', e); }
   } catch (err) {
     if (err && err.code === 'storage/unauthorized') {

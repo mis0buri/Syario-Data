@@ -161,3 +161,6 @@ exports.fetchIidxWiki = onRequest({
   res.set('Cache-Control', 'no-store');
   res.status(200).type('text/html').send(html);
 });
+
+// Discord / Make 通知の中継（Webhook URLはSecret Managerに保持）
+Object.assign(exports, require('./notify'));
